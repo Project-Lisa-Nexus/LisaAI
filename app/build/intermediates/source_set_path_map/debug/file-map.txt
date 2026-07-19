@@ -1,0 +1,7 @@
+com.lisa.app-pngs-0 /home/userland/LisaApp/app/build/generated/res/pngs/debug
+com.lisa.app-resValues-1 /home/userland/LisaApp/app/build/generated/res/resValues/debug
+com.lisa.app-packageDebugResources-2 /home/userland/LisaApp/app/build/intermediates/incremental/debug/packageDebugResources/merged.dir
+com.lisa.app-packageDebugResources-3 /home/userland/LisaApp/app/build/intermediates/incremental/debug/packageDebugResources/stripped.dir
+com.lisa.app-merged_res-4 /home/userland/LisaApp/app/build/intermediates/merged_res/debug
+com.lisa.app-debug-5 /home/userland/LisaApp/app/src/debug/res
+com.lisa.app-main-6 /home/userland/LisaApp/app/src/main/res
