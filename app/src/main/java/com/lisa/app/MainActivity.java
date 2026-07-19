@@ -18,17 +18,28 @@ public class MainActivity extends Activity {
         layout.setPadding(40, 100, 40, 40);
 
         TextView title = new TextView(this);
-        title.setText("Lisa - Passo 1\nApp installata correttamente.");
+        title.setText("Lisa - Passo 2\nSblocca e apri EVA.");
         title.setTextSize(20);
         layout.addView(title);
 
-        Button btn = new Button(this);
-        btn.setText("Apri Impostazioni Accessibilità");
-        btn.setOnClickListener(v -> {
+        Button btnAccess = new Button(this);
+        btnAccess.setText("Apri Impostazioni Accessibilità");
+        btnAccess.setOnClickListener(v -> {
             Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
             startActivity(intent);
         });
-        layout.addView(btn);
+        layout.addView(btnAccess);
+
+        Button btnUnlock = new Button(this);
+        btnUnlock.setText("Sblocca e apri EVA");
+        btnUnlock.setOnClickListener(v -> {
+            LisaAccessibilityService service = LisaAccessibilityService.getInstance();
+            if (service != null) {
+                service.sbloccaSchermo();
+                service.apriEva();
+            }
+        });
+        layout.addView(btnUnlock);
 
         setContentView(layout);
     }
