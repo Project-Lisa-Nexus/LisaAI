@@ -36,7 +36,7 @@ public class MainActivity extends Activity {
             LisaAccessibilityService service = LisaAccessibilityService.getInstance();
             if (service != null) {
                 service.sbloccaSchermo();
-                service.apriEva();
+                service.apriApp("com.crea_si.eva_facial_mouse");
             }
         });
         layout.addView(btnUnlock);
