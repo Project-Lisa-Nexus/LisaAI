@@ -63,7 +63,9 @@ public class LisaAccessibilityService extends AccessibilityService {
         } catch (Exception e) {
             Log.e(TAG, "Errore apertura EVA: " + e.getMessage());
         }
-    }public void apriApp(String packageName) {
+    }
+
+    public void apriApp(String packageName) {
     try {
         Intent intent = getPackageManager().getLaunchIntentForPackage(packageName);
         if (intent != null) {
