@@ -9,6 +9,7 @@ import java.util.List;
 import android.graphics.Path;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
 
 public class LisaAccessibilityService extends AccessibilityService {
 
