@@ -49,21 +49,6 @@ public class LisaAccessibilityService extends AccessibilityService {
         Log.i(TAG, "Swipe di sblocco eseguito");
     }
 
-    public void apriEva() {
-        try {
-            Intent intent = getPackageManager()
-                    .getLaunchIntentForPackage("com.crea_si.eva_facial_mouse");
-            if (intent != null) {
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(intent);
-                Log.i(TAG, "EVA Facemouse aperto");
-            } else {
-                Log.w(TAG, "EVA Facemouse non trovato sul dispositivo");
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Errore apertura EVA: " + e.getMessage());
-        }
-    }
 
     public void apriApp(String packageName) {
     try {
