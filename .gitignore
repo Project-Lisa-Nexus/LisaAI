@@ -1,3 +1,7 @@
 
 .gradle/
 app/build/
+app-debug.apk
+.gradle/
+/build/
+/app/build/
