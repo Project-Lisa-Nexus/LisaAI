@@ -18,7 +18,7 @@ public class MainActivity extends Activity {
         layout.setPadding(40, 100, 40, 40);
 
         TextView title = new TextView(this);
-        title.setText("Lisa - Passo 2\nSblocca e apri EVA.");
+        title.setText("Lisa - Passo 2\nApri qualsiasi app.");
         title.setTextSize(20);
         layout.addView(title);
 
@@ -31,7 +31,7 @@ public class MainActivity extends Activity {
         layout.addView(btnAccess);
 
         Button btnUnlock = new Button(this);
-        btnUnlock.setText("Sblocca e apri EVA");
+        btnUnlock.setText("Apri qualsiasi app");
         btnUnlock.setOnClickListener(v -> {
             LisaAccessibilityService service = LisaAccessibilityService.getInstance();
             if (service != null) {
