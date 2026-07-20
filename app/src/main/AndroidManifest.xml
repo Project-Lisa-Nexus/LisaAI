@@ -1,18 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Permessi base -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    
+    <!-- Permessi per voce -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    
+    <!-- Permessi per telecamera e visione -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    
+    <!-- Permessi per accendere schermo e restare attivi -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    
+    <!-- Permessi per Bluetooth (carrozzina) -->
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    
+    <!-- Permessi per SOS e telefono -->
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    
+    <!-- Permesso per vedere tutte le app -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
+    
+    <!-- Permesso per avvio automatico (OnePlus/Samsung) -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    
+    <!-- Feature richieste -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="true" />
+
     <application
         android:label="Lisa"
         android:icon="@drawable/ic_launcher"
-        android:allowBackup="true">
+        android:allowBackup="true"
+        android:usesCleartextTraffic="true">
+        
         <activity android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:showOnLockScreen="true"
+            android:turnScreenOn="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        
+        <!-- Servizio di accessibilità -->
         <service android:name=".LisaAccessibilityService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:exported="true">
@@ -22,5 +67,21 @@
             <meta-data android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility_service_config" />
         </service>
+        
+        <!-- Servizio voce sempre attivo -->
+        <service android:name=".LisaVoiceService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+        
+        <!-- Ricevitore avvio automatico -->
+        <receiver android:name=".LisaBootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+        
     </application>
 </manifest>
