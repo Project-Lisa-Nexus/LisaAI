@@ -18,7 +18,7 @@ public class MainActivity extends Activity {
         layout.setPadding(40, 100, 40, 40);
 
         TextView title = new TextView(this);
-        title.setText("Lisa - Passo 2\nApri qualsiasi app.");
+        title.setText("Lisa - Passo 3\nApri app per nome.");
         title.setTextSize(20);
         layout.addView(title);
 
@@ -30,16 +30,15 @@ public class MainActivity extends Activity {
         });
         layout.addView(btnAccess);
 
-        Button btnUnlock = new Button(this);
-        btnUnlock.setText("Apri qualsiasi app");
-        btnUnlock.setOnClickListener(v -> {
+        Button btnTestYoutube = new Button(this);
+        btnTestYoutube.setText("Test: Apri YouTube per nome");
+        btnTestYoutube.setOnClickListener(v -> {
             LisaAccessibilityService service = LisaAccessibilityService.getInstance();
             if (service != null) {
-                service.sbloccaSchermo();
-                service.apriApp("com.crea_si.eva_facial_mouse");
+                service.apriAppPerNome("youtube");
             }
         });
-        layout.addView(btnUnlock);
+        layout.addView(btnTestYoutube);
 
         setContentView(layout);
     }

@@ -1,4 +1,3 @@
-
 package com.lisa.app;
 
 import android.accessibilityservice.AccessibilityService;
@@ -52,19 +51,35 @@ public class LisaAccessibilityService extends AccessibilityService {
         Log.i(TAG, "Swipe di sblocco eseguito");
     }
 
-
     public void apriApp(String packageName) {
-    try {
-        Intent intent = getPackageManager().getLaunchIntentForPackage(packageName);
-        if (intent != null) {
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(intent);
-            Log.i(TAG, "App aperta: " + packageName);
-        } else {
-            Log.w(TAG, "App non trovata: " + packageName);
+        try {
+            Intent intent = getPackageManager().getLaunchIntentForPackage(packageName);
+            if (intent != null) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+                Log.i(TAG, "App aperta: " + packageName);
+            } else {
+                Log.w(TAG, "App non trovata: " + packageName);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Errore apertura app: " + e.getMessage());
         }
-    } catch (Exception e) {
-        Log.e(TAG, "Errore apertura app: " + e.getMessage());
     }
-}
+
+    public boolean apriAppPerNome(String nomeCercato) {
+        PackageManager pm = getPackageManager();
+        List<ApplicationInfo> apps = pm.getInstalledApplications(PackageManager.GET_META_DATA);
+        String cercato = nomeCercato.trim().toLowerCase();
+
+        for (ApplicationInfo app : apps) {
+            String label = pm.getApplicationLabel(app).toString().toLowerCase();
+            if (label.contains(cercato)) {
+                Log.i(TAG, "Trovata app '" + label + "' per ricerca '" + nomeCercato + "'");
+                apriApp(app.packageName);
+                return true;
+            }
+        }
+        Log.w(TAG, "Nessuna app trovata per: " + nomeCercato);
+        return false;
+    }
 }
