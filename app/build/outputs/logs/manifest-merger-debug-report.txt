@@ -1,9 +1,9 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:2:1-15:12
-INJECTED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:2:1-15:12
-INJECTED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:2:1-15:12
-INJECTED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:2:1-15:12
+ADDED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:2:1-24:12
+INJECTED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:2:1-24:12
+INJECTED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:2:1-24:12
+INJECTED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:2:1-24:12
 	package
 		INJECTED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml
 	android:versionName
@@ -13,8 +13,8 @@ INJECTED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:2:1-15:12
 	xmlns:android
 		ADDED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:2:11-69
 application
-ADDED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:3:5-14:19
-INJECTED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:3:5-14:19
+ADDED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:3:5-23:19
+INJECTED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:3:5-23:19
 	android:extractNativeLibs
 		INJECTED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml
 	android:label
@@ -39,6 +39,26 @@ category#android.intent.category.LAUNCHER
 ADDED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:11:17-77
 	android:name
 		ADDED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:11:27-74
+service#com.lisa.app.LisaAccessibilityService
+ADDED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:14:9-22:19
+	android:exported
+		ADDED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:16:13-36
+	android:permission
+		ADDED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:15:13-79
+	android:name
+		ADDED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:14:18-58
+intent-filter#action:name:android.accessibilityservice.AccessibilityService
+ADDED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:17:13-19:29
+action#android.accessibilityservice.AccessibilityService
+ADDED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:18:17-92
+	android:name
+		ADDED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:18:25-89
+meta-data#android.accessibilityservice
+ADDED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:20:13-21:72
+	android:resource
+		ADDED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:21:17-69
+	android:name
+		ADDED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml:20:24-67
 uses-sdk
 INJECTED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from /home/userland/LisaApp/app/src/main/AndroidManifest.xml

@@ -1,0 +1,26 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.lisa.app-merged_res-4:/values_values.arsc.flat",
+            "map": [
+                {
+                    "source": "/home/userland/LisaApp/app/src/main/res/values/strings.xml",
+                    "from": {
+                        "startLines": "3,2",
+                        "startColumns": "4,4",
+                        "startOffsets": "97,55",
+                        "endColumns": "176,41",
+                        "endOffsets": "269,92"
+                    },
+                    "to": {
+                        "startLines": "2,3",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,232",
+                        "endColumns": "176,41",
+                        "endOffsets": "227,269"
+                    }
+                }
+            ]
+        }
+    ]
+}

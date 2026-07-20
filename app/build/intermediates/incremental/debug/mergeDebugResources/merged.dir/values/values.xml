@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">Permette a Lisa di controllare il telefono: sbloccare lo schermo, aprire app, leggere e interagire con lo schermo.</string>
+    <string name="app_name">Lisa</string>
+</resources>

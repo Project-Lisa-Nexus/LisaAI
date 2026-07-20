@@ -1,3 +1,4 @@
+
 package com.lisa.app;
 
 import android.accessibilityservice.AccessibilityService;
@@ -62,5 +63,18 @@ public class LisaAccessibilityService extends AccessibilityService {
         } catch (Exception e) {
             Log.e(TAG, "Errore apertura EVA: " + e.getMessage());
         }
+    }public void apriApp(String packageName) {
+    try {
+        Intent intent = getPackageManager().getLaunchIntentForPackage(packageName);
+        if (intent != null) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+            Log.i(TAG, "App aperta: " + packageName);
+        } else {
+            Log.w(TAG, "App non trovata: " + packageName);
+        }
+    } catch (Exception e) {
+        Log.e(TAG, "Errore apertura app: " + e.getMessage());
     }
+}
 }

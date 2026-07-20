@@ -9,7 +9,7 @@
 9        android:targetSdkVersion="34" />
 10
 11    <application
-11-->/home/userland/LisaApp/app/src/main/AndroidManifest.xml:3:5-14:19
+11-->/home/userland/LisaApp/app/src/main/AndroidManifest.xml:3:5-23:19
 12        android:allowBackup="true"
 12-->/home/userland/LisaApp/app/src/main/AndroidManifest.xml:6:9-35
 13        android:debuggable="true"
@@ -35,6 +35,29 @@
 23-->/home/userland/LisaApp/app/src/main/AndroidManifest.xml:11:27-74
 24            </intent-filter>
 25        </activity>
-26    </application>
-27
-28</manifest>
+26
+27        <service
+27-->/home/userland/LisaApp/app/src/main/AndroidManifest.xml:14:9-22:19
+28            android:name="com.lisa.app.LisaAccessibilityService"
+28-->/home/userland/LisaApp/app/src/main/AndroidManifest.xml:14:18-58
+29            android:exported="true"
+29-->/home/userland/LisaApp/app/src/main/AndroidManifest.xml:16:13-36
+30            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" >
+30-->/home/userland/LisaApp/app/src/main/AndroidManifest.xml:15:13-79
+31            <intent-filter>
+31-->/home/userland/LisaApp/app/src/main/AndroidManifest.xml:17:13-19:29
+32                <action android:name="android.accessibilityservice.AccessibilityService" />
+32-->/home/userland/LisaApp/app/src/main/AndroidManifest.xml:18:17-92
+32-->/home/userland/LisaApp/app/src/main/AndroidManifest.xml:18:25-89
+33            </intent-filter>
+34
+35            <meta-data
+35-->/home/userland/LisaApp/app/src/main/AndroidManifest.xml:20:13-21:72
+36                android:name="android.accessibilityservice"
+36-->/home/userland/LisaApp/app/src/main/AndroidManifest.xml:20:24-67
+37                android:resource="@xml/accessibility_service_config" />
+37-->/home/userland/LisaApp/app/src/main/AndroidManifest.xml:21:17-69
+38        </service>
+39    </application>
+40
+41</manifest>
