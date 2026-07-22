@@ -84,3 +84,9 @@ public class LisaAccessibilityService extends AccessibilityService {
         return false;
     }
 }
+
+    public boolean cliccaTesto(String testo) {
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        AccessibilityNodeInfo nodo = AccessibilityUtils.trovaPerTesto(root, testo);
+        return AccessibilityUtils.click(nodo);
+    }
