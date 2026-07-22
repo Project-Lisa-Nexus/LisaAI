@@ -1,92 +1,69 @@
 package com.lisa.app;
 
 import android.accessibilityservice.AccessibilityService;
-import android.accessibilityservice.GestureDescription;
+import android.content.Context;
 import android.content.Intent;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
-import java.util.List;
-import android.graphics.Path;
 import android.util.Log;
-import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
 public class LisaAccessibilityService extends AccessibilityService {
-
     private static final String TAG = "LisaAccessibility";
     private static LisaAccessibilityService instance;
-
-    @Override
-    public void onAccessibilityEvent(AccessibilityEvent event) {
-    }
-
-    @Override
-    public void onInterrupt() {
-        Log.w(TAG, "Servizio interrotto");
-    }
 
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
         instance = this;
-        Log.i(TAG, "Lisa Accessibility Service connesso e attivo");
+        Log.d(TAG, "Servizio accessibilita connesso");
     }
 
-    public static LisaAccessibilityService getInstance() {
-        return instance;
+    @Override
+    public void onAccessibilityEvent(android.view.accessibility.AccessibilityEvent event) {
     }
 
-    public void sbloccaSchermo() {
-        Path path = new Path();
-        int width = getResources().getDisplayMetrics().widthPixels;
-        int height = getResources().getDisplayMetrics().heightPixels;
-        path.moveTo(width / 2f, height * 0.8f);
-        path.lineTo(width / 2f, height * 0.2f);
-
-        GestureDescription.StrokeDescription stroke =
-                new GestureDescription.StrokeDescription(path, 0, 300);
-        GestureDescription gesture =
-                new GestureDescription.Builder().addStroke(stroke).build();
-
-        dispatchGesture(gesture, null, null);
-        Log.i(TAG, "Swipe di sblocco eseguito");
+    @Override
+    public void onInterrupt() {
+        Log.d(TAG, "Servizio interrotto");
     }
 
     public void apriApp(String packageName) {
-        try {
-            Intent intent = getPackageManager().getLaunchIntentForPackage(packageName);
-            if (intent != null) {
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(intent);
-                Log.i(TAG, "App aperta: " + packageName);
-            } else {
-                Log.w(TAG, "App non trovata: " + packageName);
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Errore apertura app: " + e.getMessage());
+        Intent intent = getPackageManager().getLaunchIntentForPackage(packageName);
+        if (intent != null) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+            Log.d(TAG, "Aperta app: " + packageName);
+        } else {
+            Log.e(TAG, "App non trovata: " + packageName);
         }
     }
-
-    public boolean apriAppPerNome(String nomeCercato) {
-        PackageManager pm = getPackageManager();
-        List<ApplicationInfo> apps = pm.getInstalledApplications(PackageManager.GET_META_DATA);
-        String cercato = nomeCercato.trim().toLowerCase();
-
-        for (ApplicationInfo app : apps) {
-            String label = pm.getApplicationLabel(app).toString().toLowerCase();
-            if (label.contains(cercato)) {
-                Log.i(TAG, "Trovata app '" + label + "' per ricerca '" + nomeCercato + "'");
-                apriApp(app.packageName);
-                return true;
-            }
-        }
-        Log.w(TAG, "Nessuna app trovata per: " + nomeCercato);
-        return false;
-    }
-}
 
     public boolean cliccaTesto(String testo) {
         AccessibilityNodeInfo root = getRootInActiveWindow();
+        if (root == null) return false;
         AccessibilityNodeInfo nodo = AccessibilityUtils.trovaPerTesto(root, testo);
         return AccessibilityUtils.click(nodo);
     }
+
+    public static void apriAppStatic(Context context, String packageName) {
+        if (instance != null) {
+            instance.apriApp(packageName);
+        } else {
+            Intent intent = context.getPackageManager().getLaunchIntentForPackage(packageName);
+            if (intent != null) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(intent);
+            }
+        }
+    }
+
+    public static void chiamaStatic(Context context, String numero) {
+        Intent intent = new Intent(Intent.ACTION_CALL);
+        intent.setData(android.net.Uri.parse("tel:" + numero));
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        context.startActivity(intent);
+    }
+
+    public static void scriviStatic(Context context, String destinatario, String messaggio) {
+        Log.d("LisaAccessibility", "Scrivi a " + destinatario + ": " + messaggio);
+    }
+}
