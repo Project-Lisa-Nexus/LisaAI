@@ -11,7 +11,8 @@ import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
-public class LisaAccessibilityService extends AccessibilityService {
+public class
+LisaAccessibilityService extends AccessibilityService {
 
     private static final String TAG = "LisaAccessibility";
     private static LisaAccessibilityService instance;
@@ -68,6 +69,7 @@ public class LisaAccessibilityService extends AccessibilityService {
     }
 
     public boolean apriAppPerNome(String nomeCercato) {
+        Log.i(TAG, "apriAppPerNome chiamato con: " + nomeCercato);
         PackageManager pm = getPackageManager();
         List<ApplicationInfo> apps = pm.getInstalledApplications(PackageManager.GET_META_DATA);
         String cercato = nomeCercato.trim().toLowerCase();

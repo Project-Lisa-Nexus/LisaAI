@@ -48,11 +48,11 @@ public class MainActivity extends Activity {
         layout.addView(btnAccess);
 
         Button btnTestYoutube = new Button(this);
-        btnTestYoutube.setText("Test: Apri YouTube per nome");
+        btnTestYoutube.setText("TEST WHATSAPP 123");
         btnTestYoutube.setOnClickListener(v -> {
             LisaAccessibilityService service = LisaAccessibilityService.getInstance();
             if (service != null) {
-                service.apriAppPerNome("youtube");
+                service.apriAppPerNome("whatsapp");
             }
         });
         layout.addView(btnTestYoutube);
