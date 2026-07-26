@@ -82,6 +82,13 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+            <receiver android:name=".LisaCommandReceiver"
+    android:enabled="true"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="com.lisa.app.LISA_COMMAND" />
+    </intent-filter>
+</receiver>
         
     </application>
 </manifest>
