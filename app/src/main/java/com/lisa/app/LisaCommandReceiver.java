@@ -7,7 +7,7 @@ import android.util.Log;
 
 public class LisaCommandReceiver extends BroadcastReceiver {
     private static final String TAG = "LisaCommandReceiver";
-    public static final String ACTION_LISA_COMMAND = "com.lisa.app.COMMAND";
+    public static final String ACTION_LISA_COMMAND = "com.lisa.app.LISA_COMMAND";
 
     @Override
     public void onReceive(Context context, Intent intent) {
