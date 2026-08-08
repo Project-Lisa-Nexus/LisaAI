@@ -96,10 +96,5 @@
             </intent-filter>
         </receiver>
 
-    
-        <activity
-            android:name=".LisaVoiceCommandActivity"
-            android:exported="false" />
-
     </application>
 </manifest>

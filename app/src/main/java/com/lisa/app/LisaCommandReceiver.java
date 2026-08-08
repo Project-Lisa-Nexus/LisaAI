@@ -3,32 +3,220 @@ package com.lisa.app;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
+import android.util.Base64;
 import android.util.Log;
 
+import java.nio.charset.StandardCharsets;
+
 public class LisaCommandReceiver extends BroadcastReceiver {
+
+    public static final String ACTION_LISA_COMMAND =
+        "com.lisa.app.COMMAND";
+
     private static final String TAG = "LisaCommandReceiver";
-    public static final String ACTION_LISA_COMMAND = "com.lisa.app.COMMAND";
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        if (ACTION_LISA_COMMAND.equals(intent.getAction())) {
-            String azione = intent.getStringExtra("azione");
-            String pacchetto = intent.getStringExtra("pacchetto");
-            String testo = intent.getStringExtra("testo");
+        if (!ACTION_LISA_COMMAND.equals(intent.getAction())) return;
 
-            Log.d(TAG, "Comando ricevuto: azione=" + azione + " pacchetto=" + pacchetto);
+        String azione = intent.getStringExtra("azione");
+        String pacchetto = intent.getStringExtra("pacchetto");
+        String nomeApp = intent.getStringExtra("nome_app");
+        String testo = intent.getStringExtra("testo");
+        String testoB64 = intent.getStringExtra("testo_b64");
 
-            if ("apri_app".equals(azione) && pacchetto != null) {
-                LisaAccessibilityService.apriAppStatic(context, pacchetto);
-            }
-            else if ("chiama".equals(azione) && testo != null) {
-                LisaAccessibilityService.chiamaStatic(context, testo);
-            }
-            else if ("scrivi".equals(azione)) {
-                String destinatario = intent.getStringExtra("destinatario");
-                String messaggio = intent.getStringExtra("messaggio");
-                LisaAccessibilityService.scriviStatic(context, destinatario, messaggio);
+        if (testoB64 != null &&
+            !testoB64.trim().isEmpty()) {
+            try {
+                testo = new String(
+                    Base64.decode(
+                        testoB64,
+                        Base64.DEFAULT
+                    ),
+                    StandardCharsets.UTF_8
+                );
+            } catch (Exception errore) {
+                Log.e(
+                    TAG,
+                    "Testo Base64 non valido",
+                    errore
+                );
             }
         }
+
+        if ("apri_app".equals(azione)) {
+            boolean riuscito = false;
+
+            if (nomeApp != null && !nomeApp.trim().isEmpty()) {
+                riuscito = AppFinder.apriAppPerNome(
+                    context,
+                    nomeApp.trim()
+                );
+            }
+
+            if (!riuscito &&
+                pacchetto != null &&
+                !pacchetto.trim().isEmpty()) {
+
+                LisaAccessibilityService.apriAppStatic(
+                    context,
+                    pacchetto.trim()
+                );
+                riuscito = true;
+            }
+
+            setResultCode(riuscito ? 0 : 1);
+            return;
+        }
+
+
+        if ("apri_url".equals(azione)) {
+            String url = intent.getStringExtra("url");
+
+            if (url == null || url.trim().isEmpty()) {
+                setResultCode(1);
+                setResultData("url_mancante");
+                return;
+            }
+
+            try {
+                Intent browser = new Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse(url.trim())
+                );
+                browser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(browser);
+                setResultCode(0);
+            } catch (Exception errore) {
+                Log.e(TAG, "Impossibile aprire URL", errore);
+                setResultCode(1);
+                setResultData("errore_apertura_url");
+            }
+
+            return;
+        }
+
+        if ("parla".equals(azione)) {
+            BroadcastReceiver.PendingResult attesa = goAsync();
+
+            LisaSpeaker.parla(
+                context,
+                testo,
+                attesa::finish
+            );
+
+            return;
+        }
+
+        LisaAccessibilityService servizio =
+            LisaAccessibilityService.getInstance();
+
+        if (servizio == null) {
+            Log.e(TAG, "Servizio accessibilità non attivo");
+            setResultCode(1);
+            setResultData("servizio_accessibilita_non_attivo");
+            return;
+        }
+
+        if ("leggi_schermo".equals(azione)) {
+            String json = ScreenSnapshot.acquisisci(
+                servizio.getRootInActiveWindow()
+            );
+
+            String codificato = Base64.encodeToString(
+                json.getBytes(StandardCharsets.UTF_8),
+                Base64.NO_WRAP
+            );
+
+            setResultCode(0);
+            setResultData(codificato);
+            return;
+        }
+
+        boolean azioneInterattiva =
+            "clicca".equals(azione) ||
+            "scrivi_testo".equals(azione) ||
+            "scorri_giu".equals(azione) ||
+            "scorri_su".equals(azione);
+
+        boolean autorizzazioneEsplicita =
+            "true".equalsIgnoreCase(
+                intent.getStringExtra("consenti_protetto")
+            );
+
+        if (azioneInterattiva &&
+            !autorizzazioneEsplicita &&
+            SafetyGuard.schermataProtetta(
+                context,
+                servizio.getRootInActiveWindow()
+            )) {
+
+            Log.w(TAG, "Azione bloccata su app di accessibilità");
+            setResultCode(2);
+            setResultData("schermata_protetta");
+            return;
+        }
+
+        boolean riuscito = false;
+
+        if ("clicca".equals(azione)) {
+            riuscito = servizio.cliccaTesto(testo);
+
+        } else if ("scrivi_testo".equals(azione)) {
+            riuscito = servizio.scriviTesto(testo);
+
+        } else if ("messaggio".equals(azione)) {
+            String contatto = intent.getStringExtra("contatto");
+            String testoMessaggio = intent.getStringExtra("testo_messaggio");
+            riuscito = servizio.cercaContattoEScrivi(contatto, testoMessaggio);
+
+        } else if ("conferma_invio".equals(azione)) {
+            riuscito = servizio.confermaInvio();
+
+        } else if ("scorri_giu".equals(azione)) {
+            riuscito = servizio.scorriAvanti();
+
+        } else if ("scorri_su".equals(azione)) {
+            riuscito = servizio.scorriIndietro();
+
+        } else if ("home".equals(azione)) {
+            riuscito = servizio.performGlobalAction(
+                android.accessibilityservice.AccessibilityService
+                    .GLOBAL_ACTION_HOME
+            );
+
+        } else if ("indietro".equals(azione)) {
+            riuscito = servizio.performGlobalAction(
+                android.accessibilityservice.AccessibilityService
+                    .GLOBAL_ACTION_BACK
+            );
+
+        } else if ("recenti".equals(azione)) {
+            riuscito = servizio.performGlobalAction(
+                android.accessibilityservice.AccessibilityService
+                    .GLOBAL_ACTION_RECENTS
+            );
+
+        } else if ("notifiche".equals(azione)) {
+            riuscito = servizio.performGlobalAction(
+                android.accessibilityservice.AccessibilityService
+                    .GLOBAL_ACTION_NOTIFICATIONS
+            );
+
+        } else if ("screenshot".equals(azione)) {
+            riuscito = servizio.performGlobalAction(
+                android.accessibilityservice.AccessibilityService
+                    .GLOBAL_ACTION_TAKE_SCREENSHOT
+            );
+
+        } else if ("blocca".equals(azione)) {
+            riuscito = servizio.performGlobalAction(
+                android.accessibilityservice.AccessibilityService
+                    .GLOBAL_ACTION_LOCK_SCREEN
+            );
+        }
+
+        setResultCode(riuscito ? 0 : 1);
     }
 }

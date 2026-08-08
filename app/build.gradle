@@ -5,7 +5,7 @@ android {
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.lisa.app"
+        applicationId "com.lisa.nexus"
         minSdk 26
         targetSdk 34
         versionCode 1

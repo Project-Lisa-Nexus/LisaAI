@@ -39,20 +39,6 @@ public class MainActivity extends Activity {
         title.setTextSize(20);
         layout.addView(title);
 
-        Button btnVoceLisa = new Button(this);
-        btnVoceLisa.setText("🎤 Parla con Lisa");
-        btnVoceLisa.setTextSize(20);
-        btnVoceLisa.setMinHeight(140);
-        btnVoceLisa.setOnClickListener(v -> {
-            Intent intent = new Intent(
-                this,
-                LisaVoiceCommandActivity.class
-            );
-            startActivity(intent);
-        });
-        layout.addView(btnVoceLisa);
-
-
         Button btnAccess = new Button(this);
         btnAccess.setText("Apri Impostazioni Accessibilita");
         btnAccess.setOnClickListener(v -> {
@@ -251,54 +237,8 @@ public class MainActivity extends Activity {
 
         Button btnTorch=new Button(this);
         btnTorch.setText("Torcia");
-        final boolean[] torciaAccesa = {false};
-
-        btnTorch.setOnClickListener(v -> {
-            try {
-                android.hardware.camera2.CameraManager cameraManager =
-                    (android.hardware.camera2.CameraManager) getSystemService(CAMERA_SERVICE);
-
-                String cameraId = null;
-
-                for (String id : cameraManager.getCameraIdList()) {
-                    android.hardware.camera2.CameraCharacteristics c =
-                        cameraManager.getCameraCharacteristics(id);
-
-                    Boolean flash =
-                        c.get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE);
-
-                    Integer facing =
-                        c.get(android.hardware.camera2.CameraCharacteristics.LENS_FACING);
-
-                    if (Boolean.TRUE.equals(flash) &&
-                        facing != null &&
-                        facing == android.hardware.camera2.CameraCharacteristics.LENS_FACING_BACK) {
-                        cameraId = id;
-                        break;
-                    }
-                }
-
-                if (cameraId == null) {
-                    android.widget.Toast.makeText(
-                        this,
-                        "Torcia non disponibile",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show();
-                    return;
-                }
-
-                torciaAccesa[0] = !torciaAccesa[0];
-                cameraManager.setTorchMode(cameraId, torciaAccesa[0]);
-
-                btnTorch.setText(torciaAccesa[0] ? "Spegni torcia" : "Torcia");
-
-            } catch (Exception e) {
-                android.widget.Toast.makeText(
-                    this,
-                    "Errore torcia: " + e.getMessage(),
-                    android.widget.Toast.LENGTH_LONG
-                ).show();
-            }
+        btnTorch.setOnClickListener(v->{
+            android.widget.Toast.makeText(this,"Prossimo step: CameraManager",android.widget.Toast.LENGTH_SHORT).show();
         });
         layout.addView(btnTorch);
 
@@ -319,17 +259,7 @@ public class MainActivity extends Activity {
 
 
 
-        android.widget.ScrollView scrollView =
-            new android.widget.ScrollView(this);
-
-        scrollView.setFillViewport(true);
-        scrollView.setVerticalScrollBarEnabled(true);
-        scrollView.setSmoothScrollingEnabled(true);
-        scrollView.setFocusable(true);
-        scrollView.setContentDescription("Controlli Lisa scorrevoli");
-
-        scrollView.addView(layout);
-        setContentView(scrollView);
+        setContentView(layout);
     }
 
     private void richiediPermessi() {

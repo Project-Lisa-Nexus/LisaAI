@@ -39,20 +39,6 @@ public class MainActivity extends Activity {
         title.setTextSize(20);
         layout.addView(title);
 
-        Button btnVoceLisa = new Button(this);
-        btnVoceLisa.setText("🎤 Parla con Lisa");
-        btnVoceLisa.setTextSize(20);
-        btnVoceLisa.setMinHeight(140);
-        btnVoceLisa.setOnClickListener(v -> {
-            Intent intent = new Intent(
-                this,
-                LisaVoiceCommandActivity.class
-            );
-            startActivity(intent);
-        });
-        layout.addView(btnVoceLisa);
-
-
         Button btnAccess = new Button(this);
         btnAccess.setText("Apri Impostazioni Accessibilita");
         btnAccess.setOnClickListener(v -> {

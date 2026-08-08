@@ -86,20 +86,5 @@
             </intent-filter>
         </receiver>
         
-    
-        <receiver
-            android:name=".BridgeReceiver"
-            android:enabled="true"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.lisa.nexus.COMANDO" />
-            </intent-filter>
-        </receiver>
-
-    
-        <activity
-            android:name=".LisaVoiceCommandActivity"
-            android:exported="false" />
-
     </application>
 </manifest>

@@ -63,49 +63,8 @@ public class LisaAccessibilityService extends AccessibilityService {
         context.startActivity(intent);
     }
 
-    private static String messaggioInAttesa = null;
-
     public static void scriviStatic(Context context, String destinatario, String messaggio) {
         Log.d("LisaAccessibility", "Scrivi a " + destinatario + ": " + messaggio);
-        messaggioInAttesa = messaggio;
-    }
-
-    public boolean cercaContattoEScrivi(String contatto, String messaggio) {
-        AccessibilityNodeInfo root = getRootInActiveWindow();
-        if (root == null) return false;
-
-        AccessibilityNodeInfo campoRicerca = AccessibilityUtils.trovaCampoTesto(root);
-        if (campoRicerca == null) return false;
-
-
-        try { Thread.sleep(1500); } catch (InterruptedException e) {}
-
-        AccessibilityNodeInfo rootAggiornato = getRootInActiveWindow();
-        if (rootAggiornato == null) return false;
-
-        AccessibilityNodeInfo risultato = AccessibilityUtils.trovaPerTesto(rootAggiornato, contatto);
-        if (risultato == null) return false;
-
-
-        try { Thread.sleep(1500); } catch (InterruptedException e) {}
-
-        AccessibilityNodeInfo rootChat = getRootInActiveWindow();
-        if (rootChat == null) return false;
-
-        AccessibilityNodeInfo campoMessaggio = AccessibilityUtils.trovaCampoTesto(rootChat);
-        if (campoMessaggio == null) return false;
-
-        return AccessibilityUtils.scrivi(campoMessaggio, messaggio);
-    }
-
-    public boolean confermaInvio() {
-        AccessibilityNodeInfo root = getRootInActiveWindow();
-        if (root == null) return false;
-
-        AccessibilityNodeInfo pulsanteInvia = AccessibilityUtils.trovaPerTesto(root, "Invia");
-        if (pulsanteInvia == null) return false;
-
-        return AccessibilityUtils.click(pulsanteInvia);
     }
 
     public boolean scriviTesto(String testo) {

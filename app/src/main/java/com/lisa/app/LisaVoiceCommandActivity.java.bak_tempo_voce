@@ -1,0 +1,465 @@
+package com.lisa.app;
+
+import android.app.Activity;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
+import android.os.Bundle;
+import android.speech.RecognizerIntent;
+import android.view.Gravity;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Locale;
+
+public class LisaVoiceCommandActivity extends Activity {
+
+    private static final int RICHIESTA_VOCE = 501;
+    private static final String API_LISA =
+        "http://127.0.0.1:5000/api/invoca";
+
+    private TextView stato;
+    private Button pulsanteParla;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setGravity(Gravity.CENTER_HORIZONTAL);
+        layout.setPadding(40, 80, 40, 40);
+
+        TextView titolo = new TextView(this);
+        titolo.setText("Comando vocale Lisa");
+        titolo.setTextSize(26);
+        titolo.setGravity(Gravity.CENTER);
+        layout.addView(titolo);
+
+        stato = new TextView(this);
+        stato.setText(
+            "Lisa è pronta.\n" +
+            "Tocca il pulsante soltanto quando vuoi parlare."
+        );
+        stato.setTextSize(19);
+        stato.setGravity(Gravity.CENTER);
+        stato.setPadding(10, 40, 10, 40);
+        layout.addView(stato);
+
+        pulsanteParla = new Button(this);
+        pulsanteParla.setText("🎤 Parla con Lisa");
+        pulsanteParla.setTextSize(22);
+        pulsanteParla.setMinHeight(150);
+        pulsanteParla.setOnClickListener(v -> avviaRiconoscimento());
+        layout.addView(pulsanteParla);
+
+        setContentView(layout);
+    }
+
+    private void avviaRiconoscimento() {
+        Intent intent = new Intent(
+            RecognizerIntent.ACTION_RECOGNIZE_SPEECH
+        );
+
+        intent.putExtra(
+            RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+            RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+        );
+
+        intent.putExtra(
+            RecognizerIntent.EXTRA_LANGUAGE,
+            "it-IT"
+        );
+
+        intent.putExtra(
+            RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE,
+            "it-IT"
+        );
+
+        intent.putExtra(
+            RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE,
+            false
+        );
+
+        intent.putExtra(
+            RecognizerIntent.EXTRA_MAX_RESULTS,
+            3
+        );
+
+        intent.putExtra(
+            RecognizerIntent.EXTRA_PROMPT,
+            "Parla ora"
+        );
+
+        try {
+            stato.setText("Sto ascoltando...");
+            startActivityForResult(intent, RICHIESTA_VOCE);
+        } catch (ActivityNotFoundException errore) {
+            stato.setText(
+                "Riconoscimento vocale Android non disponibile."
+            );
+        }
+    }
+
+    @Override
+    protected void onActivityResult(
+            int requestCode,
+            int resultCode,
+            Intent data) {
+
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode != RICHIESTA_VOCE) return;
+
+        if (resultCode != RESULT_OK || data == null) {
+            stato.setText(
+                "Ascolto terminato senza eseguire comandi."
+            );
+            return;
+        }
+
+        ArrayList<String> risultati =
+            data.getStringArrayListExtra(
+                RecognizerIntent.EXTRA_RESULTS
+            );
+
+        if (risultati == null || risultati.isEmpty()) {
+            stato.setText("Non ho riconosciuto la frase.");
+            return;
+        }
+
+        String frase = risultati.get(0).trim();
+
+        if (frase.isEmpty()) {
+            stato.setText("Non ho riconosciuto la frase.");
+            return;
+        }
+
+        stato.setText(
+            "Hai detto:\n" + frase +
+            "\n\nSto elaborando..."
+        );
+
+        pulsanteParla.setEnabled(false);
+
+        new Thread(() -> inviaAlRouter(frase)).start();
+    }
+
+    private void inviaAlRouter(String frase) {
+        HttpURLConnection connessione = null;
+
+        try {
+            URL url = new URL(API_LISA);
+            connessione =
+                (HttpURLConnection) url.openConnection();
+
+            connessione.setRequestMethod("POST");
+            connessione.setConnectTimeout(5000);
+            connessione.setReadTimeout(30000);
+            connessione.setDoOutput(true);
+            connessione.setRequestProperty(
+                "Content-Type",
+                "application/json; charset=UTF-8"
+            );
+
+            JSONObject richiesta = new JSONObject();
+            richiesta.put("testo", "Lisa " + frase);
+
+            byte[] dati = richiesta.toString().getBytes(
+                StandardCharsets.UTF_8
+            );
+
+            try (OutputStream uscita =
+                     connessione.getOutputStream()) {
+                uscita.write(dati);
+            }
+
+            int codice = connessione.getResponseCode();
+
+            InputStream flusso =
+                codice >= 200 && codice < 300
+                    ? connessione.getInputStream()
+                    : connessione.getErrorStream();
+
+            String rispostaTesto = leggiFlusso(flusso);
+
+            if (rispostaTesto.trim().isEmpty()) {
+                throw new Exception(
+                    "Risposta vuota dal router"
+                );
+            }
+
+            JSONObject risposta =
+                new JSONObject(rispostaTesto);
+
+            runOnUiThread(() -> {
+                boolean eseguito =
+                    eseguiRispostaRouter(risposta);
+
+                String messaggio =
+                    risposta.optString("risposta", "");
+
+                if (messaggio.isEmpty()) {
+                    messaggio = eseguito
+                        ? "Comando eseguito."
+                        : "Comando ricevuto ma non ancora eseguibile.";
+                }
+
+                stato.setText(messaggio);
+                pulsanteParla.setEnabled(true);
+            });
+
+        } catch (Exception errore) {
+            runOnUiThread(() -> {
+                boolean fallback =
+                    eseguiComandoLocale(frase);
+
+                if (fallback) {
+                    stato.setText(
+                        "Comando eseguito localmente."
+                    );
+                } else {
+                    stato.setText(
+                        "LisaOS non è raggiungibile.\n" +
+                        errore.getMessage()
+                    );
+                }
+
+                pulsanteParla.setEnabled(true);
+            });
+
+        } finally {
+            if (connessione != null) {
+                connessione.disconnect();
+            }
+        }
+    }
+
+    private boolean eseguiRispostaRouter(
+            JSONObject risposta) {
+
+        String azione =
+            risposta.optString("azione", "");
+
+        JSONObject comando =
+            risposta.optJSONObject("comando");
+
+        JSONObject parametri = null;
+
+        if (comando != null) {
+            if (azione.isEmpty()) {
+                azione = comando.optString(
+                    "azione",
+                    ""
+                );
+            }
+
+            parametri =
+                comando.optJSONObject("parametri");
+
+            if (parametri == null) {
+                parametri = comando;
+            }
+        }
+
+        if (parametri == null) {
+            parametri = risposta;
+        }
+
+        if ("apri_app".equals(azione)) {
+            String nome =
+                parametri.optString("nome", "");
+
+            String pacchetto =
+                parametri.optString(
+                    "pacchetto",
+                    ""
+                );
+
+            boolean aperta = false;
+
+            if (!nome.trim().isEmpty()) {
+                aperta = AppFinder.apriAppPerNome(
+                    this,
+                    nome
+                );
+            }
+
+            if (!aperta &&
+                !pacchetto.trim().isEmpty()) {
+
+                LisaAccessibilityService.apriAppStatic(
+                    this,
+                    pacchetto
+                );
+
+                aperta = true;
+            }
+
+            return aperta;
+        }
+
+        LisaAccessibilityService servizio =
+            LisaAccessibilityService.getInstance();
+
+        if (servizio == null) {
+            return false;
+        }
+
+        switch (azione) {
+            case "home":
+                return servizio.performGlobalAction(
+                    android.accessibilityservice
+                        .AccessibilityService
+                        .GLOBAL_ACTION_HOME
+                );
+
+            case "indietro":
+            case "back":
+                return servizio.performGlobalAction(
+                    android.accessibilityservice
+                        .AccessibilityService
+                        .GLOBAL_ACTION_BACK
+                );
+
+            case "recenti":
+            case "recents":
+                return servizio.performGlobalAction(
+                    android.accessibilityservice
+                        .AccessibilityService
+                        .GLOBAL_ACTION_RECENTS
+                );
+
+            case "notifiche":
+            case "notifications":
+                return servizio.performGlobalAction(
+                    android.accessibilityservice
+                        .AccessibilityService
+                        .GLOBAL_ACTION_NOTIFICATIONS
+                );
+
+            case "screenshot":
+                return servizio.performGlobalAction(
+                    android.accessibilityservice
+                        .AccessibilityService
+                        .GLOBAL_ACTION_TAKE_SCREENSHOT
+                );
+
+            case "blocca":
+                return servizio.performGlobalAction(
+                    android.accessibilityservice
+                        .AccessibilityService
+                        .GLOBAL_ACTION_LOCK_SCREEN
+                );
+
+            case "scorri_giu":
+                return servizio.scorriAvanti();
+
+            case "scorri_su":
+                return servizio.scorriIndietro();
+
+            case "clicca":
+                return servizio.cliccaTesto(
+                    parametri.optString("testo", "")
+                );
+
+            case "scrivi_testo":
+                return servizio.scriviTesto(
+                    parametri.optString("testo", "")
+                );
+
+            default:
+                return false;
+        }
+    }
+
+    private boolean eseguiComandoLocale(String frase) {
+        String testo =
+            frase.toLowerCase(Locale.ITALIAN)
+                 .trim();
+
+        String[] verbi = {
+            "apri ",
+            "avvia ",
+            "lancia ",
+            "aprimi "
+        };
+
+        for (String verbo : verbi) {
+            if (testo.startsWith(verbo)) {
+                String nomeApp =
+                    frase.substring(verbo.length())
+                         .trim();
+
+                return AppFinder.apriAppPerNome(
+                    this,
+                    nomeApp
+                );
+            }
+        }
+
+        LisaAccessibilityService servizio =
+            LisaAccessibilityService.getInstance();
+
+        if (servizio == null) return false;
+
+        if (testo.equals("home") ||
+            testo.equals("vai alla home")) {
+
+            return servizio.performGlobalAction(
+                android.accessibilityservice
+                    .AccessibilityService
+                    .GLOBAL_ACTION_HOME
+            );
+        }
+
+        if (testo.equals("indietro") ||
+            testo.equals("torna indietro")) {
+
+            return servizio.performGlobalAction(
+                android.accessibilityservice
+                    .AccessibilityService
+                    .GLOBAL_ACTION_BACK
+            );
+        }
+
+        return false;
+    }
+
+    private String leggiFlusso(InputStream flusso)
+            throws Exception {
+
+        if (flusso == null) return "";
+
+        StringBuilder contenuto =
+            new StringBuilder();
+
+        try (BufferedReader lettore =
+                 new BufferedReader(
+                     new InputStreamReader(
+                         flusso,
+                         StandardCharsets.UTF_8
+                     )
+                 )) {
+
+            String riga;
+
+            while ((riga = lettore.readLine())
+                    != null) {
+                contenuto.append(riga);
+            }
+        }
+
+        return contenuto.toString();
+    }
+}
