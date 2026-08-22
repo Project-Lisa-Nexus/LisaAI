@@ -22,33 +22,42 @@ public class MainActivity extends Activity {
         // Richiedi permessi
         richiediPermessi();
 
-        // Avvia servizio voce
-        Intent voiceIntent = new Intent(this, LisaVoiceService.class);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(voiceIntent);
-        } else {
-            startService(voiceIntent);
-        }
 
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setPadding(40, 100, 40, 40);
 
         TextView title = new TextView(this);
-        title.setText("Lisa - Passo 4\nVoce sempre attiva");
+        title.setText("Lisa - Assistente vocale");
         title.setTextSize(20);
         layout.addView(title);
 
         Button btnVoceLisa = new Button(this);
-        btnVoceLisa.setText("🎤 Parla con Lisa");
+        btnVoceLisa.setText(
+            LisaVoiceService.isSessioneAttiva()
+                    ? "⏹ Ferma Lisa"
+                    : "🎤 Attiva Lisa"
+        );
         btnVoceLisa.setTextSize(20);
         btnVoceLisa.setMinHeight(140);
         btnVoceLisa.setOnClickListener(v -> {
-            Intent intent = new Intent(
-                this,
-                LisaVoiceCommandActivity.class
-            );
-            startActivity(intent);
+            Intent intent = new Intent(this, LisaVoiceService.class);
+
+            if (LisaVoiceService.isSessioneAttiva()) {
+                intent.setAction(LisaVoiceService.ACTION_STOP);
+                startService(intent);
+                btnVoceLisa.setText("🎤 Attiva Lisa");
+            } else {
+                intent.setAction(LisaVoiceService.ACTION_START);
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(intent);
+                } else {
+                    startService(intent);
+                }
+
+                btnVoceLisa.setText("⏹ Ferma Lisa");
+            }
         });
         layout.addView(btnVoceLisa);
 
@@ -338,7 +347,8 @@ public class MainActivity extends Activity {
                 Manifest.permission.RECORD_AUDIO,
                 Manifest.permission.CAMERA,
                 Manifest.permission.BLUETOOTH_CONNECT,
-                Manifest.permission.ACCESS_FINE_LOCATION
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.READ_CONTACTS
             };
             
             for (String permesso : permessi) {

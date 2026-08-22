@@ -5,6 +5,10 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.os.Bundle;
 import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
+import android.speech.RecognitionListener;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Gravity;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -32,6 +36,16 @@ public class LisaVoiceCommandActivity extends Activity {
 
     private TextView stato;
     private Button pulsanteParla;
+
+    private SpeechRecognizer speechRecognizer;
+    private final Handler voceHandler =
+        new Handler(Looper.getMainLooper());
+    private final StringBuilder voceTesto =
+        new StringBuilder();
+    private boolean voceAttiva = false;
+    private long voceAvviata = 0L;
+
+    private final Runnable chiudiVoce = () -> finalizzaVoce();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,9 +80,18 @@ public class LisaVoiceCommandActivity extends Activity {
         layout.addView(pulsanteParla);
 
         setContentView(layout);
+
+        if (getIntent().getBooleanExtra("ascolta_subito", false)) {
+            stato.setText("Ti ascolto...");
+            voceHandler.postDelayed(
+                    this::avviaRiconoscimento,
+                    350L
+            );
+        }
     }
 
-    private void avviaRiconoscimento() {
+
+    private Intent creaIntentVoce() {
         Intent intent = new Intent(
             RecognizerIntent.ACTION_RECOGNIZE_SPEECH
         );
@@ -77,57 +100,219 @@ public class LisaVoiceCommandActivity extends Activity {
             RecognizerIntent.EXTRA_LANGUAGE_MODEL,
             RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
         );
-
         intent.putExtra(
             RecognizerIntent.EXTRA_LANGUAGE,
             "it-IT"
         );
-
         intent.putExtra(
-            RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE,
-            "it-IT"
+            RecognizerIntent.EXTRA_PARTIAL_RESULTS,
+            true
         );
-
-        intent.putExtra(
-            RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE,
-            false
-        );
-
         intent.putExtra(
             RecognizerIntent.EXTRA_MAX_RESULTS,
             3
         );
 
-        // Lascia il tempo di respirare prima e durante la frase.
-        intent.putExtra(
-            RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS,
-            3000L
-        );
 
-        intent.putExtra(
-            RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,
-            1800L
-        );
-
+        // Una sola sessione: termina dopo 2 secondi reali di silenzio.
         intent.putExtra(
             RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,
-            2200L
+            2000L
         );
 
-        intent.putExtra(
-            RecognizerIntent.EXTRA_PROMPT,
-            "Parla ora"
-        );
-
-        try {
-            stato.setText("Sto ascoltando...");
-            startActivityForResult(intent, RICHIESTA_VOCE);
-        } catch (ActivityNotFoundException errore) {
-            stato.setText(
-                "Riconoscimento vocale Android non disponibile."
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            intent.putExtra(
+                "android.speech.extra.SEGMENTED_SESSION",
+                "android.speech.extras.SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS"
             );
         }
+
+        return intent;
     }
+
+    private void avviaRiconoscimento() {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            stato.setText("Riconoscimento vocale non disponibile.");
+            return;
+        }
+
+        voceHandler.removeCallbacksAndMessages(null);
+        voceTesto.setLength(0);
+        voceAttiva = true;
+        voceAvviata = System.currentTimeMillis();
+
+        pulsanteParla.setEnabled(false);
+        stato.setText("Sto ascoltando...");
+
+        avviaSegmentoVoce();
+    }
+
+    private void avviaSegmentoVoce() {
+        if (!voceAttiva) return;
+
+        distruggiRecognizer();
+
+        speechRecognizer =
+            SpeechRecognizer.createSpeechRecognizer(this);
+
+        speechRecognizer.setRecognitionListener(
+            new RecognitionListener() {
+
+                @Override
+                public void onReadyForSpeech(Bundle params) {
+                    stato.setText("Sto ascoltando...");
+                }
+
+                @Override
+                public void onBeginningOfSpeech() {
+                    voceHandler.removeCallbacks(chiudiVoce);
+                }
+
+                @Override
+                public void onRmsChanged(float rmsdB) {}
+
+                @Override
+                public void onBufferReceived(byte[] buffer) {}
+
+                @Override
+                public void onEndOfSpeech() {
+                    stato.setText("Ti ascolto ancora...");
+                }
+
+                @Override
+                public void onError(int error) {
+                    if (!voceAttiva) return;
+
+                    distruggiRecognizer();
+
+                    if (
+                        voceTesto.length() == 0 &&
+                        System.currentTimeMillis() - voceAvviata > 8000L
+                    ) {
+                        voceAttiva = false;
+                        stato.setText("Non ho sentito nessuna frase.");
+                        pulsanteParla.setEnabled(true);
+                        return;
+                    }
+
+                    voceHandler.postDelayed(
+                        () -> avviaSegmentoVoce(),
+                        300L
+                    );
+                }
+
+                @Override
+                public void onResults(Bundle results) {
+                    if (!voceAttiva) return;
+
+                    ArrayList<String> parole =
+                        results.getStringArrayList(
+                            SpeechRecognizer.RESULTS_RECOGNITION
+                        );
+
+                    if (parole != null && !parole.isEmpty()) {
+                        String pezzo = parole.get(0).trim();
+
+                        if (!pezzo.isEmpty()) {
+                            if (voceTesto.length() > 0) {
+                                voceTesto.append(" ");
+                            }
+                            voceTesto.append(pezzo);
+                        }
+                    }
+
+                    // Fallback per recognizer senza sessione segmentata.
+                    finalizzaVoce();
+                }
+
+                @Override
+                public void onSegmentResults(Bundle results) {
+                    if (!voceAttiva) return;
+
+                    ArrayList<String> parole =
+                        results.getStringArrayList(
+                            SpeechRecognizer.RESULTS_RECOGNITION
+                        );
+
+                    if (parole != null && !parole.isEmpty()) {
+                        String pezzo = parole.get(0).trim();
+
+                        if (!pezzo.isEmpty()) {
+                            if (voceTesto.length() > 0) {
+                                voceTesto.append(" ");
+                            }
+                            voceTesto.append(pezzo);
+                        }
+                    }
+
+                    stato.setText("Ti ascolto...");
+                }
+
+                @Override
+                public void onEndOfSegmentedSession() {
+                    finalizzaVoce();
+                }
+
+                @Override
+                public void onPartialResults(Bundle partialResults) {
+                    if (voceAttiva) {
+                        voceHandler.removeCallbacks(chiudiVoce);
+                    }
+                }
+
+                @Override
+                public void onEvent(int eventType, Bundle params) {}
+            }
+        );
+
+        speechRecognizer.startListening(creaIntentVoce());
+    }
+
+    private void distruggiRecognizer() {
+        if (speechRecognizer != null) {
+            try {
+                speechRecognizer.cancel();
+            } catch (Exception ignored) {}
+
+            try {
+                speechRecognizer.destroy();
+            } catch (Exception ignored) {}
+
+            speechRecognizer = null;
+        }
+    }
+
+    private void finalizzaVoce() {
+        if (!voceAttiva) return;
+
+        voceAttiva = false;
+        voceHandler.removeCallbacksAndMessages(null);
+        distruggiRecognizer();
+
+        String frase = voceTesto.toString().trim();
+
+        if (frase.isEmpty()) {
+            stato.setText("Non ho riconosciuto la frase.");
+            pulsanteParla.setEnabled(true);
+            return;
+        }
+
+        ArrayList<String> risultati = new ArrayList<>();
+        risultati.add(frase);
+
+        Intent dati = new Intent();
+        dati.putStringArrayListExtra(
+            RecognizerIntent.EXTRA_RESULTS,
+            risultati
+        );
+
+        onActivityResult(
+            RICHIESTA_VOCE,
+            RESULT_OK,
+            dati
+        );
+    }
+
 
     @Override
     protected void onActivityResult(

@@ -171,8 +171,35 @@ public class LisaCommandReceiver extends BroadcastReceiver {
             String testoMessaggio = intent.getStringExtra("testo_messaggio");
             riuscito = servizio.cercaContattoEScrivi(contatto, testoMessaggio);
 
+            if (riuscito) {
+                LisaSpeaker.parla(
+                    context,
+                    "Messaggio pronto per " + contatto + ". Vuoi inviarlo?",
+                    () -> servizio.ascoltaConfermaInvio()
+            );
+            } else {
+                String domanda = servizio.domandaContattoAmbiguo();
+
+                if (domanda != null) {
+                    LisaSpeaker.parla(context, domanda, () -> {});
+                }
+            }
+
         } else if ("conferma_invio".equals(azione)) {
             riuscito = servizio.confermaInvio();
+
+        } else if ("impostazione".equals(azione)) {
+
+            String tipo = intent.getStringExtra("tipo");
+            String operazione = intent.getStringExtra("operazione");
+            String valore = intent.getStringExtra("valore");
+
+            riuscito = SystemController.regola(
+                    context,
+                    tipo,
+                    operazione,
+                    valore
+            );
 
         } else if ("scorri_giu".equals(azione)) {
             riuscito = servizio.scorriAvanti();
@@ -215,6 +242,18 @@ public class LisaCommandReceiver extends BroadcastReceiver {
                 android.accessibilityservice.AccessibilityService
                     .GLOBAL_ACTION_LOCK_SCREEN
             );
+
+        } else if (azione != null && azione.startsWith("VOLUME")) {
+            String operazione = azione.contains("DOWN") ? "diminuisci" : "aumenta";
+            riuscito = SystemController.regola(context, "volume", operazione, null);
+
+        } else if (azione != null &&
+                (azione.startsWith("BRIGHTNESS") || azione.startsWith("LUMINOSITA"))) {
+            String operazione = azione.contains("DOWN") ? "diminuisci" : "aumenta";
+            riuscito = SystemController.regola(context, "luminosita", operazione, null);
+
+        } else if ("TOGGLE_FLASHLIGHT".equals(azione) || "torcia".equals(azione)) {
+            riuscito = SystemController.toggleTorcia(context);
         }
 
         setResultCode(riuscito ? 0 : 1);

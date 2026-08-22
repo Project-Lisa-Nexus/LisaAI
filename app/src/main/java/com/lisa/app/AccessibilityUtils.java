@@ -9,16 +9,82 @@ public class AccessibilityUtils {
     public static AccessibilityNodeInfo trovaPerTesto(
             AccessibilityNodeInfo root, String testo) {
 
-        if (root == null || testo == null || testo.trim().isEmpty()) return null;
+        if (root == null || testo == null || testo.trim().isEmpty())
+            return null;
+
+        String cercato = testo.trim().toLowerCase();
 
         List<AccessibilityNodeInfo> risultati =
-                root.findAccessibilityNodeInfosByText(testo);
+                root.findAccessibilityNodeInfosByText(testo.trim());
 
-        if (risultati != null && !risultati.isEmpty()) {
-            return risultati.get(0);
+        if (risultati != null) {
+            AccessibilityNodeInfo migliore = null;
+
+            for (AccessibilityNodeInfo nodo : risultati) {
+                if (nodo == null || !nodo.isVisibleToUser() || !nodo.isEnabled())
+                    continue;
+
+                CharSequence valore = nodo.getText();
+                CharSequence descrizione = nodo.getContentDescription();
+
+                String t = valore == null ? "" : valore.toString().trim().toLowerCase();
+                String d = descrizione == null ? "" : descrizione.toString().trim().toLowerCase();
+
+                if (t.equals(cercato) || d.equals(cercato)) {
+                    if (nodo.isClickable() || nodo.isFocusable())
+                        return nodo;
+
+                    if (migliore == null)
+                        migliore = nodo;
+                }
+            }
+
+            if (migliore != null)
+                return migliore;
         }
 
-        return cercaRicorsivo(root, testo.trim().toLowerCase());
+        return cercaRicorsivoIntelligente(root, cercato);
+    }
+
+    private static AccessibilityNodeInfo cercaRicorsivoIntelligente(
+            AccessibilityNodeInfo nodo, String testo) {
+
+        if (nodo == null) return null;
+
+        if (nodo.isVisibleToUser() && nodo.isEnabled()) {
+            CharSequence valore = nodo.getText();
+            CharSequence descrizione = nodo.getContentDescription();
+
+            String t = valore == null ? "" : valore.toString().trim().toLowerCase();
+            String d = descrizione == null ? "" : descrizione.toString().trim().toLowerCase();
+
+            if (t.equals(testo) || d.equals(testo) ||
+                    t.contains(testo) || d.contains(testo)) {
+
+                if (nodo.isClickable() || nodo.isFocusable())
+                    return nodo;
+
+                AccessibilityNodeInfo padre = nodo.getParent();
+                while (padre != null) {
+                    if (padre.isVisibleToUser() && padre.isEnabled() &&
+                            padre.isClickable())
+                        return padre;
+                    padre = padre.getParent();
+                }
+
+                return nodo;
+            }
+        }
+
+        for (int i = 0; i < nodo.getChildCount(); i++) {
+            AccessibilityNodeInfo trovato =
+                    cercaRicorsivoIntelligente(nodo.getChild(i), testo);
+
+            if (trovato != null)
+                return trovato;
+        }
+
+        return null;
     }
 
     private static AccessibilityNodeInfo cercaRicorsivo(
@@ -44,6 +110,88 @@ public class AccessibilityUtils {
                     cercaRicorsivo(nodo.getChild(i), testo);
 
             if (trovato != null) return trovato;
+        }
+
+        return null;
+    }
+
+    public static AccessibilityNodeInfo trovaPerTestoNonEditabile(
+            AccessibilityNodeInfo root, String testo) {
+
+        if (root == null || testo == null || testo.trim().isEmpty())
+            return null;
+
+        return cercaNonEditabile(
+                root,
+                testo.trim().toLowerCase()
+        );
+    }
+
+    private static AccessibilityNodeInfo cercaNonEditabile(
+            AccessibilityNodeInfo nodo, String testo) {
+
+        if (nodo == null) return null;
+
+        CharSequence valore = nodo.getText();
+        CharSequence descrizione = nodo.getContentDescription();
+
+        if (!nodo.isEditable()) {
+            if (valore != null &&
+                    valore.toString().toLowerCase().contains(testo)) {
+                return nodo;
+            }
+
+            if (descrizione != null &&
+                    descrizione.toString().toLowerCase().contains(testo)) {
+                return nodo;
+            }
+        }
+
+        for (int i = 0; i < nodo.getChildCount(); i++) {
+            AccessibilityNodeInfo trovato =
+                    cercaNonEditabile(nodo.getChild(i), testo);
+
+            if (trovato != null) return trovato;
+        }
+
+        return null;
+    }
+
+
+    public static AccessibilityNodeInfo trovaPerTestoVisibile(
+            AccessibilityNodeInfo root, String testo) {
+
+        if (root == null || testo == null || testo.trim().isEmpty())
+            return null;
+
+        return cercaSoloTesto(
+                root,
+                testo.trim().toLowerCase()
+        );
+    }
+
+    private static AccessibilityNodeInfo cercaSoloTesto(
+            AccessibilityNodeInfo nodo, String testo) {
+
+        if (nodo == null)
+            return null;
+
+        CharSequence valore = nodo.getText();
+
+        if (!nodo.isEditable()
+                && valore != null
+                && valore.toString().trim().equalsIgnoreCase(testo)) {
+
+            return nodo;
+        }
+
+        for (int i = 0; i < nodo.getChildCount(); i++) {
+
+            AccessibilityNodeInfo trovato =
+                    cercaSoloTesto(nodo.getChild(i), testo);
+
+            if (trovato != null)
+                return trovato;
         }
 
         return null;
