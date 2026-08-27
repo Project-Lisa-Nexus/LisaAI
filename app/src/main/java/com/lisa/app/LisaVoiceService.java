@@ -104,6 +104,36 @@ public class LisaVoiceService extends Service {
         }, 300);
     }
 
+    private android.media.AudioManager audioManager;
+    private android.media.AudioFocusRequest focusRequest;
+
+    private void chiediAudioFocus() {
+        if (audioManager == null) {
+            audioManager = (android.media.AudioManager) getSystemService(android.content.Context.AUDIO_SERVICE);
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            android.media.AudioAttributes attrs = new android.media.AudioAttributes.Builder()
+                .setUsage(android.media.AudioAttributes.USAGE_ASSISTANT)
+                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build();
+            focusRequest = new android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                .setAudioAttributes(attrs)
+                .build();
+            audioManager.requestAudioFocus(focusRequest);
+        } else {
+            audioManager.requestAudioFocus(null, android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK);
+        }
+    }
+
+    private void rilasciaAudioFocus() {
+        if (audioManager == null) return;
+        if (android.os.Build.VERSION.SDK_INT >= 26 && focusRequest != null) {
+            audioManager.abandonAudioFocusRequest(focusRequest);
+        } else {
+            audioManager.abandonAudioFocus(null);
+        }
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -183,6 +213,7 @@ public class LisaVoiceService extends Service {
                 || LisaSpeaker.isParlando()) {
             return;
         }
+        chiediAudioFocus();
 
 
         if (!sessioneAttiva) return;
@@ -291,16 +322,11 @@ public class LisaVoiceService extends Service {
     }
 
     private RecognitionListener creaListener() {
-
         return new RecognitionListener() {
 
             @Override
-            public void onReadyForSpeech(
-                    Bundle params) {
-
-                aggiornaNotifica(
-                        "Lisa sta ascoltando…"
-                );
+            public void onReadyForSpeech(Bundle params) {
+                aggiornaNotifica("Lisa sta ascoltando…");
             }
 
             @Override
@@ -312,49 +338,42 @@ public class LisaVoiceService extends Service {
             }
 
             @Override
-            public void onBufferReceived(
-                    byte[] buffer) {
+            public void onBufferReceived(byte[] buffer) {
             }
 
             @Override
             public void onEndOfSpeech() {
-
-                aggiornaNotifica(
-                        "Lisa sta elaborando…"
-                );
+                aggiornaNotifica("Lisa sta elaborando…");
             }
 
             @Override
             public void onError(int error) {
-                if (sospesoPerTts
-                        || LisaSpeaker.isParlando()) {
-                    ascoltoInCorso = false;
-                    return;
-                }
-
-
                 ascoltoInCorso = false;
 
                 if (!sessioneAttiva) {
                     return;
                 }
 
-                Log.d(
-                        TAG,
-                        "SpeechRecognizer error=" + error
-                );
+                if (sospesoPerTts || LisaSpeaker.isParlando()) {
+                    return;
+                }
 
-                Log.w(
-                        TAG,
-                        "Ascolto terminato con errore: " + error
-                );
-
-                ricreaRecognizer();
+                Log.d(TAG, "SpeechRecognizer error=" + error);
+                boolean silenzioONessunaCorrispondenza =
+                        error == SpeechRecognizer.ERROR_NO_MATCH
+                                || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT;
+                if (!silenzioONessunaCorrispondenza) {
+                    ricreaRecognizer();
+                }
+                if (sessioneAttiva) {
+                    programmaAscolto(
+                            silenzioONessunaCorrispondenza ? 900 : 250
+                    );
+                }
             }
 
             @Override
             public void onResults(Bundle results) {
-
                 ascoltoInCorso = false;
 
                 if (!sessioneAttiva) {
@@ -363,50 +382,71 @@ public class LisaVoiceService extends Service {
 
                 ArrayList<String> frasi =
                         results.getStringArrayList(
-                                SpeechRecognizer
-                                        .RESULTS_RECOGNITION
+                                SpeechRecognizer.RESULTS_RECOGNITION
                         );
 
-                if (frasi == null
-                        || frasi.isEmpty()) {
-
-                    programmaAscolto(300);
+                if (frasi == null || frasi.isEmpty()) {
+                    programmaAscolto(250);
                     return;
                 }
 
-                String frase =
-                        frasi.get(0).trim();
+                String frase = frasi.get(0).trim();
 
                 if (frase.isEmpty()) {
-
-                    programmaAscolto(300);
+                    programmaAscolto(250);
                     return;
                 }
 
-                Log.i(
-                        TAG,
-                        "Hai detto: " + frase
-                );
+                Log.i(TAG, "Hai detto: " + frase);
 
                 gestisciFrase(frase);
             }
 
             @Override
-            public void onPartialResults(
-                    Bundle partialResults) {
+            public void onPartialResults(Bundle partialResults) {
             }
 
             @Override
-            public void onEvent(
-                    int eventType,
-                    Bundle params) {
+            public void onEvent(int eventType, Bundle params) {
             }
         };
     }
 
     private void gestisciFrase(String frase) {
+        String testo = frase.toLowerCase(Locale.ITALIAN).trim();
 
-        String testo =
+        // Conferma messaggio WhatsApp: usa IL MICROFONO PRINCIPALE di Lisa.
+        if (testo.equals("invia")
+                || testo.equals("invio")
+                || testo.equals("sì")
+                || testo.equals("si")
+                || testo.equals("ok")
+                || testo.contains("conferma")
+                || testo.contains("confermo")) {
+            android.content.Intent conferma =
+                    new android.content.Intent(this, LisaCommandReceiver.class);
+            conferma.setAction(LisaCommandReceiver.ACTION_LISA_COMMAND);
+            conferma.putExtra("azione", "conferma_invio");
+            sendBroadcast(conferma);
+            aggiornaNotifica("Lisa pronta");
+            programmaAscolto(650);
+            return;
+        }
+
+        if (testo.equals("annulla")
+                || testo.contains("non inviare")
+                || testo.contains("non mandare")) {
+            android.content.Intent annulla =
+                    new android.content.Intent(this, LisaCommandReceiver.class);
+            annulla.setAction(LisaCommandReceiver.ACTION_LISA_COMMAND);
+            annulla.putExtra("azione", "annulla_invio");
+            sendBroadcast(annulla);
+            aggiornaNotifica("Lisa pronta");
+            programmaAscolto(650);
+            return;
+        }
+
+
                 frase.toLowerCase(Locale.ITALIAN).trim();
 
         if (richiestaStop(testo)) {
