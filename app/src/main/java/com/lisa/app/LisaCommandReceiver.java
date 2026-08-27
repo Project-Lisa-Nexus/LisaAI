@@ -188,6 +188,10 @@ public class LisaCommandReceiver extends BroadcastReceiver {
         } else if ("conferma_invio".equals(azione)) {
             riuscito = servizio.confermaInvio();
 
+        } else if ("annulla_invio".equals(azione)) {
+            servizio.annullaInvio();
+            riuscito = true;
+
         } else if ("impostazione".equals(azione)) {
 
             String tipo = intent.getStringExtra("tipo");

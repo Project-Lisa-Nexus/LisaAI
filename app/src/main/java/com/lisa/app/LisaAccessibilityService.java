@@ -193,15 +193,31 @@ public class LisaAccessibilityService extends AccessibilityService {
                 preferiti.add(nome);
         }
 
-        if (preferiti.size() == 1)
-            return preferiti.get(0);
+        // Raggruppa per nome "pulito" (senza emoji/simboli): evita falsa
+        // ambiguita' quando lo stesso contatto e' salvato piu' volte con
+        // varianti di sole emoji.
+        java.util.List<String> daValutare =
+                preferiti.isEmpty() ? new java.util.ArrayList<>(trovati) : preferiti;
 
-        if (preferiti.size() > 1)
-            contattiAmbigui.addAll(preferiti);
-        else if (trovati.size() == 1)
-            return trovati.iterator().next();
-        else
-            contattiAmbigui.addAll(trovati);
+        java.util.LinkedHashMap<String, String> perNomePulito =
+                new java.util.LinkedHashMap<>();
+
+        for (String nome : daValutare) {
+            String pulito = nome.replaceAll("[^\\p{L}\\p{N}\\s]", "")
+                                 .trim()
+                                 .toLowerCase(java.util.Locale.ITALIAN);
+
+            String esistente = perNomePulito.get(pulito);
+            if (esistente == null || nome.length() < esistente.length()) {
+                perNomePulito.put(pulito, nome);
+            }
+        }
+
+        if (perNomePulito.size() == 1) {
+            return perNomePulito.values().iterator().next();
+        }
+
+        contattiAmbigui.addAll(perNomePulito.values());
 
         return null;
     }
@@ -488,6 +504,43 @@ public class LisaAccessibilityService extends AccessibilityService {
             campoMessaggio =
                     AccessibilityUtils.trovaCampoTesto(rootChat);
 
+        // Se ancora non c'e', probabilmente siamo finiti sulla
+        // scheda contatto (Chiama/Video/Cerca) invece che in chat.
+        // Cerchiamo il pulsante "Messaggio" per entrare nella chat vera.
+        if (campoMessaggio == null) {
+
+            AccessibilityNodeInfo pulsanteMessaggio =
+                    AccessibilityUtils.trovaPerTesto(rootChat, "Messaggio");
+
+            if (pulsanteMessaggio != null
+                    && AccessibilityUtils.click(pulsanteMessaggio)) {
+
+                try {
+                    Thread.sleep(900);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+
+                AccessibilityNodeInfo rootChat2 = getRootInActiveWindow();
+
+                if (rootChat2 != null) {
+                    try {
+                        java.util.List<AccessibilityNodeInfo> campi2 =
+                                rootChat2.findAccessibilityNodeInfosByViewId(
+                                        "com.whatsapp:id/entry"
+                                );
+                        if (campi2 != null && !campi2.isEmpty())
+                            campoMessaggio = campi2.get(0);
+                    } catch (Exception ignored) {
+                    }
+
+                    if (campoMessaggio == null)
+                        campoMessaggio =
+                                AccessibilityUtils.trovaCampoTesto(rootChat2);
+                }
+            }
+        }
+
         if (campoMessaggio == null)
             return false;
 
@@ -506,113 +559,15 @@ public class LisaAccessibilityService extends AccessibilityService {
 
 
     public void ascoltaConfermaInvio() {
-        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-            try {
-                final android.speech.SpeechRecognizer r =
-                        android.speech.SpeechRecognizer.createSpeechRecognizer(this);
+        // La conferma usa il microfono principale di LisaVoiceService.
+        // NON viene creato un secondo SpeechRecognizer.
+        android.util.Log.i("LisaAccessibility", "Conferma invio: ritorno al microfono principale Lisa");
+        return;
+    }
 
-                android.content.Intent i = new android.content.Intent(
-                        android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH
-                );
-
-                i.putExtra(
-                        android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                        android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-                );
-                i.putExtra(
-                        android.speech.RecognizerIntent.EXTRA_LANGUAGE,
-                        "it-IT"
-                );
-                i.putExtra(
-                        android.speech.RecognizerIntent.EXTRA_MAX_RESULTS,
-                        3
-                );
-
-                r.setRecognitionListener(new android.speech.RecognitionListener() {
-
-                    @Override public void onReadyForSpeech(android.os.Bundle b) {}
-                    @Override public void onBeginningOfSpeech() {}
-                    @Override public void onRmsChanged(float v) {}
-                    @Override public void onBufferReceived(byte[] b) {}
-                    @Override public void onEndOfSpeech() {}
-
-                    @Override
-                    public void onError(int error) {
-                        try { r.destroy(); } catch (Exception ignored) {}
-
-                        LisaSpeaker.parla(
-                                LisaAccessibilityService.this,
-                                "Non ti ho sentito. Dimmi invia oppure annulla.",
-                                () -> ascoltaConfermaInvio()
-                        );
-                    }
-
-                    @Override
-                    public void onResults(android.os.Bundle results) {
-                        java.util.ArrayList<String> lista =
-                                results.getStringArrayList(
-                                        android.speech.SpeechRecognizer.RESULTS_RECOGNITION
-                                );
-
-                        String frase =
-                                lista != null && !lista.isEmpty()
-                                        ? lista.get(0).trim().toLowerCase(java.util.Locale.ITALIAN)
-                                        : "";
-
-                        try { r.destroy(); } catch (Exception ignored) {}
-
-                        boolean annulla =
-                                frase.equals("no")
-                                || frase.contains("annulla")
-                                || frase.contains("non inviare")
-                                || frase.contains("non mandare");
-
-                        if (annulla) {
-                            LisaSpeaker.parla(
-                                    LisaAccessibilityService.this,
-                                    "Va bene. Non invio.",
-                                    () -> {}
-                            );
-                            return;
-                        }
-
-                        boolean invia =
-                                frase.equals("si")
-                                || frase.equals("sì")
-                                || frase.equals("ok")
-                                || frase.contains("invia")
-                                || frase.contains("invio")
-                                || frase.contains("conferma")
-                                || frase.contains("confermo");
-
-                        if (invia) {
-                            boolean ok = confermaInvio();
-
-                            LisaSpeaker.parla(
-                                    LisaAccessibilityService.this,
-                                    ok ? "Messaggio inviato." : "Non sono riuscita a inviarlo.",
-                                    () -> {}
-                            );
-                            return;
-                        }
-
-                        LisaSpeaker.parla(
-                                LisaAccessibilityService.this,
-                                "Non ho capito. Dimmi invia oppure annulla.",
-                                () -> ascoltaConfermaInvio()
-                        );
-                    }
-
-                    @Override public void onPartialResults(android.os.Bundle b) {}
-                    @Override public void onEvent(int t, android.os.Bundle b) {}
-                });
-
-                r.startListening(i);
-
-            } catch (Exception e) {
-                android.util.Log.e("LisaAccessibility", "Errore microfono", e);
-            }
-        });
+    public void annullaInvio() {
+        messaggioInAttesa = null;
+        Log.i("LisaAccessibility", "Invio annullato dalla voce");
     }
 
     public boolean confermaInvio() {
