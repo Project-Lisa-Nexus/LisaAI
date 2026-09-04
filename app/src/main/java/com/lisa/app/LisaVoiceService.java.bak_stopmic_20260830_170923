@@ -49,7 +49,6 @@ public class LisaVoiceService extends Service {
             new Handler(Looper.getMainLooper());
 
     private SpeechRecognizer recognizer;
-    private final VoiceController voiceController = VoiceController.getInstance();
     private boolean ascoltoInCorso = false;
 
     public static boolean isSessioneAttiva() {
@@ -295,7 +294,6 @@ public class LisaVoiceService extends Service {
             );
 
             ascoltoInCorso = true;
-            voiceController.listeningStarted();
 
             aggiornaNotifica(
                     "Lisa sta ascoltando…"
@@ -347,7 +345,6 @@ public class LisaVoiceService extends Service {
             @Override
             public void onError(int error) {
                 ascoltoInCorso = false;
-                voiceController.reset();
 
                 if (!sessioneAttiva) {
                     return;
@@ -374,7 +371,6 @@ public class LisaVoiceService extends Service {
             @Override
             public void onResults(Bundle results) {
                 ascoltoInCorso = false;
-                voiceController.processingStarted();
 
                 if (!sessioneAttiva) {
                     return;
@@ -496,7 +492,6 @@ public class LisaVoiceService extends Service {
 
             // PRIMA spegniamo davvero Lisa.
             sessioneAttiva = false;
-            MainActivity.aggiornaStatoPulsante();
             fermaRecognizer();
 
             try {
@@ -536,9 +531,8 @@ public class LisaVoiceService extends Service {
         if (eseguiLocaleRapido(comando)) {
 
             aggiornaNotifica("Lisa pronta");
-            programmaAscolto(250);
+            programmaAscolto(650);
             return;
-        
         }
 
         aggiornaNotifica("Lisa sta eseguendo…");
@@ -720,21 +714,6 @@ public class LisaVoiceService extends Service {
             return false;
         }
 
-        // SCROLL VOCALE VERTICALE
-        if (testo.equals("scorri in basso")
-                || testo.equals("scorri giù")
-                || testo.equals("scorri giu")
-                || testo.equals("vai giù")
-                || testo.equals("vai giu")) {
-            return servizio.scorriAvanti();
-        }
-
-        if (testo.equals("scorri in alto")
-                || testo.equals("scorri su")
-                || testo.equals("vai su")) {
-            return servizio.scorriIndietro();
-        }
-
         if (testo.equals("recenti") || testo.equals("app recenti") || testo.equals("mostra recenti")) return servizio.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS);
         if (testo.equals("notifiche") || testo.equals("apri notifiche") || testo.equals("mostra notifiche")) return servizio.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS);
         if (testo.equals("blocca schermo") || testo.equals("blocca lo schermo") || testo.equals("spegni schermo")) return servizio.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN);
@@ -788,7 +767,7 @@ public class LisaVoiceService extends Service {
                 );
 
                 connessione.setReadTimeout(
-                        60000
+                        30000
                 );
 
                 connessione.setDoOutput(true);
@@ -892,11 +871,7 @@ public class LisaVoiceService extends Service {
                      * lascia terminare eventuale
                      * risposta vocale/azione Android.
                      */
-                    if ("apri_url".equals(azioneAndroid)) {
-                        programmaAscolto(900);
-                    } else {
-                        programmaAscolto(900);
-                    }
+                    programmaAscolto(900);
                 });
 
             } catch (Exception errore) {
@@ -1138,8 +1113,6 @@ public class LisaVoiceService extends Service {
             boolean silenzioso) {
 
         sessioneAttiva = false;
-        voiceController.stopSession();
-        MainActivity.aggiornaStatoPulsante();
 
         fermaRecognizer();
 

@@ -347,7 +347,6 @@ public class LisaVoiceService extends Service {
             @Override
             public void onError(int error) {
                 ascoltoInCorso = false;
-                voiceController.reset();
 
                 if (!sessioneAttiva) {
                     return;
@@ -536,9 +535,8 @@ public class LisaVoiceService extends Service {
         if (eseguiLocaleRapido(comando)) {
 
             aggiornaNotifica("Lisa pronta");
-            programmaAscolto(250);
+            terminaSessione(true);
             return;
-        
         }
 
         aggiornaNotifica("Lisa sta eseguendo…");
@@ -893,7 +891,7 @@ public class LisaVoiceService extends Service {
                      * risposta vocale/azione Android.
                      */
                     if ("apri_url".equals(azioneAndroid)) {
-                        programmaAscolto(900);
+                        terminaSessione(true);
                     } else {
                         programmaAscolto(900);
                     }
@@ -1138,7 +1136,6 @@ public class LisaVoiceService extends Service {
             boolean silenzioso) {
 
         sessioneAttiva = false;
-        voiceController.stopSession();
         MainActivity.aggiornaStatoPulsante();
 
         fermaRecognizer();

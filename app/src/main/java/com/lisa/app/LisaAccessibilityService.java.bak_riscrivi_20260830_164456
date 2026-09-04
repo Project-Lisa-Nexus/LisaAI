@@ -45,7 +45,7 @@ public class LisaAccessibilityService extends AccessibilityService {
 
     @Override
     public boolean onUnbind(Intent intent) {
-        Log.d(TAG, "AccessibilityService unbound: VoiceService NON viene arrestata");
+        spegniLisaCompletamente();
         return super.onUnbind(intent);
     }
 
@@ -193,7 +193,6 @@ public class LisaAccessibilityService extends AccessibilityService {
     }
 
     private static String messaggioInAttesa = null;
-    private String nomeOriginaleAmbiguo = null;
     private final java.util.ArrayList<String> contattiAmbigui =
             new java.util.ArrayList<>();
     private static String testoMessaggioAmbiguo = null;
@@ -297,7 +296,6 @@ public class LisaAccessibilityService extends AccessibilityService {
             return richiesto;
 
         String query = richiesto.trim();
-        nomeOriginaleAmbiguo = query;
 
         java.util.LinkedHashSet<String> trovati =
                 new java.util.LinkedHashSet<>();
@@ -701,35 +699,9 @@ public class LisaAccessibilityService extends AccessibilityService {
         return;
     }
 
-    private static boolean inAttesaNuovoTesto = false;
-
     public void annullaInvio() {
         messaggioInAttesa = null;
         Log.i("LisaAccessibility", "Invio annullato dalla voce");
-    }
-
-    public void chiediNuovoTesto() {
-        inAttesaNuovoTesto = true;
-        Log.i("LisaAccessibility", "In attesa del nuovo testo da scrivere");
-    }
-
-    public boolean inAttesaDiNuovoTesto() {
-        return inAttesaNuovoTesto;
-    }
-
-    /**
-     * Sostituisce il testo gia' scritto nel campo messaggio (es. WhatsApp)
-     * con uno nuovo, senza riaprire la chat. ACTION_SET_TEXT sovrascrive
-     * sempre il contenuto esistente, quindi basta richiamare scriviTesto().
-     */
-    public boolean riscriviMessaggio(String nuovoTesto) {
-        inAttesaNuovoTesto = false;
-
-        boolean scritto = scriviTesto(nuovoTesto);
-        if (scritto) {
-            messaggioInAttesa = nuovoTesto;
-        }
-        return scritto;
     }
 
     public boolean confermaInvio() {
@@ -778,36 +750,6 @@ public class LisaAccessibilityService extends AccessibilityService {
         return !contattiAmbigui.isEmpty();
     }
 
-    private void insegnaContattoAppreso(String nomeTrovato) {
-        String sentito = nomeOriginaleAmbiguo;
-        if (sentito == null || sentito.trim().isEmpty() || nomeTrovato == null) return;
-
-        final String sentitoFinale = sentito;
-        final String esattoFinale = nomeTrovato;
-
-        new Thread(() -> {
-            try {
-                java.net.URL url = new java.net.URL("http://127.0.0.1:5000/api/impara_contatto");
-                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("POST");
-                conn.setConnectTimeout(3000);
-                conn.setReadTimeout(3000);
-                conn.setDoOutput(true);
-                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-
-                org.json.JSONObject corpo = new org.json.JSONObject();
-                corpo.put("sentito", sentitoFinale);
-                corpo.put("esatto", esattoFinale);
-
-                byte[] dati = corpo.toString().getBytes("UTF-8");
-                conn.getOutputStream().write(dati);
-                conn.getInputStream().close();
-                conn.disconnect();
-            } catch (Exception ignored) {
-            }
-        }, "Lisa-Apprendimento").start();
-    }
-
     public String risolviSceltaContatto(String scelta) {
         if (contattiAmbigui.isEmpty() || scelta == null) return null;
         String sceltaNorm = scelta.trim().toLowerCase(java.util.Locale.ITALIAN);
@@ -815,7 +757,6 @@ public class LisaAccessibilityService extends AccessibilityService {
         for (String nome : contattiAmbigui) {
             String nomeNorm = nome.toLowerCase(java.util.Locale.ITALIAN);
             if (nomeNorm.contains(sceltaNorm) || sceltaNorm.contains(nomeNorm)) {
-                insegnaContattoAppreso(nome);
                 return nome;
             }
         }
@@ -829,7 +770,6 @@ public class LisaAccessibilityService extends AccessibilityService {
                 String senzaPrimaLettera = parola.substring(1);
                 if (sceltaNorm.contains(parola) ||
                         sceltaNorm.contains(senzaPrimaLettera)) {
-                    insegnaContattoAppreso(nome);
                     return nome;
                 }
             }

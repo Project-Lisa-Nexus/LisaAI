@@ -76,6 +76,61 @@ public class MainActivity extends Activity {
         layout.addView(btnVoceLisa);
 
 
+        Button btnAmbiente = new Button(this);
+        btnAmbiente.setText("🟢 START AMBIENTE");
+        btnAmbiente.setTextSize(18);
+        btnAmbiente.setMinHeight(120);
+        btnAmbiente.setOnClickListener(v -> {
+            boolean avvio = btnAmbiente.getText().toString().startsWith("🟢");
+            btnAmbiente.setEnabled(false);
+
+            new Thread(() -> {
+                try {
+                    if (avvio) {
+                        Intent intent = new Intent();
+                        intent.setComponent(new android.content.ComponentName(
+                                "tech.ula",
+                                "tech.ula.library.MainActivity"
+                        ));
+                        runOnUiThread(() -> startActivity(intent));
+
+                        Thread.sleep(3000);
+
+                        LisaSshController.exec(
+                                MainActivity.this,
+                                "cd ~/LisaOS && bash scripts/dev_start.sh"
+                        );
+
+                        runOnUiThread(() -> {
+                            btnAmbiente.setText("🔴 STOP AMBIENTE");
+                            btnAmbiente.setEnabled(true);
+                        });
+                    } else {
+                        LisaSshController.exec(
+                                MainActivity.this,
+                                "cd ~/LisaOS && bash scripts/dev_stop.sh"
+                        );
+
+                        Intent intent = new Intent("tech.ula.STOP_SESSION");
+                        intent.setPackage("tech.ula");
+                        sendBroadcast(intent);
+
+                        runOnUiThread(() -> {
+                            btnAmbiente.setText("🟢 START AMBIENTE");
+                            btnAmbiente.setEnabled(true);
+                        });
+                    }
+                } catch (Exception e) {
+                    runOnUiThread(() -> {
+                        btnAmbiente.setText("🔴 ERRORE SSH");
+                        btnAmbiente.setEnabled(true);
+                    });
+                }
+            }).start();
+        });
+        layout.addView(btnAmbiente);
+
+
         Button btnAccess = new Button(this);
         btnAccess.setText("Apri Impostazioni Accessibilita");
         btnAccess.setOnClickListener(v -> {

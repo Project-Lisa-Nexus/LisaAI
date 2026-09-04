@@ -166,19 +166,6 @@ public class LisaCommandReceiver extends BroadcastReceiver {
         } else if ("scrivi_testo".equals(azione)) {
             riuscito = servizio.scriviTesto(testo);
 
-        } else if ("chiama".equals(azione)) {
-            String contatto = intent.getStringExtra("contatto");
-            String appChiamata = intent.getStringExtra("app");
-            String modalitaChiamata = intent.getStringExtra("modalita");
-            riuscito = servizio.cercaContattoEChiama(contatto, appChiamata, modalitaChiamata);
-
-            if (!riuscito && !servizio.isChiamataDuplicataIgnorata()) {
-                String domanda = servizio.domandaContattoAmbiguo();
-                if (domanda != null) {
-                    LisaSpeaker.parla(context, domanda, () -> {});
-                }
-            }
-
         } else if ("messaggio".equals(azione)) {
             String contatto = intent.getStringExtra("contatto");
             String testoMessaggio = intent.getStringExtra("testo_messaggio");

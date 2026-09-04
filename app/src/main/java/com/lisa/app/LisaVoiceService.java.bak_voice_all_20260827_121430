@@ -49,7 +49,6 @@ public class LisaVoiceService extends Service {
             new Handler(Looper.getMainLooper());
 
     private SpeechRecognizer recognizer;
-    private final VoiceController voiceController = VoiceController.getInstance();
     private boolean ascoltoInCorso = false;
 
     public static boolean isSessioneAttiva() {
@@ -82,8 +81,6 @@ public class LisaVoiceService extends Service {
             }
 
             servizio.ascoltoInCorso = false;
-
-            servizio.rilasciaAudioFocus();
 
             Log.d(TAG,
                     "ASR sospeso: Lisa sta parlando");
@@ -238,14 +235,30 @@ public class LisaVoiceService extends Service {
 
             if (recognizer == null) {
 
-                recognizer =
-                        SpeechRecognizer
-                                .createSpeechRecognizer(
-                                        this
-                                );
+                if (Build.VERSION.SDK_INT >= 31
+                        && SpeechRecognizer
+                        .isOnDeviceRecognitionAvailable(this)) {
 
-                Log.i(TAG,
-                        "ASR Android standard attivo (cloud)");
+                    recognizer =
+                            SpeechRecognizer
+                                    .createOnDeviceSpeechRecognizer(
+                                            this
+                                    );
+
+                    Log.i(TAG,
+                            "ASR on-device attivo");
+
+                } else {
+
+                    recognizer =
+                            SpeechRecognizer
+                                    .createSpeechRecognizer(
+                                            this
+                                    );
+
+                    Log.i(TAG,
+                            "ASR Android standard attivo");
+                }
 
                 recognizer.setRecognitionListener(
                         creaListener()
@@ -280,22 +293,11 @@ public class LisaVoiceService extends Service {
             );
 
             voce.putExtra(
-                    "android.speech.extra.SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS",
-                    5000
-            );
-
-            voce.putExtra(
-                    "android.speech.extra.SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS",
-                    5000
-            );
-
-            voce.putExtra(
-                    "android.speech.extra.SPEECH_INPUT_MIN_LENGTH_MILLIS",
-                    15000
+                    RecognizerIntent.EXTRA_PREFER_OFFLINE,
+                    true
             );
 
             ascoltoInCorso = true;
-            voiceController.listeningStarted();
 
             aggiornaNotifica(
                     "Lisa sta ascoltando…"
@@ -347,7 +349,6 @@ public class LisaVoiceService extends Service {
             @Override
             public void onError(int error) {
                 ascoltoInCorso = false;
-                voiceController.reset();
 
                 if (!sessioneAttiva) {
                     return;
@@ -374,7 +375,6 @@ public class LisaVoiceService extends Service {
             @Override
             public void onResults(Bundle results) {
                 ascoltoInCorso = false;
-                voiceController.processingStarted();
 
                 if (!sessioneAttiva) {
                     return;
@@ -446,44 +446,6 @@ public class LisaVoiceService extends Service {
             return;
         }
 
-        // "no" da solo (senza "annulla") significa: non inviare cosi',
-        // ma voglio riscrivere il messaggio con un testo diverso.
-        if (testo.equals("no") || testo.equals("no, riscrivi")
-                || testo.contains("riscrivi") || testo.contains("cambia messaggio")) {
-            LisaAccessibilityService servizioRiscrivi = LisaAccessibilityService.getInstance();
-            if (servizioRiscrivi != null) {
-                servizioRiscrivi.chiediNuovoTesto();
-                LisaSpeaker.parla(
-                        this,
-                        "Cosa vuoi scrivere invece?",
-                        () -> programmaAscolto(250)
-                );
-                aggiornaNotifica("Lisa pronta");
-                return;
-            }
-        }
-
-        // Se Lisa sta aspettando il nuovo testo per riscrivere il messaggio.
-        LisaAccessibilityService servizioTestoNuovo = LisaAccessibilityService.getInstance();
-        if (servizioTestoNuovo != null && servizioTestoNuovo.inAttesaDiNuovoTesto()) {
-            boolean riscritto = servizioTestoNuovo.riscriviMessaggio(frase.trim());
-            if (riscritto) {
-                LisaSpeaker.parla(
-                        this,
-                        "Messaggio aggiornato. Vuoi inviarlo?",
-                        () -> programmaAscolto(250)
-                );
-            } else {
-                LisaSpeaker.parla(
-                        this,
-                        "Non sono riuscita a riscrivere il messaggio.",
-                        () -> programmaAscolto(250)
-                );
-            }
-            aggiornaNotifica("Lisa pronta");
-            return;
-        }
-
 
                 frase.toLowerCase(Locale.ITALIAN).trim();
 
@@ -496,7 +458,6 @@ public class LisaVoiceService extends Service {
 
             // PRIMA spegniamo davvero Lisa.
             sessioneAttiva = false;
-            MainActivity.aggiornaStatoPulsante();
             fermaRecognizer();
 
             try {
@@ -536,60 +497,11 @@ public class LisaVoiceService extends Service {
         if (eseguiLocaleRapido(comando)) {
 
             aggiornaNotifica("Lisa pronta");
-            programmaAscolto(250);
+            programmaAscolto(650);
             return;
-        
         }
 
         aggiornaNotifica("Lisa sta eseguendo…");
-        
-        LisaAccessibilityService servizioAmbiguo = LisaAccessibilityService.getInstance();
-        if (servizioAmbiguo != null && servizioAmbiguo.inAttesaSceltaContatto()) {
-            String nomeRisolto = servizioAmbiguo.risolviSceltaContatto(comando);
-            if (nomeRisolto != null) {
-                String testoSalvato = servizioAmbiguo.getTestoMessaggioAmbiguo();
-                String azioneSalvata = servizioAmbiguo.getAzioneAmbigua();
-                String appSalvata = servizioAmbiguo.getAppAmbigua();
-                String modalitaSalvata = servizioAmbiguo.getModalitaAmbigua();
-                servizioAmbiguo.pulisciAmbiguita();
-
-                if ("chiama".equals(azioneSalvata)) {
-                    boolean riuscitoChiamata =
-                            servizioAmbiguo.cercaContattoEChiama(nomeRisolto, appSalvata, modalitaSalvata);
-
-                    if (riuscitoChiamata) {
-                        LisaSpeaker.parla(this, "Va bene, chiamo " + nomeRisolto + ".",
-                                () -> programmaAscolto(650));
-                    } else {
-                        LisaSpeaker.parla(this, "Non sono riuscita a completare la chiamata.",
-                                () -> programmaAscolto(650));
-                    }
-                    return;
-                }
-
-                // Esegue subito, senza rimandare la frase a LisaOS:
-                // evita una seconda interpretazione che puo' sbagliare.
-                boolean riuscito = servizioAmbiguo.cercaContattoEScrivi(nomeRisolto, testoSalvato);
-
-                if (riuscito) {
-                    LisaSpeaker.parla(
-                        this,
-                        "Messaggio pronto per " + nomeRisolto + ". Vuoi inviarlo?",
-                        () -> programmaAscolto(250)
-                    );
-                } else {
-                    LisaSpeaker.parla(
-                        this,
-                        "Non sono riuscita a trovare il numero di " + nomeRisolto + ".",
-                        () -> programmaAscolto(250)
-                    );
-                }
-
-                aggiornaNotifica("Lisa pronta");
-                return;
-            }
-        }
-
         inviaALisaOS(comando);
     }
 
@@ -641,10 +553,6 @@ public class LisaVoiceService extends Service {
                 "ehi lisa",
                 "hey lisa",
                 "ciao lisa",
-                "ehi elisa",
-                "hey elisa",
-                "ciao elisa",
-                "elisa",
                 "lisa"
         };
 
@@ -672,13 +580,6 @@ public class LisaVoiceService extends Service {
 
         String testo =
                 frase.toLowerCase(Locale.ITALIAN).trim();
-
-        // VOICE_ALL_V1
-        if (testo.equals("volume su") || testo.equals("alza volume") || testo.equals("alza il volume") || testo.equals("aumenta volume")) { android.media.AudioManager am=(android.media.AudioManager)getSystemService(android.content.Context.AUDIO_SERVICE); if(am!=null){ am.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC,android.media.AudioManager.ADJUST_RAISE,android.media.AudioManager.FLAG_SHOW_UI); return true; } }
-        if (testo.equals("volume giu") || testo.equals("volume giù") || testo.equals("abbassa volume") || testo.equals("abbassa il volume") || testo.equals("diminuisci volume")) { android.media.AudioManager am=(android.media.AudioManager)getSystemService(android.content.Context.AUDIO_SERVICE); if(am!=null){ am.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC,android.media.AudioManager.ADJUST_LOWER,android.media.AudioManager.FLAG_SHOW_UI); return true; } }
-        if (testo.equals("luminosita su") || testo.equals("luminosità su") || testo.equals("aumenta luminosita") || testo.equals("aumenta luminosità")) { if(android.provider.Settings.System.canWrite(this)){ int v=android.provider.Settings.System.getInt(getContentResolver(),android.provider.Settings.System.SCREEN_BRIGHTNESS,128); android.provider.Settings.System.putInt(getContentResolver(),android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE,android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL); android.provider.Settings.System.putInt(getContentResolver(),android.provider.Settings.System.SCREEN_BRIGHTNESS,Math.min(255,v+25)); return true; } }
-        if (testo.equals("luminosita giu") || testo.equals("luminosità giù") || testo.equals("abbassa luminosita") || testo.equals("abbassa luminosità")) { if(android.provider.Settings.System.canWrite(this)){ int v=android.provider.Settings.System.getInt(getContentResolver(),android.provider.Settings.System.SCREEN_BRIGHTNESS,128); android.provider.Settings.System.putInt(getContentResolver(),android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE,android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL); android.provider.Settings.System.putInt(getContentResolver(),android.provider.Settings.System.SCREEN_BRIGHTNESS,Math.max(1,v-25)); return true; } }
-        if (testo.equals("impostazioni") || testo.equals("apri impostazioni")) { Intent i=new Intent(android.provider.Settings.ACTION_SETTINGS); i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(i); return true; }
 
         String[] verbi = {
                 "apri ",
@@ -719,26 +620,6 @@ public class LisaVoiceService extends Service {
         if (servizio == null) {
             return false;
         }
-
-        // SCROLL VOCALE VERTICALE
-        if (testo.equals("scorri in basso")
-                || testo.equals("scorri giù")
-                || testo.equals("scorri giu")
-                || testo.equals("vai giù")
-                || testo.equals("vai giu")) {
-            return servizio.scorriAvanti();
-        }
-
-        if (testo.equals("scorri in alto")
-                || testo.equals("scorri su")
-                || testo.equals("vai su")) {
-            return servizio.scorriIndietro();
-        }
-
-        if (testo.equals("recenti") || testo.equals("app recenti") || testo.equals("mostra recenti")) return servizio.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS);
-        if (testo.equals("notifiche") || testo.equals("apri notifiche") || testo.equals("mostra notifiche")) return servizio.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS);
-        if (testo.equals("blocca schermo") || testo.equals("blocca lo schermo") || testo.equals("spegni schermo")) return servizio.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN);
-        if (testo.equals("screenshot") || testo.equals("fai screenshot") || testo.equals("fai uno screenshot")) return servizio.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT);
 
         if (testo.equals("home")
                 || testo.equals("vai alla home")) {
@@ -788,7 +669,7 @@ public class LisaVoiceService extends Service {
                 );
 
                 connessione.setReadTimeout(
-                        60000
+                        30000
                 );
 
                 connessione.setDoOutput(true);
@@ -849,25 +730,6 @@ public class LisaVoiceService extends Service {
                                 + azioneAndroid
                 );
 
-                // Se non c'e' un'azione Android da eseguire
-                // (es. Lisa sta facendo una domanda), la risposta
-                // testuale va comunque pronunciata.
-                if (azioneAndroid == null || azioneAndroid.isEmpty()) {
-                    String messaggioVocale =
-                            rispostaJson.optString("risposta", "").trim();
-
-                    if (!messaggioVocale.isEmpty()) {
-                        handler.post(() -> {
-                            if (!sessioneAttiva) return;
-                            LisaSpeaker.parla(
-                                    LisaVoiceService.this,
-                                    messaggioVocale,
-                                    () -> programmaAscolto(250)
-                            );
-                        });
-                    }
-                }
-
 
                 Log.i(
                         TAG,
@@ -892,11 +754,7 @@ public class LisaVoiceService extends Service {
                      * lascia terminare eventuale
                      * risposta vocale/azione Android.
                      */
-                    if ("apri_url".equals(azioneAndroid)) {
-                        programmaAscolto(900);
-                    } else {
-                        programmaAscolto(900);
-                    }
+                    programmaAscolto(900);
                 });
 
             } catch (Exception errore) {
@@ -1138,8 +996,6 @@ public class LisaVoiceService extends Service {
             boolean silenzioso) {
 
         sessioneAttiva = false;
-        voiceController.stopSession();
-        MainActivity.aggiornaStatoPulsante();
 
         fermaRecognizer();
 

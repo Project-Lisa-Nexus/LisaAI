@@ -539,7 +539,6 @@ public class LisaVoiceService extends Service {
             programmaAscolto(250);
             return;
         
-        }
 
         aggiornaNotifica("Lisa sta eseguendo…");
         

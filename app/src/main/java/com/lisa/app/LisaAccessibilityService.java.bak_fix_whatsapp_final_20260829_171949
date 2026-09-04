@@ -45,7 +45,7 @@ public class LisaAccessibilityService extends AccessibilityService {
 
     @Override
     public boolean onUnbind(Intent intent) {
-        Log.d(TAG, "AccessibilityService unbound: VoiceService NON viene arrestata");
+        spegniLisaCompletamente();
         return super.onUnbind(intent);
     }
 
@@ -122,172 +122,16 @@ public class LisaAccessibilityService extends AccessibilityService {
         context.startActivity(intent);
     }
 
-    public boolean cliccaPulsanteChiamata(boolean video) {
-        android.view.accessibility.AccessibilityNodeInfo radice = getRootInActiveWindow();
-        if (radice == null) return false;
-
-        String[] chiaviVideo = {"videochiamata", "video call", "video chiamata"};
-        String[] chiaviVoce = {"chiamata vocale", "voice call", "audio call", "chiama", "call"};
-
-        String[] chiavi = video ? chiaviVideo : chiaviVoce;
-
-        for (String chiave : chiavi) {
-            android.view.accessibility.AccessibilityNodeInfo trovato =
-                    cercaPerDescrizioneEscludendo(radice, chiave, video ? null : "video");
-            if (trovato != null) {
-                boolean risultato = AccessibilityUtils.click(trovato);
-                if (risultato) return true;
-            }
-        }
-        return false;
-    }
-
-    private android.view.accessibility.AccessibilityNodeInfo cercaPerDescrizioneEscludendo(
-            android.view.accessibility.AccessibilityNodeInfo nodo,
-            String chiave,
-            String daEscludere) {
-
-        if (nodo == null) return null;
-
-        CharSequence descrizione = nodo.getContentDescription();
-        if (descrizione != null) {
-            String testoDesc = descrizione.toString().toLowerCase(java.util.Locale.ITALIAN);
-            boolean contieneChiave = testoDesc.contains(chiave);
-            boolean contieneEsclusa = daEscludere != null && testoDesc.contains(daEscludere);
-
-            if (contieneChiave && !contieneEsclusa) {
-                return nodo;
-            }
-        }
-
-        for (int i = 0; i < nodo.getChildCount(); i++) {
-            android.view.accessibility.AccessibilityNodeInfo figlio = nodo.getChild(i);
-            android.view.accessibility.AccessibilityNodeInfo risultato =
-                    cercaPerDescrizioneEscludendo(figlio, chiave, daEscludere);
-            if (risultato != null) return risultato;
-        }
-
-        return null;
-    }
-
-    private android.view.accessibility.AccessibilityNodeInfo cercaPerDescrizione(
-            android.view.accessibility.AccessibilityNodeInfo nodo,
-            String chiave) {
-
-        if (nodo == null) return null;
-
-        CharSequence descrizione = nodo.getContentDescription();
-        if (descrizione != null &&
-                descrizione.toString().toLowerCase(java.util.Locale.ITALIAN).contains(chiave)) {
-            return nodo;
-        }
-
-        for (int i = 0; i < nodo.getChildCount(); i++) {
-            android.view.accessibility.AccessibilityNodeInfo figlio = nodo.getChild(i);
-            android.view.accessibility.AccessibilityNodeInfo risultato =
-                    cercaPerDescrizione(figlio, chiave);
-            if (risultato != null) return risultato;
-        }
-
-        return null;
-    }
-
     private static String messaggioInAttesa = null;
-    private String nomeOriginaleAmbiguo = null;
     private final java.util.ArrayList<String> contattiAmbigui =
             new java.util.ArrayList<>();
     private static String testoMessaggioAmbiguo = null;
-    private static String azioneAmbigua = null;
-    private static String appAmbigua = null;
-    private static String modalitaAmbigua = null;
 
 
 
     public static void scriviStatic(Context context, String destinatario, String messaggio) {
         Log.d("LisaAccessibility", "Scrivi a " + destinatario + ": " + messaggio);
         messaggioInAttesa = messaggio;
-    }
-
-    private int distanzaLevenshtein(String a, String b) {
-        int[][] d = new int[a.length() + 1][b.length() + 1];
-        for (int i = 0; i <= a.length(); i++) d[i][0] = i;
-        for (int j = 0; j <= b.length(); j++) d[0][j] = j;
-        for (int i = 1; i <= a.length(); i++) {
-            for (int j = 1; j <= b.length(); j++) {
-                int costo = (a.charAt(i - 1) == b.charAt(j - 1)) ? 0 : 1;
-                d[i][j] = Math.min(
-                        Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1),
-                        d[i - 1][j - 1] + costo
-                );
-            }
-        }
-        return d[a.length()][b.length()];
-    }
-
-    /**
-     * Quando la ricerca esatta in rubrica non trova nulla (nome sentito
-     * male dal microfono, es. "jaro" invece di "Yaro"), confronta il nome
-     * con tutti i contatti della rubrica usando la distanza di Levenshtein
-     * e propone come ambiguita' quelli abbastanza simili.
-     */
-    private String cercaContattoFonetico(String query) {
-        String queryNorm = query.trim().toLowerCase(java.util.Locale.ITALIAN);
-        if (queryNorm.isEmpty()) return null;
-
-        java.util.ArrayList<String> tuttiContatti = new java.util.ArrayList<>();
-
-        try {
-            android.database.Cursor cursor = getContentResolver().query(
-                    android.provider.ContactsContract.Contacts.CONTENT_URI,
-                    new String[]{
-                            android.provider.ContactsContract.Contacts.DISPLAY_NAME_PRIMARY
-                    },
-                    android.provider.ContactsContract.Contacts.HAS_PHONE_NUMBER + " > 0",
-                    null,
-                    null
-            );
-
-            if (cursor != null) {
-                int indice = cursor.getColumnIndex(
-                        android.provider.ContactsContract.Contacts.DISPLAY_NAME_PRIMARY
-                );
-                while (cursor.moveToNext()) {
-                    if (indice >= 0) {
-                        String nome = cursor.getString(indice);
-                        if (nome != null && !nome.trim().isEmpty()) {
-                            tuttiContatti.add(nome.trim());
-                        }
-                    }
-                }
-                cursor.close();
-            }
-        } catch (Exception e) {
-            return null;
-        }
-
-        java.util.ArrayList<String> candidati = new java.util.ArrayList<>();
-
-        for (String nome : tuttiContatti) {
-            String primoNome = nome.split("\\s+")[0].toLowerCase(java.util.Locale.ITALIAN);
-            int distanza = distanzaLevenshtein(queryNorm, primoNome);
-
-            // Tollera 1 errore ogni 4 lettere circa (es. "jaro"/"yaro" = 1).
-            int sogliaMax = Math.max(1, primoNome.length() / 4);
-
-            if (distanza <= sogliaMax) {
-                candidati.add(nome);
-            }
-        }
-
-        if (candidati.isEmpty()) return null;
-
-        if (candidati.size() == 1) {
-            return candidati.get(0);
-        }
-
-        contattiAmbigui.clear();
-        contattiAmbigui.addAll(candidati);
-        return null;
     }
 
     private String risolviContattoRubrica(String richiesto) {
@@ -297,7 +141,6 @@ public class LisaAccessibilityService extends AccessibilityService {
             return richiesto;
 
         String query = richiesto.trim();
-        nomeOriginaleAmbiguo = query;
 
         java.util.LinkedHashSet<String> trovati =
                 new java.util.LinkedHashSet<>();
@@ -337,13 +180,8 @@ public class LisaAccessibilityService extends AccessibilityService {
             return query;
         }
 
-        if (trovati.isEmpty()) {
-            String candidatoFonetico = cercaContattoFonetico(query);
-            if (candidatoFonetico != null) {
-                return candidatoFonetico;
-            }
+        if (trovati.isEmpty())
             return query;
-        }
 
         java.util.ArrayList<String> preferiti =
                 new java.util.ArrayList<>();
@@ -562,66 +400,6 @@ public class LisaAccessibilityService extends AccessibilityService {
 
 
     private volatile long ultimaChiamataMessaggio = 0;
-    private volatile long ultimaChiamataTelefono = 0;
-    private volatile boolean chiamataDuplicataIgnorata = false;
-
-    public boolean isChiamataDuplicataIgnorata() {
-        return chiamataDuplicataIgnorata;
-    }
-
-    private final android.os.Handler handlerAttesa =
-            new android.os.Handler(android.os.Looper.getMainLooper());
-
-    public boolean cercaContattoEChiama(String contatto, String appChiamata, String modalitaChiamata) {
-
-        long ora = System.currentTimeMillis();
-        if (ora - ultimaChiamataTelefono < 2000) {
-            android.util.Log.i("LisaAccessibility", "Chiamata duplicata ignorata (chiama)");
-            chiamataDuplicataIgnorata = true;
-            return false;
-        }
-        chiamataDuplicataIgnorata = false;
-        ultimaChiamataTelefono = ora;
-
-        String contattoRisolto = risolviContattoRubrica(contatto);
-
-        if (contattoRisolto == null) {
-            azioneAmbigua = "chiama";
-            appAmbigua = appChiamata;
-            modalitaAmbigua = modalitaChiamata;
-            android.util.Log.i(
-                    "LisaAccessibility",
-                    "Contatto ambiguo (chiamata): " + contatto
-            );
-            return false;
-        }
-
-        String numero = trovaNumeroContattoEsatto(contattoRisolto);
-
-        if (numero == null) {
-            android.util.Log.e(
-                    "LisaAccessibility",
-                    "Numero non trovato per: " + contattoRisolto
-            );
-            return false;
-        }
-
-        if ("whatsapp".equals(appChiamata)) {
-            boolean apertaChat = apriChatWhatsApp(numero, null);
-            if (!apertaChat) return false;
-
-            final boolean videoFinale = "video".equals(modalitaChiamata);
-
-            handlerAttesa.postDelayed(() -> {
-                cliccaPulsanteChiamata(videoFinale);
-            }, 2000);
-
-            return true;
-        }
-
-        chiamaStatic(this, numero);
-        return true;
-    }
 
     public boolean cercaContattoEScrivi(
             String contatto,
@@ -647,7 +425,6 @@ public class LisaAccessibilityService extends AccessibilityService {
 
         if (contattoRisolto == null) {
             testoMessaggioAmbiguo = messaggio;
-            azioneAmbigua = "messaggio";
             android.util.Log.i(
                     "LisaAccessibility",
                     "Contatto ambiguo: " + contatto
@@ -701,35 +478,9 @@ public class LisaAccessibilityService extends AccessibilityService {
         return;
     }
 
-    private static boolean inAttesaNuovoTesto = false;
-
     public void annullaInvio() {
         messaggioInAttesa = null;
         Log.i("LisaAccessibility", "Invio annullato dalla voce");
-    }
-
-    public void chiediNuovoTesto() {
-        inAttesaNuovoTesto = true;
-        Log.i("LisaAccessibility", "In attesa del nuovo testo da scrivere");
-    }
-
-    public boolean inAttesaDiNuovoTesto() {
-        return inAttesaNuovoTesto;
-    }
-
-    /**
-     * Sostituisce il testo gia' scritto nel campo messaggio (es. WhatsApp)
-     * con uno nuovo, senza riaprire la chat. ACTION_SET_TEXT sovrascrive
-     * sempre il contenuto esistente, quindi basta richiamare scriviTesto().
-     */
-    public boolean riscriviMessaggio(String nuovoTesto) {
-        inAttesaNuovoTesto = false;
-
-        boolean scritto = scriviTesto(nuovoTesto);
-        if (scritto) {
-            messaggioInAttesa = nuovoTesto;
-        }
-        return scritto;
     }
 
     public boolean confermaInvio() {
@@ -778,36 +529,6 @@ public class LisaAccessibilityService extends AccessibilityService {
         return !contattiAmbigui.isEmpty();
     }
 
-    private void insegnaContattoAppreso(String nomeTrovato) {
-        String sentito = nomeOriginaleAmbiguo;
-        if (sentito == null || sentito.trim().isEmpty() || nomeTrovato == null) return;
-
-        final String sentitoFinale = sentito;
-        final String esattoFinale = nomeTrovato;
-
-        new Thread(() -> {
-            try {
-                java.net.URL url = new java.net.URL("http://127.0.0.1:5000/api/impara_contatto");
-                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("POST");
-                conn.setConnectTimeout(3000);
-                conn.setReadTimeout(3000);
-                conn.setDoOutput(true);
-                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-
-                org.json.JSONObject corpo = new org.json.JSONObject();
-                corpo.put("sentito", sentitoFinale);
-                corpo.put("esatto", esattoFinale);
-
-                byte[] dati = corpo.toString().getBytes("UTF-8");
-                conn.getOutputStream().write(dati);
-                conn.getInputStream().close();
-                conn.disconnect();
-            } catch (Exception ignored) {
-            }
-        }, "Lisa-Apprendimento").start();
-    }
-
     public String risolviSceltaContatto(String scelta) {
         if (contattiAmbigui.isEmpty() || scelta == null) return null;
         String sceltaNorm = scelta.trim().toLowerCase(java.util.Locale.ITALIAN);
@@ -815,7 +536,6 @@ public class LisaAccessibilityService extends AccessibilityService {
         for (String nome : contattiAmbigui) {
             String nomeNorm = nome.toLowerCase(java.util.Locale.ITALIAN);
             if (nomeNorm.contains(sceltaNorm) || sceltaNorm.contains(nomeNorm)) {
-                insegnaContattoAppreso(nome);
                 return nome;
             }
         }
@@ -829,7 +549,6 @@ public class LisaAccessibilityService extends AccessibilityService {
                 String senzaPrimaLettera = parola.substring(1);
                 if (sceltaNorm.contains(parola) ||
                         sceltaNorm.contains(senzaPrimaLettera)) {
-                    insegnaContattoAppreso(nome);
                     return nome;
                 }
             }
@@ -842,24 +561,9 @@ public class LisaAccessibilityService extends AccessibilityService {
         return testoMessaggioAmbiguo;
     }
 
-    public String getAzioneAmbigua() {
-        return azioneAmbigua;
-    }
-
-    public String getAppAmbigua() {
-        return appAmbigua;
-    }
-
-    public String getModalitaAmbigua() {
-        return modalitaAmbigua;
-    }
-
     public void pulisciAmbiguita() {
         contattiAmbigui.clear();
         testoMessaggioAmbiguo = null;
-        azioneAmbigua = null;
-        appAmbigua = null;
-        modalitaAmbigua = null;
     }
 
 public static LisaAccessibilityService getInstance() { return instance; }

@@ -76,6 +76,33 @@ public class MainActivity extends Activity {
         layout.addView(btnVoceLisa);
 
 
+        Button btnAmbiente = new Button(this);
+        btnAmbiente.setText("🟢 START / STOP AMBIENTE");
+        btnAmbiente.setTextSize(18);
+        btnAmbiente.setMinHeight(120);
+        btnAmbiente.setOnClickListener(v -> {
+            if (btnAmbiente.getText().toString().startsWith("🟢")) {
+                try {
+                    Intent intent = new Intent();
+                    intent.setComponent(new android.content.ComponentName(
+                            "tech.ula",
+                            "tech.ula.library.MainActivity"
+                    ));
+                    startActivity(intent);
+                    btnAmbiente.setText("🔴 STOP AMBIENTE");
+                } catch (Exception e) {
+                    btnAmbiente.setText("🔴 ERRORE USERLAND");
+                }
+            } else {
+                Intent intent = new Intent("tech.ula.STOP_SESSION");
+                intent.setPackage("tech.ula");
+                sendBroadcast(intent);
+                btnAmbiente.setText("🟢 START / STOP AMBIENTE");
+            }
+        });
+        layout.addView(btnAmbiente);
+
+
         Button btnAccess = new Button(this);
         btnAccess.setText("Apri Impostazioni Accessibilita");
         btnAccess.setOnClickListener(v -> {

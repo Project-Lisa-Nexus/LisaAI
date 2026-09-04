@@ -49,7 +49,6 @@ public class LisaVoiceService extends Service {
             new Handler(Looper.getMainLooper());
 
     private SpeechRecognizer recognizer;
-    private final VoiceController voiceController = VoiceController.getInstance();
     private boolean ascoltoInCorso = false;
 
     public static boolean isSessioneAttiva() {
@@ -295,7 +294,6 @@ public class LisaVoiceService extends Service {
             );
 
             ascoltoInCorso = true;
-            voiceController.listeningStarted();
 
             aggiornaNotifica(
                     "Lisa sta ascoltando…"
@@ -347,7 +345,6 @@ public class LisaVoiceService extends Service {
             @Override
             public void onError(int error) {
                 ascoltoInCorso = false;
-                voiceController.reset();
 
                 if (!sessioneAttiva) {
                     return;
@@ -374,7 +371,6 @@ public class LisaVoiceService extends Service {
             @Override
             public void onResults(Bundle results) {
                 ascoltoInCorso = false;
-                voiceController.processingStarted();
 
                 if (!sessioneAttiva) {
                     return;
@@ -536,9 +532,8 @@ public class LisaVoiceService extends Service {
         if (eseguiLocaleRapido(comando)) {
 
             aggiornaNotifica("Lisa pronta");
-            programmaAscolto(250);
+            terminaSessione(true);
             return;
-        
         }
 
         aggiornaNotifica("Lisa sta eseguendo…");
@@ -893,7 +888,7 @@ public class LisaVoiceService extends Service {
                      * risposta vocale/azione Android.
                      */
                     if ("apri_url".equals(azioneAndroid)) {
-                        programmaAscolto(900);
+                        terminaSessione(true);
                     } else {
                         programmaAscolto(900);
                     }
@@ -1138,7 +1133,6 @@ public class LisaVoiceService extends Service {
             boolean silenzioso) {
 
         sessioneAttiva = false;
-        voiceController.stopSession();
         MainActivity.aggiornaStatoPulsante();
 
         fermaRecognizer();

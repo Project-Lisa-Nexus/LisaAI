@@ -45,7 +45,7 @@ public class LisaAccessibilityService extends AccessibilityService {
 
     @Override
     public boolean onUnbind(Intent intent) {
-        Log.d(TAG, "AccessibilityService unbound: VoiceService NON viene arrestata");
+        spegniLisaCompletamente();
         return super.onUnbind(intent);
     }
 

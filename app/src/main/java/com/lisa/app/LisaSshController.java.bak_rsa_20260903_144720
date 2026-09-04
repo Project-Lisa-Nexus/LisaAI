@@ -1,0 +1,76 @@
+package com.lisa.app;
+
+import android.content.Context;
+import com.jcraft.jsch.ChannelExec;
+import com.jcraft.jsch.JSch;
+import com.jcraft.jsch.KeyPair;
+import com.jcraft.jsch.Session;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+
+public final class LisaSshController {
+
+    private static final String HOST = "127.0.0.1";
+    private static final int PORT = 2022;
+    private static final String USER = "userland";
+    private static final String KEY_NAME = "lisa_android_ed25519";
+
+    private LisaSshController() {}
+
+    private static File getKeyFile(Context context) {
+        return new File(context.getFilesDir(), KEY_NAME);
+    }
+
+    public static synchronized void ensureKey(Context context) throws Exception {
+        File privateKey = getKeyFile(context);
+        File publicKey = new File(privateKey.getAbsolutePath() + ".pub");
+
+        if (privateKey.exists() && publicKey.exists()) {
+            return;
+        }
+
+        JSch jsch = new JSch();
+        KeyPair keyPair = KeyPair.genKeyPair(jsch, KeyPair.ED25519);
+        keyPair.writePrivateKey(privateKey.getAbsolutePath());
+        keyPair.writePublicKey(publicKey.getAbsolutePath(), "lisaapp");
+        keyPair.dispose();
+    }
+
+    public static String exec(Context context, String command) throws Exception {
+        ensureKey(context);
+
+        JSch jsch = new JSch();
+        jsch.addIdentity(getKeyFile(context).getAbsolutePath());
+
+        Session session = jsch.getSession(USER, HOST, PORT);
+        session.setConfig("StrictHostKeyChecking", "no");
+        session.setTimeout(8000);
+        session.connect(8000);
+
+        ChannelExec channel = (ChannelExec) session.openChannel("exec");
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ByteArrayOutputStream error = new ByteArrayOutputStream();
+
+        channel.setCommand(command);
+        channel.setOutputStream(output);
+        channel.setErrStream(error);
+        channel.connect(5000);
+
+        while (!channel.isClosed()) {
+            Thread.sleep(100);
+        }
+
+        int exitCode = channel.getExitStatus();
+        channel.disconnect();
+        session.disconnect();
+
+        String out = output.toString("UTF-8").trim();
+        String err = error.toString("UTF-8").trim();
+
+        if (exitCode != 0) {
+            throw new Exception("SSH exit " + exitCode + (err.isEmpty() ? "" : ": " + err));
+        }
+
+        return out;
+    }
+}

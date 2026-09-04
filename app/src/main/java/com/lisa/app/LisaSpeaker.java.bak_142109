@@ -15,11 +15,9 @@ public final class LisaSpeaker {
     private static TextToSpeech voce;
     private static boolean pronta = false;
     private static boolean parlando = false;
+
     private static String testo;
     private static Runnable alTermine;
-    private static Context appContextSalvato;
-    private static final java.util.ArrayDeque<Object[]> coda =
-            new java.util.ArrayDeque<>();
 
     private LisaSpeaker() {}
 
@@ -39,21 +37,13 @@ public final class LisaSpeaker {
             return;
         }
 
-        if (context != null) {
-            appContextSalvato = context.getApplicationContext();
-        }
-
-        if (parlando) {
-            coda.add(new Object[]{nuovoTesto.trim(), callback});
-            Log.d(TAG, "Accodato mentre Lisa parla: " + nuovoTesto);
-            return;
-        }
-
         testo = nuovoTesto.trim();
         alTermine = callback;
 
         if (voce == null) {
-            Context appContext = appContextSalvato;
+
+            Context appContext =
+                    context.getApplicationContext();
 
             voce = new TextToSpeech(
                     appContext,
@@ -63,7 +53,7 @@ public final class LisaSpeaker {
 
                             pronta =
                                     stato ==
-                                            TextToSpeech.SUCCESS;
+                                    TextToSpeech.SUCCESS;
 
                             if (!pronta) {
                                 Log.e(TAG,
@@ -79,20 +69,20 @@ public final class LisaSpeaker {
                             voce.setOnUtteranceProgressListener(
                                     new UtteranceProgressListener() {
 
-                                        @Override
-                                        public void onStart(String id) {
-                                        }
+                                @Override
+                                public void onStart(String id) {
+                                }
 
-                                        @Override
-                                        public void onDone(String id) {
-                                            completa();
-                                        }
+                                @Override
+                                public void onDone(String id) {
+                                    completa();
+                                }
 
-                                        @Override
-                                        public void onError(String id) {
-                                            completa();
-                                        }
-                                    });
+                                @Override
+                                public void onError(String id) {
+                                    completa();
+                                }
+                            });
 
                             pronuncia();
                         }
@@ -100,6 +90,7 @@ public final class LisaSpeaker {
             );
 
         } else if (pronta) {
+
             pronuncia();
         }
     }
@@ -112,14 +103,14 @@ public final class LisaSpeaker {
             return;
         }
 
+        // PRIMA di parlare Lisa smette di ascoltare.
         LisaVoiceService.sospendiPerTts();
 
         parlando = true;
-        VoiceController.getInstance().speakingStarted();
 
         String id =
                 "LISA_" +
-                        UUID.randomUUID().toString();
+                UUID.randomUUID().toString();
 
         voce.speak(
                 testo,
@@ -132,18 +123,15 @@ public final class LisaSpeaker {
     private static void completa() {
 
         Runnable callback;
-        Object[] prossimo;
 
         synchronized (LisaSpeaker.class) {
 
             parlando = false;
-            VoiceController.getInstance().speakingFinished();
 
             callback = alTermine;
+
             testo = null;
             alTermine = null;
-
-            prossimo = coda.poll();
         }
 
         if (callback != null) {
@@ -153,13 +141,8 @@ public final class LisaSpeaker {
             }
         }
 
-        if (prossimo != null) {
-            String prossimoTesto = (String) prossimo[0];
-            Runnable prossimoCallback = (Runnable) prossimo[1];
-            parla(appContextSalvato, prossimoTesto, prossimoCallback);
-            return;
-        }
-
+        // Solo DOPO che Lisa ha finito di parlare
+        // può tornare ad ascoltare.
         LisaVoiceService.riprendiDopoTts();
     }
 
@@ -168,8 +151,6 @@ public final class LisaSpeaker {
         testo = null;
         alTermine = null;
         parlando = false;
-        coda.clear();
-        VoiceController.getInstance().reset();
 
         if (voce != null) {
             try {
@@ -185,8 +166,6 @@ public final class LisaSpeaker {
         alTermine = null;
         parlando = false;
         pronta = false;
-        coda.clear();
-        VoiceController.getInstance().reset();
 
         if (voce != null) {
 

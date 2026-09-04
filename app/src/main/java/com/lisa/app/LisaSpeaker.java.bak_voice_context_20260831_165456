@@ -115,7 +115,6 @@ public final class LisaSpeaker {
         LisaVoiceService.sospendiPerTts();
 
         parlando = true;
-        VoiceController.getInstance().speakingStarted();
 
         String id =
                 "LISA_" +
@@ -137,7 +136,6 @@ public final class LisaSpeaker {
         synchronized (LisaSpeaker.class) {
 
             parlando = false;
-            VoiceController.getInstance().speakingFinished();
 
             callback = alTermine;
             testo = null;
@@ -169,7 +167,6 @@ public final class LisaSpeaker {
         alTermine = null;
         parlando = false;
         coda.clear();
-        VoiceController.getInstance().reset();
 
         if (voce != null) {
             try {
@@ -186,7 +183,6 @@ public final class LisaSpeaker {
         parlando = false;
         pronta = false;
         coda.clear();
-        VoiceController.getInstance().reset();
 
         if (voce != null) {
 
