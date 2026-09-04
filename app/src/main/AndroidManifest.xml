@@ -77,7 +77,6 @@
             android:exported="false"
             android:foregroundServiceType="microphone" />
         
-        <receiver android:name=".LisaCommandReceiver" android:exported="true"><intent-filter><action android:name="com.lisa.app.COMMAND" /></intent-filter></receiver>
         <!-- Ricevitore avvio automatico -->
         <receiver android:name=".LisaBootReceiver"
             android:enabled="true"
@@ -86,6 +85,13 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+            <receiver android:name=".LisaCommandReceiver"
+    android:enabled="true"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="com.lisa.app.LISA_COMMAND" />
+    </intent-filter>
+</receiver>
         
     
         <receiver
