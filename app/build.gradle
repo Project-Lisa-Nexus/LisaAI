@@ -20,6 +20,7 @@ android {
 
 
 dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.24"
     implementation files('libs/sherpa-onnx-1.13.5.aar')
     implementation 'com.github.mwiede:jsch:2.28.7'
 }

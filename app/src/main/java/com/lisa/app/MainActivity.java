@@ -15,6 +15,7 @@ public class MainActivity extends Activity {
     
     private static final int PERM_REQUEST = 100;
     private static volatile Button btnVoceLisaStatico;
+    private LocalWhisperAsrProbeManager localWhisperAsrProbe;
 
     public static void aggiornaStatoPulsante() {
         Button pulsante = btnVoceLisaStatico;
@@ -22,15 +23,45 @@ public class MainActivity extends Activity {
         pulsante.post(() -> {
             pulsante.setText(
                 LisaVoiceService.isSessioneAttiva()
-                        ? "chiudi"
-                        : "avvia"
+                        ? "⏹ Ferma Lisa"
+                        : "🎤 Attiva Lisa"
             );
         });
+    }
+
+    private void gestisciIntentTest(Intent intent) {
+        if (intent == null) return;
+
+        if ("com.lisa.nexus.ACTION_ANDROID_ASR_PIPE_PROBE".equals(intent.getAction())) {
+
+            Intent probe = new Intent(this, LisaVoiceService.class);
+            probe.setAction("com.lisa.nexus.ACTION_ANDROID_ASR_PIPE_PROBE");
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(probe);
+            } else {
+                startService(probe);
+            }
+
+            android.util.Log.i(
+                    "LisaMain",
+                    "Avviato probe ASR Pipe tramite Activity visibile"
+            );
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        gestisciIntentTest(intent);
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        gestisciIntentTest(getIntent());
 
         // Richiedi permessi
         richiediPermessi();
@@ -55,25 +86,81 @@ public class MainActivity extends Activity {
         btnVoceLisa.setTextSize(20);
         btnVoceLisa.setMinHeight(140);
         btnVoceLisa.setOnClickListener(v -> {
+
+            if (localWhisperAsrProbe != null
+                    && localWhisperAsrProbe.isRunning()) {
+
+                localWhisperAsrProbe.start();
+                return;
+            }
+
             Intent intent = new Intent(this, LisaVoiceService.class);
 
             if (LisaVoiceService.isSessioneAttiva()) {
-                intent.setAction(LisaVoiceService.ACTION_STOP);
-                startService(intent);
+                LisaVoiceService.fermaLisaDaPulsante();
                 btnVoceLisa.setText("🎤 Attiva Lisa");
             } else {
-                intent.setAction(LisaVoiceService.ACTION_START);
+                if (LisaAccessibilityService.getInstance() == null) {
+                    android.widget.Toast.makeText(
+                            this,
+                            "Attiva prima Accessibilità Lisa",
+                            android.widget.Toast.LENGTH_SHORT
+                    ).show();
+
+                    btnVoceLisa.setText("🎤 Attiva Lisa");
+                    return;
+                }
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     startForegroundService(intent);
                 } else {
                     startService(intent);
                 }
-
                 btnVoceLisa.setText("⏹ Ferma Lisa");
             }
         });
         layout.addView(btnVoceLisa);
+
+        // TEST ISOLATO ASR CON AUDIO SOURCE
+        Button btnAsrPipeTest = new Button(this);
+        btnAsrPipeTest.setText("🧠 TEST VOCE LOCALE");
+        btnAsrPipeTest.setTextSize(18);
+        btnAsrPipeTest.setMinHeight(120);
+
+        btnAsrPipeTest.setOnClickListener(v -> {
+
+            if (localWhisperAsrProbe == null) {
+                localWhisperAsrProbe =
+                        new LocalWhisperAsrProbeManager(
+                                this,
+                                () -> {
+                                    boolean localeAttivo =
+                                            localWhisperAsrProbe != null
+                                                    && localWhisperAsrProbe.isRunning();
+
+                                    btnAsrPipeTest.setText(
+                                            localeAttivo
+                                                    ? "⏹️ FERMA VOCE LOCALE"
+                                                    : "🧠 TEST VOCE LOCALE"
+                                    );
+
+                                    btnVoceLisa.setText(
+                                            localeAttivo
+                                                    ? "⏹️ Ferma Lisa"
+                                                    : (
+                                                        LisaVoiceService.isSessioneAttiva()
+                                                                ? "⏹ Ferma Lisa"
+                                                                : "🎤 Attiva Lisa"
+                                                    )
+                                    );
+                                }
+                        );
+            }
+
+            localWhisperAsrProbe.start();
+        });
+
+        layout.addView(btnAsrPipeTest);
 
 
         Button btnAccess = new Button(this);
@@ -84,15 +171,6 @@ public class MainActivity extends Activity {
         });
         layout.addView(btnAccess);
 
-        Button btnTestYoutube = new Button(this);
-        btnTestYoutube.setText("Test: Apri WhatsApp per nome");
-        btnTestYoutube.setOnClickListener(v -> {
-            LisaAccessibilityService service = LisaAccessibilityService.getInstance();
-            if (service != null) {
-                service.apriAppPerNome("whatsapp");
-            }
-        });
-        layout.addView(btnTestYoutube);
 
         Button btnHome = new Button(this);
         btnHome.setText("Vai alla Home");

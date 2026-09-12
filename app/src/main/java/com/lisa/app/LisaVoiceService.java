@@ -8,6 +8,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -32,13 +33,17 @@ import java.util.Locale;
 
 public class LisaVoiceService extends Service {
 
-    public static final String ACTION_START =
-            "com.lisa.app.voice.START";
 
-    public static final String ACTION_STOP =
-            "com.lisa.app.voice.STOP";
 
     private static final String TAG = "LisaVoiceSession";
+
+    public static final String ACTION_WAKE_TEST =
+            "com.lisa.app.WAKE_TEST";
+    public static final String ACTION_ASR_PROBE = "com.lisa.app.ASR_PROBE";
+
+    private WakeWordManager wakeWordManager;
+    private AsrProbeManager asrProbeManager;
+
     private static final String CHANNEL_ID = "LisaVoiceChannel";
     private static final String API_LISA =
             "http://127.0.0.1:5000/api/invoca";
@@ -51,6 +56,9 @@ public class LisaVoiceService extends Service {
     private SpeechRecognizer recognizer;
     private final VoiceController voiceController = VoiceController.getInstance();
     private boolean ascoltoInCorso = false;
+    private int errorSilenzioConsecutivi = 0;
+    private boolean inAttesaVuoiFareAltro = false;
+    private Runnable ascoltoProgrammato;
 
     public static boolean isSessioneAttiva() {
         return sessioneAttiva;
@@ -119,12 +127,12 @@ public class LisaVoiceService extends Service {
                 .setUsage(android.media.AudioAttributes.USAGE_ASSISTANT)
                 .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
                 .build();
-            focusRequest = new android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
+            focusRequest = new android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
                 .setAudioAttributes(attrs)
                 .build();
             audioManager.requestAudioFocus(focusRequest);
         } else {
-            audioManager.requestAudioFocus(null, android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE);
+            audioManager.requestAudioFocus(null, android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
         }
     }
 
@@ -136,6 +144,11 @@ public class LisaVoiceService extends Service {
             audioManager.abandonAudioFocus(null);
         }
     }
+
+    public static final String ACTION_LOCAL_WHISPER_SESSION =
+            "com.lisa.nexus.ACTION_LOCAL_WHISPER_SESSION";
+
+    private AndroidAsrPipeProbeManager androidAsrPipeProbeManager;
 
     @Override
     public void onCreate() {
@@ -156,14 +169,10 @@ public class LisaVoiceService extends Service {
                         ? intent.getAction()
                         : null;
 
-        if (ACTION_STOP.equals(azione)) {
-            terminaSessione(false);
-            return START_NOT_STICKY;
-        }
-
         startForeground(
                 1,
-                creaNotifica("Lisa attiva")
+                creaNotifica("Lisa attiva"),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
         );
 
         if (checkSelfPermission(
@@ -175,6 +184,69 @@ public class LisaVoiceService extends Service {
             return START_NOT_STICKY;
         }
 
+        if (!accessibilitaLisaAttiva()) {
+            Log.i(TAG, "Avvio voce rifiutato: Accessibility Lisa OFF");
+            sessioneAttiva = false;
+            voiceController.reset();
+
+            try {
+                stopForeground(true);
+            } catch (Exception ignored) {
+            }
+
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+
+        if (ACTION_LOCAL_WHISPER_SESSION.equals(azione)) {
+
+            // Whisper locale possiede il microfono.
+            // Il Service resta foreground per mantenere viva
+            // la sessione anche quando viene aperta un'altra app.
+            sessioneAttiva = false;
+            fermaRecognizer();
+            voiceController.reset();
+
+            if (wakeWordManager != null) {
+                wakeWordManager.stopListening();
+            }
+
+            aggiornaNotifica("Lisa - ascolto locale attivo");
+            Log.i(TAG, "SESSIONE WHISPER LOCALE AGGANCIATA AL SERVICE");
+
+            return START_STICKY;
+        }
+
+        if (ACTION_WAKE_TEST.equals(azione)) {
+
+            avviaWakeTest();
+
+            return START_STICKY;
+        }
+
+        if ("com.lisa.nexus.ACTION_ANDROID_ASR_PIPE_PROBE".equals(azione)) {
+
+            avviaAndroidAsrPipeProbe();
+
+            return START_STICKY;
+        }
+
+        if (ACTION_ASR_PROBE.equals(azione)) {
+
+            avviaAsrProbe();
+
+            return START_STICKY;
+        }
+
+        // Se stiamo entrando manualmente nella sessione comandi,
+        // il wake deve rilasciare il microfono.
+        if (wakeWordManager != null) {
+            wakeWordManager.stopListening();
+        }
+
+        // Nuova attivazione manuale: il controller deve uscire
+        // da eventuale STOPPING rimasto dalla sessione precedente.
+        voiceController.startSession();
         sessioneAttiva = true;
 
         aggiornaNotifica(
@@ -186,39 +258,334 @@ public class LisaVoiceService extends Service {
         return START_NOT_STICKY;
     }
 
-    private void programmaAscolto(long ritardoMs) {
-        if (!sessioneAttiva
-                || sospesoPerTts
-                || LisaSpeaker.isParlando()) {
+
+
+    public static void eseguiComandoWhisperLocale(
+            String frase) {
+
+        LisaVoiceService servizio = instance;
+
+        if (servizio == null
+                || frase == null
+                || frase.trim().isEmpty()) {
+
+            Log.w(TAG,
+                    "Comando Whisper non eseguito: Service non disponibile");
             return;
         }
 
+        new android.os.Handler(
+                android.os.Looper.getMainLooper()
+        ).post(() -> {
 
-        if (!sessioneAttiva) return;
+            String comando =
+                    servizio.rimuoviRichiamoLisa(frase)
+                            .replaceAll("[^\\p{L}\\p{N}\\s]+", " ")
+                            .replaceAll("\\s+", " ")
+                            .trim();
 
-        handler.removeCallbacksAndMessages(null);
+            boolean eseguito =
+                    servizio.eseguiLocaleRapido(comando);
+
+            Log.i(
+                    TAG,
+                    "WHISPER -> COMANDO LOCALE: "
+                            + comando
+                            + " | eseguito="
+                            + eseguito
+            );
+        });
+    }
+
+    public static void fermaSessioneWhisperLocale() {
+
+        LisaVoiceService servizio = instance;
+
+        if (servizio == null) {
+            return;
+        }
+
+        new android.os.Handler(
+                android.os.Looper.getMainLooper()
+        ).post(() -> {
+
+            sessioneAttiva = false;
+            servizio.voiceController.reset();
+
+            try {
+                servizio.stopForeground(true);
+            } catch (Exception ignored) {
+            }
+
+            servizio.stopSelf();
+
+            Log.i(
+                    TAG,
+                    "SERVICE WHISPER LOCALE TERMINATO"
+            );
+        });
+    }
+
+
+    private void avviaAndroidAsrPipeProbe() {
+
+        sessioneAttiva = false;
+        fermaRecognizer();
+        voiceController.reset();
+
+        if (wakeWordManager != null) {
+            wakeWordManager.stopListening();
+        }
+
+        if (androidAsrPipeProbeManager != null) {
+            androidAsrPipeProbeManager.release();
+        }
+
+        aggiornaNotifica(
+                "Test ASR AudioSource"
+        );
+
+        androidAsrPipeProbeManager =
+                new AndroidAsrPipeProbeManager(
+                        this,
+                        () -> handler.post(() -> {
+                            Log.i(
+                                    TAG,
+                                    "Android ASR Pipe probe completato"
+                            );
+
+                            try {
+                                stopForeground(true);
+                            } catch (Exception ignored) {}
+
+                            stopSelf();
+                        })
+                );
+
+        androidAsrPipeProbeManager.start();
+    }
+
+
+    private void avviaAsrProbe() {
+
+        if (!accessibilitaLisaAttiva()) {
+            Log.i(TAG, "ASR probe rifiutato: Accessibility Lisa OFF");
+            return;
+        }
+
+        sessioneAttiva = false;
+
+        fermaRecognizer();
+        voiceController.reset();
+
+        if (wakeWordManager != null) {
+            wakeWordManager.stopListening();
+        }
+
+        if (asrProbeManager != null) {
+            asrProbeManager.release();
+        }
+
+        asrProbeManager =
+                new AsrProbeManager(this);
+
+        aggiornaNotifica(
+                "Diagnostica ASR in ascolto"
+        );
+
+        asrProbeManager.start();
+
+        Log.i(
+                TAG,
+                "ASR probe: " + asrProbeManager.getStatus()
+        );
+    }
+
+    public static String asrProbeStatusStatic() {
+
+        LisaVoiceService servizio = instance;
+
+        if (servizio == null) {
+            return "SERVICE_NULL";
+        }
+
+        if (servizio.asrProbeManager == null) {
+            return "PROBE_NULL";
+        }
+
+        return servizio.asrProbeManager.getStatus();
+    }
+
+
+    private void assicuraWakeManager() {
+
+        if (wakeWordManager != null) {
+            return;
+        }
+
+        wakeWordManager =
+                new WakeWordManager(
+                        this,
+                        new WakeWordManager.Listener() {
+
+                            @Override
+                            public void onWakeWord(String keyword) {
+
+                                handler.post(() -> {
+
+                                    Log.i(
+                                            TAG,
+                                            "WAKE ricevuta dal manager: "
+                                                    + keyword
+                                    );
+
+                                    if (!accessibilitaLisaAttiva()) {
+                                        return;
+                                    }
+
+                                    if (wakeWordManager != null) {
+                                        wakeWordManager.stopListening();
+                                    }
+
+                                    voiceController.startSession();
+                                    sessioneAttiva = true;
+
+                                    MainActivity.aggiornaStatoPulsante();
+
+                                    aggiornaNotifica(
+                                            "Lisa pronta ad ascoltare"
+                                    );
+
+                                    LisaSpeaker.parla(
+                                            LisaVoiceService.this,
+                                            "Ti ascolto",
+                                            () -> programmaAscolto(100)
+                                    );
+                                });
+                            }
+
+                            @Override
+                            public void onWakeError(Throwable error) {
+
+                                Log.e(
+                                        TAG,
+                                        "Wake manager errore",
+                                        error
+                                );
+
+                                handler.post(() ->
+                                        aggiornaNotifica(
+                                                "Errore wake word"
+                                        )
+                                );
+                            }
+                        }
+                );
+    }
+
+
+    private void avviaWakeTest() {
+
+        if (!accessibilitaLisaAttiva()) {
+            Log.i(TAG, "Wake test rifiutato: Accessibility OFF");
+            return;
+        }
+
+        sessioneAttiva = false;
+
+        fermaRecognizer();
+
+        voiceController.reset();
+
+        assicuraWakeManager();
+
+        aggiornaNotifica(
+                "Lisa standby — dì Ciao Lisa"
+        );
+
+        wakeWordManager.start();
+
+        Log.i(TAG, "Wake test avviato");
+    }
+
+    public static String wakeStatusStatic() {
+
+        LisaVoiceService servizio = instance;
+
+        if (servizio == null) {
+            return "SERVICE_NULL";
+        }
+
+        if (servizio.wakeWordManager == null) {
+            return "MANAGER_NULL";
+        }
+
+        return servizio.wakeWordManager.getStatus();
+    }
+
+    private boolean accessibilitaLisaAttiva() {
+        return LisaAccessibilityService.getInstance() != null;
+    }
+
+    private void programmaAscolto(long ritardoMs) {
+
+        if (!sessioneAttiva
+                || !accessibilitaLisaAttiva()
+                || sospesoPerTts
+                || LisaSpeaker.isParlando()
+                || voiceController.is(VoiceController.State.STOPPING)) {
+
+            if (sessioneAttiva && !accessibilitaLisaAttiva()) {
+                Log.i(TAG, "Accessibility Lisa OFF: chiudo Voice Engine");
+                terminaSessione(true);
+            }
+
+            return;
+        }
+
+        if (ascoltoProgrammato != null) {
+            handler.removeCallbacks(ascoltoProgrammato);
+        }
+
+        ascoltoProgrammato = () -> {
+
+            ascoltoProgrammato = null;
+
+            if (!sessioneAttiva
+                    || !accessibilitaLisaAttiva()
+                    || sospesoPerTts
+                    || LisaSpeaker.isParlando()
+                    || voiceController.is(VoiceController.State.STOPPING)) {
+
+                if (sessioneAttiva && !accessibilitaLisaAttiva()) {
+                    terminaSessione(true);
+                }
+
+                return;
+            }
+
+            if (!ascoltoInCorso) {
+                avviaAscolto();
+            }
+        };
 
         handler.postDelayed(
-                () -> {
-                    if (sessioneAttiva
-                            && !ascoltoInCorso) {
-
-                        avviaAscolto();
-                    }
-                },
-                ritardoMs
+                ascoltoProgrammato,
+                Math.max(0, ritardoMs)
         );
     }
 
     private void avviaAscolto() {
         if (!sessioneAttiva
+                || !accessibilitaLisaAttiva()
                 || sospesoPerTts
-                || LisaSpeaker.isParlando()) {
+                || LisaSpeaker.isParlando()
+                || voiceController.is(VoiceController.State.STOPPING)) {
             return;
         }
-        chiediAudioFocus();
 
-
+        // Durante il solo ascolto Lisa NON richiede audio focus.
+        // Musica/radio/video devono continuare normalmente.
         if (!sessioneAttiva) return;
 
         if (!SpeechRecognizer
@@ -238,14 +605,21 @@ public class LisaVoiceService extends Service {
 
             if (recognizer == null) {
 
-                recognizer =
-                        SpeechRecognizer
-                                .createSpeechRecognizer(
-                                        this
-                                );
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S
+                        && SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) {
 
-                Log.i(TAG,
-                        "ASR Android standard attivo (cloud)");
+                    recognizer =
+                            SpeechRecognizer.createOnDeviceSpeechRecognizer(this);
+
+                    Log.i(TAG, "ASR Android ON-DEVICE attivo");
+
+                } else {
+
+                    recognizer =
+                            SpeechRecognizer.createSpeechRecognizer(this);
+
+                    Log.i(TAG, "ASR Android standard attivo (fallback)");
+                }
 
                 recognizer.setRecognitionListener(
                         creaListener()
@@ -277,21 +651,6 @@ public class LisaVoiceService extends Service {
             voce.putExtra(
                     RecognizerIntent.EXTRA_PARTIAL_RESULTS,
                     false
-            );
-
-            voce.putExtra(
-                    "android.speech.extra.SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS",
-                    5000
-            );
-
-            voce.putExtra(
-                    "android.speech.extra.SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS",
-                    5000
-            );
-
-            voce.putExtra(
-                    "android.speech.extra.SPEECH_INPUT_MIN_LENGTH_MILLIS",
-                    15000
             );
 
             ascoltoInCorso = true;
@@ -358,22 +717,57 @@ public class LisaVoiceService extends Service {
                 }
 
                 Log.d(TAG, "SpeechRecognizer error=" + error);
+
                 boolean silenzioONessunaCorrispondenza =
                         error == SpeechRecognizer.ERROR_NO_MATCH
                                 || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT;
-                if (!silenzioONessunaCorrispondenza) {
-                    ricreaRecognizer();
-                }
-                if (sessioneAttiva) {
-                    programmaAscolto(
-                            silenzioONessunaCorrispondenza ? 900 : 250
+
+                if (silenzioONessunaCorrispondenza) {
+
+                    errorSilenzioConsecutivi++;
+
+                    Log.i(
+                            TAG,
+                            "ASR silenzio/no-match consecutivo="
+                                    + errorSilenzioConsecutivi
                     );
+
+                    // Un solo tentativo automatico.
+                    // Al secondo errore consecutivo niente loop di click.
+                    if (errorSilenzioConsecutivi >= 2) {
+
+                        LisaAccessibilityService servizio =
+                                LisaAccessibilityService.getInstance();
+
+                        if (servizio != null) {
+                            servizio.annullaInvio();
+                        }
+
+                        Log.i(
+                                TAG,
+                                "ASR: limite silenzio raggiunto, sessione chiusa"
+                        );
+
+                        terminaSessione(true);
+                        return;
+                    }
+
+                    programmaAscolto(1200);
+                    return;
+                }
+
+                errorSilenzioConsecutivi = 0;
+                ricreaRecognizer();
+
+                if (sessioneAttiva) {
+                    programmaAscolto(500);
                 }
             }
 
             @Override
             public void onResults(Bundle results) {
                 ascoltoInCorso = false;
+                errorSilenzioConsecutivi = 0;
                 voiceController.processingStarted();
 
                 if (!sessioneAttiva) {
@@ -390,7 +784,24 @@ public class LisaVoiceService extends Service {
                     return;
                 }
 
+                Log.i(TAG, "ASR ipotesi: " + frasi);
+
                 String frase = frasi.get(0).trim();
+
+                // STOP di sicurezza:
+                // SpeechRecognizer può restituire più ipotesi.
+                // Se una di esse è chiaramente uno STOP, ha priorità.
+                for (String candidata : frasi) {
+                    if (candidata == null) continue;
+
+                    String pulita = candidata.trim();
+
+                    if (!pulita.isEmpty() && richiestaStop(pulita)) {
+                        frase = pulita;
+                        Log.i(TAG, "STOP scelto da ipotesi ASR: " + frase);
+                        break;
+                    }
+                }
 
                 if (frase.isEmpty()) {
                     programmaAscolto(250);
@@ -415,21 +826,117 @@ public class LisaVoiceService extends Service {
     private void gestisciFrase(String frase) {
         String testo = frase.toLowerCase(Locale.ITALIAN).trim();
 
+        // STOP ASSOLUTO: priorità massima.
+        if (richiestaStop(testo)) {
+            String risposta = testo.contains("buonanotte")
+                    ? "Buonanotte."
+                    : "Va bene.";
+
+            sessioneAttiva = false;
+            inAttesaVuoiFareAltro = false;
+            voiceController.stopSession();
+
+            LisaAccessibilityService servizioStop =
+                    LisaAccessibilityService.getInstance();
+
+            if (servizioStop != null) {
+                servizioStop.annullaInvio();
+            }
+
+            fermaRecognizer();
+            try {
+                stopForeground(true);
+            } catch (Exception ignored) {
+            }
+            stopSelf();
+
+            // La sessione è realmente terminata:
+            // aggiorna anche il pulsante visibile.
+            MainActivity.aggiornaStatoPulsante();
+
+            LisaSpeaker.parla(
+                    getApplicationContext(),
+                    risposta,
+                    () -> {}
+            );
+
+            Log.i(TAG, "Lisa fermata dalla voce: " + testo);
+            return;
+        }
+
+        // RISPOSTA CONTESTUALE A "VUOI FARE ALTRO?"
+        if (inAttesaVuoiFareAltro) {
+
+            boolean rispostaNo =
+                    testo.equals("no")
+                    || testo.equals("no grazie")
+                    || testo.equals("niente")
+                    || testo.equals("nulla")
+                    || testo.equals("basta così")
+                    || testo.equals("basta cosi");
+
+            boolean rispostaSi =
+                    testo.equals("sì")
+                    || testo.equals("si")
+                    || testo.equals("ok")
+                    || testo.equals("va bene")
+                    || testo.equals("certo");
+
+            if (rispostaNo) {
+                inAttesaVuoiFareAltro = false;
+
+                terminaSessione(false);
+
+                LisaSpeaker.parla(
+                        getApplicationContext(),
+                        "Va bene.",
+                        () -> {}
+                );
+
+                return;
+            }
+
+            if (rispostaSi) {
+                inAttesaVuoiFareAltro = false;
+
+                LisaSpeaker.parla(
+                        this,
+                        "Dimmi pure.",
+                        () -> programmaAscolto(250)
+                );
+
+                aggiornaNotifica("Lisa pronta");
+                return;
+            }
+
+            // Se l'utente risponde direttamente con un comando
+            // ("apri YouTube", "vai alla home"...), non richiediamo
+            // un sì intermedio: usciamo dallo stato e processiamo normalmente.
+            inAttesaVuoiFareAltro = false;
+        }
+
+        LisaAccessibilityService statoMessaggio =
+                LisaAccessibilityService.getInstance();
+
         // Conferma messaggio WhatsApp: usa IL MICROFONO PRINCIPALE di Lisa.
-        if (testo.equals("invia")
+        if (statoMessaggio != null
+                && statoMessaggio.haMessaggioInAttesa()
+                && (testo.equals("invia")
                 || testo.equals("invio")
                 || testo.equals("sì")
                 || testo.equals("si")
                 || testo.equals("ok")
                 || testo.contains("conferma")
-                || testo.contains("confermo")) {
+                || testo.contains("confermo"))) {
             android.content.Intent conferma =
                     new android.content.Intent(this, LisaCommandReceiver.class);
             conferma.setAction(LisaCommandReceiver.ACTION_LISA_COMMAND);
             conferma.putExtra("azione", "conferma_invio");
             sendBroadcast(conferma);
-            aggiornaNotifica("Lisa pronta");
-            programmaAscolto(650);
+
+            // Fine procedura WhatsApp:
+            // dopo INVIA Lisa torna inattiva.
+            terminaSessione(false);
             return;
         }
 
@@ -448,8 +955,12 @@ public class LisaVoiceService extends Service {
 
         // "no" da solo (senza "annulla") significa: non inviare cosi',
         // ma voglio riscrivere il messaggio con un testo diverso.
-        if (testo.equals("no") || testo.equals("no, riscrivi")
-                || testo.contains("riscrivi") || testo.contains("cambia messaggio")) {
+        if (statoMessaggio != null
+                && statoMessaggio.haMessaggioInAttesa()
+                && (testo.equals("no")
+                || testo.equals("no, riscrivi")
+                || testo.contains("riscrivi")
+                || testo.contains("cambia messaggio"))) {
             LisaAccessibilityService servizioRiscrivi = LisaAccessibilityService.getInstance();
             if (servizioRiscrivi != null) {
                 servizioRiscrivi.chiediNuovoTesto();
@@ -461,6 +972,134 @@ public class LisaVoiceService extends Service {
                 aggiornaNotifica("Lisa pronta");
                 return;
             }
+        }
+
+        // COMANDO EDITING CONTESTUALE:
+        // valido soltanto mentre Lisa sta aspettando il nuovo testo.
+        LisaAccessibilityService servizioEditing =
+                LisaAccessibilityService.getInstance();
+
+        if (servizioEditing != null
+                && servizioEditing.inAttesaDiNuovoTesto()) {
+
+            String comandoEditing =
+                    testo.replaceAll("[,;:!?\\.]+", " ")
+                            .replaceAll("\\s+", " ")
+                            .trim();
+
+            // "Niente" significa: non voglio più riscrivere questo messaggio.
+            boolean richiestaNiente =
+                    comandoEditing.equals("niente")
+                    || comandoEditing.equals("nulla")
+                    || comandoEditing.equals("lascia stare")
+                    || comandoEditing.equals("non scrivere niente")
+                    || comandoEditing.equals("non scrivere nulla")
+                    || comandoEditing.equals("niente cancella tutto");
+
+            // Punteggiatura già normalizzata:
+            // "niente, torna alla home" -> "niente torna alla home"
+            boolean richiestaNienteHome =
+                    comandoEditing.equals("niente torna alla home")
+                    || comandoEditing.equals("niente vai alla home")
+                    || comandoEditing.equals("nulla torna alla home")
+                    || comandoEditing.equals("nulla vai alla home");
+
+            boolean richiestaHomeDaRiscrittura =
+                    comandoEditing.equals("home")
+                    || comandoEditing.equals("vai alla home")
+                    || comandoEditing.equals("torna alla home")
+                    || comandoEditing.equals("portami alla home")
+                    || comandoEditing.equals("schermata principale")
+                    || comandoEditing.equals("vai alla schermata principale")
+                    || comandoEditing.equals("torna alla schermata principale");
+
+            if (richiestaNiente || richiestaNienteHome) {
+
+                boolean cancellato =
+                        servizioEditing.cancellaTestoCorrente();
+
+                // cancellaTestoCorrente lascia volutamente attiva
+                // la riscrittura; qui invece vogliamo uscirne.
+                servizioEditing.annullaInvio();
+
+                if (richiestaNienteHome) {
+                    eseguiLocaleRapido("torna alla home");
+                }
+
+                String risposta = cancellato
+                        ? "Va bene. Vuoi fare altro?"
+                        : "Ho annullato, ma non sono riuscita a cancellare il testo. Vuoi fare altro?";
+
+                inAttesaVuoiFareAltro = true;
+
+                LisaSpeaker.parla(
+                        this,
+                        risposta,
+                        () -> programmaAscolto(250)
+                );
+
+                aggiornaNotifica("Lisa pronta");
+                return;
+            }
+
+            // Se durante la riscrittura l'utente decide di andare alla Home,
+            // abbandoniamo prima lo stato messaggio per non trascinarlo
+            // nella richiesta successiva.
+            if (richiestaHomeDaRiscrittura) {
+
+                servizioEditing.annullaInvio();
+
+                if (eseguiLocaleRapido(comandoEditing)) {
+                    inAttesaVuoiFareAltro = true;
+
+                    LisaSpeaker.parla(
+                            this,
+                            "Va bene. Vuoi fare altro?",
+                            () -> programmaAscolto(250)
+                    );
+
+                    aggiornaNotifica("Lisa pronta");
+                    return;
+                }
+            }
+
+            boolean richiestaCancella =
+                    comandoEditing.equals("cancella tutto")
+                    || comandoEditing.equals("cancella il testo")
+                    || comandoEditing.equals("svuota il campo")
+                    || comandoEditing.equals("niente cancella tutto");
+
+            if (richiestaCancella) {
+                boolean cancellato =
+                        servizioEditing.cancellaTestoCorrente();
+
+                if (cancellato) {
+                    LisaSpeaker.parla(
+                            this,
+                            "Testo cancellato. Cosa vuoi scrivere?",
+                            () -> programmaAscolto(250)
+                    );
+                } else {
+                    LisaSpeaker.parla(
+                            this,
+                            "Non sono riuscita a cancellare il testo.",
+                            () -> programmaAscolto(250)
+                    );
+                }
+
+                aggiornaNotifica("Lisa pronta");
+                return;
+            }
+        }
+
+        // I COMANDI ANDROID HANNO SEMPRE PRIORITÀ SUL TESTO DA SCRIVERE.
+        // Anche durante la riscrittura WhatsApp, un comando come "torna alla home"
+        // deve essere eseguito dall'AccessibilityService e NON inserito nel campo testo.
+        String comandoAndroid = testo;
+        if (eseguiLocaleRapido(comandoAndroid)) {
+            aggiornaNotifica("Lisa pronta");
+            programmaAscolto(250);
+            return;
         }
 
         // Se Lisa sta aspettando il nuovo testo per riscrivere il messaggio.
@@ -487,36 +1126,6 @@ public class LisaVoiceService extends Service {
 
                 frase.toLowerCase(Locale.ITALIAN).trim();
 
-        if (richiestaStop(testo)) {
-
-            String risposta =
-                    testo.contains("buonanotte")
-                            ? "Buonanotte."
-                            : "Va bene.";
-
-            // PRIMA spegniamo davvero Lisa.
-            sessioneAttiva = false;
-            MainActivity.aggiornaStatoPulsante();
-            fermaRecognizer();
-
-            try {
-                stopForeground(true);
-            } catch (Exception ignored) {
-            }
-
-            stopSelf();
-
-            // La risposta vocale NON decide più
-            // se il microfono deve spegnersi.
-            LisaSpeaker.parla(
-                    getApplicationContext(),
-                    risposta,
-                    () -> {}
-            );
-
-            Log.i(TAG, "Lisa fermata dalla voce");
-            return;
-        }
 
         String comando = rimuoviRichiamoLisa(frase);
 
@@ -569,7 +1178,12 @@ public class LisaVoiceService extends Service {
 
                 // Esegue subito, senza rimandare la frase a LisaOS:
                 // evita una seconda interpretazione che puo' sbagliare.
-                boolean riuscito = servizioAmbiguo.cercaContattoEScrivi(nomeRisolto, testoSalvato);
+                boolean riuscito = servizioAmbiguo.cercaContattoEInvia(
+                        nomeRisolto,
+                        testoSalvato,
+                        appSalvata,
+                        null
+                );
 
                 if (riuscito) {
                     LisaSpeaker.parla(
@@ -597,23 +1211,34 @@ public class LisaVoiceService extends Service {
 
         if (frase == null) return false;
 
+        // Normalizza prima eventuale punteggiatura dell'ASR:
+        // "Lisa, basta" -> "lisa basta"
         String testo =
                 frase.toLowerCase(Locale.ITALIAN)
                         .trim()
+                        .replaceAll("[,;:!?\\.]+", " ")
                         .replaceAll("\\s+", " ");
 
-        // Queste sono chiamate a Lisa, NON comandi di stop.
-        if (testo.equals("ciao lisa")
-                || testo.equals("ehi lisa")
-                || testo.equals("hey lisa")) {
-            return false;
-        }
+        // Il richiamo a Lisa NON deve impedire lo STOP:
+        // "Lisa basta" / "Ehi Lisa smetti di ascoltare"
+        // diventano rispettivamente "basta" / "smetti di ascoltare".
+        testo =
+                rimuoviRichiamoLisa(testo)
+                        .toLowerCase(Locale.ITALIAN)
+                        .trim()
+                        .replaceAll("\\s+", " ");
+
+        // Solo il richiamo ("Lisa", "Ehi Lisa", ecc.) non è uno STOP.
+        if (testo.isEmpty()) return false;
 
         return testo.equals("basta")
                 || testo.equals("stop")
                 || testo.equals("fermati")
                 || testo.equals("smetti")
                 || testo.equals("smetti di ascoltare")
+                || testo.equals("smetto di ascoltare")
+                || testo.equals("smettere di ascoltare")
+                || testo.equals("smetti di ascoltarmi")
                 || testo.equals("non ascoltare più")
                 || testo.equals("non ascoltare piu")
                 || testo.equals("ciao")
@@ -713,11 +1338,82 @@ public class LisaVoiceService extends Service {
             }
         }
 
+        // FAST INTENT ANDROID:
+        // modi naturali di chiedere di entrare/usare un'app.
+        // Il nome viene poi risolto universalmente da AppFinder.
+        String[] prefissiAperturaNaturale = {
+                "fammi usare ",
+                "voglio usare ",
+                "vorrei usare ",
+                "portami su ",
+                "portami a ",
+                "vai su ",
+                "vai a ",
+                "entra in ",
+                "entra su ",
+                "fammi vedere ",
+                "mostrami "
+        };
+
+        for (String prefisso : prefissiAperturaNaturale) {
+
+            if (testo.startsWith(prefisso)) {
+
+                String nomeApp =
+                        frase.substring(prefisso.length()).trim();
+
+                if (!nomeApp.isEmpty()
+                        && AppFinder.apriAppPerNome(this, nomeApp)) {
+
+                    Log.i(TAG,
+                            "FAST app naturale: "
+                                    + frase
+                                    + " -> "
+                                    + nomeApp);
+
+                    return true;
+                }
+            }
+        }
+
         LisaAccessibilityService servizio =
                 LisaAccessibilityService.getInstance();
 
         if (servizio == null) {
             return false;
+        }
+
+        // FAST INTENT ACCESSIBILITY:
+        // agisce direttamente sugli elementi visibili.
+        String[] verbiClickNaturali = {
+                "clicca ",
+                "tocca ",
+                "premi ",
+                "seleziona ",
+                "scegli ",
+                "attiva ",
+                "disattiva ",
+                "abilita ",
+                "disabilita "
+        };
+
+        for (String verboClick : verbiClickNaturali) {
+
+            if (testo.startsWith(verboClick)) {
+
+                String bersaglio =
+                        frase.substring(verboClick.length()).trim();
+
+                if (!bersaglio.isEmpty()
+                        && servizio.cliccaTesto(bersaglio)) {
+
+                    Log.i(TAG,
+                            "FAST click naturale: "
+                                    + bersaglio);
+
+                    return true;
+                }
+            }
         }
 
         // SCROLL VOCALE VERTICALE
@@ -741,7 +1437,12 @@ public class LisaVoiceService extends Service {
         if (testo.equals("screenshot") || testo.equals("fai screenshot") || testo.equals("fai uno screenshot")) return servizio.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT);
 
         if (testo.equals("home")
-                || testo.equals("vai alla home")) {
+                || testo.equals("vai alla home")
+                || testo.equals("torna alla home")
+                || testo.equals("portami alla home")
+                || testo.equals("schermata principale")
+                || testo.equals("vai alla schermata principale")
+                || testo.equals("torna alla schermata principale")) {
 
             return servizio.performGlobalAction(
                     android.accessibilityservice
@@ -751,7 +1452,8 @@ public class LisaVoiceService extends Service {
         }
 
         if (testo.equals("indietro")
-                || testo.equals("torna indietro")) {
+                || testo.equals("torna indietro")
+                || testo.equals("vai indietro")) {
 
             return servizio.performGlobalAction(
                     android.accessibilityservice
@@ -805,6 +1507,65 @@ public class LisaVoiceService extends Service {
                         "testo",
                         "Lisa " + frase
                 );
+
+                // CONTEXT ENGINE V1:
+                // invia a LisaOS lo stato corrente rilevato
+                // dall'AccessibilityService.
+                LisaAccessibilityService servizioContesto =
+                        LisaAccessibilityService.getInstance();
+
+                if (servizioContesto != null) {
+                    JSONObject contesto = new JSONObject();
+
+                    contesto.put(
+                            "pacchetto",
+                            servizioContesto.getCurrentPackageName()
+                    );
+                    contesto.put(
+                            "classe",
+                            servizioContesto.getCurrentClassName()
+                    );
+                    contesto.put(
+                            "window_id",
+                            servizioContesto.getCurrentWindowId()
+                    );
+                    contesto.put(
+                            "focus_input",
+                            servizioContesto.hasCurrentInputFocus()
+                    );
+                    contesto.put(
+                            "editabile",
+                            servizioContesto.isCurrentEditable()
+                    );
+                    contesto.put(
+                            "timestamp",
+                            servizioContesto.getCurrentContextTimestamp()
+                    );
+
+                    java.util.ArrayList<String> appVisibili =
+                            servizioContesto.getVisiblePackageNames();
+
+                    org.json.JSONArray visibiliJson =
+                            new org.json.JSONArray();
+
+                    for (String pkg : appVisibili) {
+                        visibiliJson.put(pkg);
+                    }
+
+                    contesto.put("app_visibili", visibiliJson);
+
+                    richiesta.put("contesto", contesto);
+
+                    Log.i(
+                            TAG,
+                            "CTX_HTTP app="
+                                    + servizioContesto.getCurrentPackageName()
+                                    + " visible="
+                                    + appVisibili
+                                    + " editable="
+                                    + servizioContesto.isCurrentEditable()
+                    );
+                }
 
                 byte[] dati =
                         richiesta
@@ -1134,11 +1895,21 @@ public class LisaVoiceService extends Service {
         ricreaRecognizer();
     }
 
+    public static void fermaLisaDaPulsante() {
+        LisaVoiceService servizio = instance;
+        if (servizio != null) {
+            servizio.handler.post(() -> servizio.terminaSessione(false));
+        }
+    }
+
     private void terminaSessione(
             boolean silenzioso) {
 
         sessioneAttiva = false;
         voiceController.stopSession();
+
+        // Aggiorna subito la MainActivity:
+        // da "Ferma Lisa" a "Attiva Lisa".
         MainActivity.aggiornaStatoPulsante();
 
         fermaRecognizer();
@@ -1237,7 +2008,18 @@ public class LisaVoiceService extends Service {
 
         sessioneAttiva = false;
 
+        // Ultima sincronizzazione UI quando il Service muore.
+        MainActivity.aggiornaStatoPulsante();
+
         fermaRecognizer();
+
+        if (wakeWordManager != null) {
+            wakeWordManager.release();
+            wakeWordManager = null;
+        }
+
+        // Il Service è realmente terminato: stato vocale nuovamente pulito.
+        voiceController.reset();
 
         super.onDestroy();
     }
