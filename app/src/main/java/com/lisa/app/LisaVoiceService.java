@@ -49,6 +49,7 @@ public class LisaVoiceService extends Service {
             "http://127.0.0.1:5000/api/invoca";
 
     private static volatile boolean sessioneAttiva = false;
+    private static volatile boolean whisperLocaleAttivo = false;
 
     private final Handler handler =
             new Handler(Looper.getMainLooper());
@@ -77,11 +78,7 @@ public class LisaVoiceService extends Service {
         servizio.handler.post(() -> {
 
             servizio.sospesoPerTts = true;
-
-            servizio.handler
-                    .removeCallbacksAndMessages(null);
-
-            if (servizio.recognizer != null) {
+if (servizio.recognizer != null) {
 
                 try {
                     servizio.recognizer.cancel();
@@ -91,7 +88,9 @@ public class LisaVoiceService extends Service {
 
             servizio.ascoltoInCorso = false;
 
-            servizio.rilasciaAudioFocus();
+            if (!whisperLocaleAttivo) {
+                servizio.chiediAudioFocus();
+            }
 
             Log.d(TAG,
                     "ASR sospeso: Lisa sta parlando");
@@ -106,9 +105,13 @@ public class LisaVoiceService extends Service {
 
         servizio.handler.postDelayed(() -> {
 
+            if (!whisperLocaleAttivo) {
+                servizio.rilasciaAudioFocus();
+            }
+
             servizio.sospesoPerTts = false;
 
-            if (sessioneAttiva) {
+            if (sessioneAttiva && !whisperLocaleAttivo) {
                 servizio.programmaAscolto(250);
             }
 
@@ -127,12 +130,12 @@ public class LisaVoiceService extends Service {
                 .setUsage(android.media.AudioAttributes.USAGE_ASSISTANT)
                 .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
                 .build();
-            focusRequest = new android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+            focusRequest = new android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
                 .setAudioAttributes(attrs)
                 .build();
             audioManager.requestAudioFocus(focusRequest);
         } else {
-            audioManager.requestAudioFocus(null, android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+            audioManager.requestAudioFocus(null, android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE);
         }
     }
 
@@ -203,9 +206,12 @@ public class LisaVoiceService extends Service {
             // Whisper locale possiede il microfono.
             // Il Service resta foreground per mantenere viva
             // la sessione anche quando viene aperta un'altra app.
-            sessioneAttiva = false;
+            sessioneAttiva = true;
             fermaRecognizer();
-            voiceController.reset();
+
+            whisperLocaleAttivo = true;
+            chiediAudioFocus();
+            voiceController.startSession();
 
             if (wakeWordManager != null) {
                 wakeWordManager.stopListening();
@@ -287,15 +293,206 @@ public class LisaVoiceService extends Service {
             boolean eseguito =
                     servizio.eseguiLocaleRapido(comando);
 
+            String comandoUsato = comando;
+
+            // Se il comando esatto non viene riconosciuto,
+            // prova una correzione conservativa SOLO sui comandi
+            // Android locali conosciuti.
+            if (!eseguito) {
+
+                String comandoCorretto =
+                        servizio.correggiComandoWhisperLocale(
+                                comando
+                        );
+
+                if (!comandoCorretto.equals(comando)) {
+
+                    comandoUsato = comandoCorretto;
+
+                    eseguito =
+                            servizio.eseguiLocaleRapido(
+                                    comandoCorretto
+                            );
+                }
+            }
+
             Log.i(
                     TAG,
                     "WHISPER -> COMANDO LOCALE: "
                             + comando
+                            + " | interpretato="
+                            + comandoUsato
                             + " | eseguito="
                             + eseguito
             );
+
+            // Se non è un comando Android locale,
+            // passa la frase ORIGINALE a tutto il cervello Lisa:
+            // WhatsApp, contesto, LisaOS, messaggi, ecc.
+            if (!eseguito) {
+
+                Log.i(
+                        TAG,
+                        "WHISPER -> CERVELLO COMPLETO: "
+                                + frase
+                );
+
+                servizio.gestisciFrase(frase);
+            }
         });
     }
+
+    private String correggiComandoWhisperLocale(
+            String frase) {
+
+        if (frase == null) {
+            return "";
+        }
+
+        String originale = frase.trim();
+
+        String testo =
+                java.text.Normalizer.normalize(
+                        originale.toLowerCase(Locale.ITALIAN),
+                        java.text.Normalizer.Form.NFD
+                )
+                .replaceAll("\\p{M}+", "")
+                .replaceAll("[^\\p{L}\\p{N}\\s]+", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+
+        // Non correggere frasi troppo corte:
+        // riduce il rischio di falsi comandi.
+        if (testo.length() < 7) {
+            return originale;
+        }
+
+        String[] candidati = {
+                "vai alla home",
+                "torna alla home",
+                "portami alla home",
+                "schermata principale",
+
+                "torna indietro",
+                "vai indietro",
+                "indietro",
+
+                "abbassa volume",
+                "abbassa il volume",
+                "volume giu",
+                "diminuisci volume",
+
+                "alza volume",
+                "alza il volume",
+                "volume su",
+                "aumenta volume"
+        };
+
+        String migliore = null;
+        double migliorPunteggio = 1.0;
+        double secondoPunteggio = 1.0;
+
+        for (String candidato : candidati) {
+
+            int distanza =
+                    distanzaLevenshtein(
+                            testo,
+                            candidato
+                    );
+
+            int lunghezza =
+                    Math.max(
+                            testo.length(),
+                            candidato.length()
+                    );
+
+            double punteggio =
+                    lunghezza == 0
+                            ? 1.0
+                            : distanza / (double) lunghezza;
+
+            if (punteggio < migliorPunteggio) {
+
+                secondoPunteggio = migliorPunteggio;
+                migliorPunteggio = punteggio;
+                migliore = candidato;
+
+            } else if (punteggio < secondoPunteggio) {
+
+                secondoPunteggio = punteggio;
+            }
+        }
+
+        // 0.31 cattura gli errori realmente osservati,
+        // ma richiede anche un margine netto dal secondo candidato.
+        if (migliore != null
+                && migliorPunteggio <= 0.31
+                && (secondoPunteggio - migliorPunteggio) >= 0.07) {
+
+            Log.i(
+                    TAG,
+                    "FUZZY WHISPER: "
+                            + originale
+                            + " -> "
+                            + migliore
+                            + " score="
+                            + String.format(
+                                    Locale.US,
+                                    "%.2f",
+                                    migliorPunteggio
+                            )
+            );
+
+            return migliore;
+        }
+
+        return originale;
+    }
+
+
+    private static int distanzaLevenshtein(
+            String a,
+            String b) {
+
+        int[] precedente =
+                new int[b.length() + 1];
+
+        int[] corrente =
+                new int[b.length() + 1];
+
+        for (int j = 0; j <= b.length(); j++) {
+            precedente[j] = j;
+        }
+
+        for (int i = 1; i <= a.length(); i++) {
+
+            corrente[0] = i;
+
+            for (int j = 1; j <= b.length(); j++) {
+
+                int costo =
+                        a.charAt(i - 1) == b.charAt(j - 1)
+                                ? 0
+                                : 1;
+
+                corrente[j] =
+                        Math.min(
+                                Math.min(
+                                        corrente[j - 1] + 1,
+                                        precedente[j] + 1
+                                ),
+                                precedente[j - 1] + costo
+                        );
+            }
+
+            int[] tmp = precedente;
+            precedente = corrente;
+            corrente = tmp;
+        }
+
+        return precedente[b.length()];
+    }
+
 
     public static void fermaSessioneWhisperLocale() {
 
@@ -309,7 +506,9 @@ public class LisaVoiceService extends Service {
                 android.os.Looper.getMainLooper()
         ).post(() -> {
 
+            whisperLocaleAttivo = false;
             sessioneAttiva = false;
+            servizio.rilasciaAudioFocus();
             servizio.voiceController.reset();
 
             try {
@@ -529,11 +728,17 @@ public class LisaVoiceService extends Service {
 
     private void programmaAscolto(long ritardoMs) {
 
+        // Whisper + VAD possiedono già il microfono.
+        if (whisperLocaleAttivo) {
+            return;
+        }
+
+
         if (!sessioneAttiva
                 || !accessibilitaLisaAttiva()
                 || sospesoPerTts
                 || LisaSpeaker.isParlando()
-                || voiceController.is(VoiceController.State.STOPPING)) {
+                || !voiceController.canStartListening()) {
 
             if (sessioneAttiva && !accessibilitaLisaAttiva()) {
                 Log.i(TAG, "Accessibility Lisa OFF: chiudo Voice Engine");
@@ -555,7 +760,7 @@ public class LisaVoiceService extends Service {
                     || !accessibilitaLisaAttiva()
                     || sospesoPerTts
                     || LisaSpeaker.isParlando()
-                    || voiceController.is(VoiceController.State.STOPPING)) {
+                    || !voiceController.canStartListening()) {
 
                 if (sessioneAttiva && !accessibilitaLisaAttiva()) {
                     terminaSessione(true);
@@ -576,11 +781,25 @@ public class LisaVoiceService extends Service {
     }
 
     private void avviaAscolto() {
+
+        if (ascoltoInCorso) {
+            Log.d(TAG, "ASR start ignorato: ascolto già in corso");
+            return;
+        }
+
+        if (!voiceController.canStartListening()) {
+            Log.d(
+                    TAG,
+                    "ASR start ignorato: stato=" + voiceController.getState()
+            );
+            return;
+        }
+
         if (!sessioneAttiva
                 || !accessibilitaLisaAttiva()
                 || sospesoPerTts
                 || LisaSpeaker.isParlando()
-                || voiceController.is(VoiceController.State.STOPPING)) {
+                || !voiceController.canStartListening()) {
             return;
         }
 
@@ -666,15 +885,15 @@ public class LisaVoiceService extends Service {
 
             ascoltoInCorso = false;
 
-            Log.e(
+            voiceController.reset();
+
+                Log.e(
                     TAG,
                     "Errore avvio riconoscimento",
                     errore
             );
 
             ricreaRecognizer();
-
-            programmaAscolto(800);
         }
     }
 
@@ -700,6 +919,7 @@ public class LisaVoiceService extends Service {
 
             @Override
             public void onEndOfSpeech() {
+                voiceController.listeningFinished();
                 aggiornaNotifica("Lisa sta elaborando…");
             }
 
@@ -1219,9 +1439,13 @@ public class LisaVoiceService extends Service {
                         .replaceAll("[,;:!?\\.]+", " ")
                         .replaceAll("\\s+", " ");
 
-        // Il richiamo a Lisa NON deve impedire lo STOP:
-        // "Lisa basta" / "Ehi Lisa smetti di ascoltare"
-        // diventano rispettivamente "basta" / "smetti di ascoltare".
+        // "Buonanotte" da sola può essere contenuto di un messaggio.
+        // Per spegnere Lisa con "buonanotte" serve il richiamo esplicito.
+        boolean buonanotteEsplicita =
+                testo.equals("lisa buonanotte")
+                || testo.equals("ehi lisa buonanotte")
+                || testo.equals("ciao lisa buonanotte");
+
         testo =
                 rimuoviRichiamoLisa(testo)
                         .toLowerCase(Locale.ITALIAN)
@@ -1245,7 +1469,7 @@ public class LisaVoiceService extends Service {
                 || testo.equals("a dopo")
                 || testo.equals("ok a dopo")
                 || testo.equals("va bene a dopo")
-                || testo.equals("buonanotte")
+                || buonanotteEsplicita
                 || testo.equals("buona notte")
                 || testo.equals("ci sentiamo")
                 || testo.equals("alla prossima");
@@ -1596,6 +1820,32 @@ public class LisaVoiceService extends Service {
                 String risposta =
                         leggiFlusso(flusso);
 
+                if (codice < 200 || codice >= 300) {
+                    Log.e(
+                            TAG,
+                            "LisaOS HTTP "
+                                    + codice
+                                    + ": "
+                                    + risposta
+                    );
+
+                    final int codiceErrore = codice;
+
+                    handler.post(() -> {
+                        if (!sessioneAttiva) {
+                            return;
+                        }
+
+                        LisaSpeaker.parla(
+                                LisaVoiceService.this,
+                                "Errore LisaOS HTTP " + codiceErrore + ".",
+                                () -> programmaAscolto(900)
+                        );
+                    });
+
+                    return;
+                }
+
                 JSONObject rispostaJson =
                         new JSONObject(risposta);
 
@@ -1613,13 +1863,14 @@ public class LisaVoiceService extends Service {
                 // Se non c'e' un'azione Android da eseguire
                 // (es. Lisa sta facendo una domanda), la risposta
                 // testuale va comunque pronunciata.
-                if (azioneAndroid == null || azioneAndroid.isEmpty()) {
+                if (azioneAndroid == null
+        || azioneAndroid.isEmpty()
+        || "presenza".equals(azioneAndroid)) {
                     String messaggioVocale =
                             rispostaJson.optString("risposta", "").trim();
 
                     if (!messaggioVocale.isEmpty()) {
                         handler.post(() -> {
-                            if (!sessioneAttiva) return;
                             LisaSpeaker.parla(
                                     LisaVoiceService.this,
                                     messaggioVocale,
@@ -1653,18 +1904,14 @@ public class LisaVoiceService extends Service {
                      * lascia terminare eventuale
                      * risposta vocale/azione Android.
                      */
-                    if ("apri_url".equals(azioneAndroid)) {
-                        programmaAscolto(900);
-                    } else {
-                        programmaAscolto(900);
-                    }
+                    programmaAscolto(900);
                 });
 
             } catch (Exception errore) {
 
                 Log.e(
                         TAG,
-                        "LisaOS non raggiungibile",
+                        "Errore comunicazione/elaborazione LisaOS",
                         errore
                 );
 
