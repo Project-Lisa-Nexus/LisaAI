@@ -44,7 +44,13 @@
 
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
 
-    <application
+        <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
+<application
         android:label="Lisa"
         android:icon="@drawable/ic_launcher"
         android:allowBackup="true"

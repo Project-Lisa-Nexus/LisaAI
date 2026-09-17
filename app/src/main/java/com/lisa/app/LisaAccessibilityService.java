@@ -10,15 +10,503 @@ public class LisaAccessibilityService extends AccessibilityService {
     private static final String TAG = "LisaAccessibility";
     private static LisaAccessibilityService instance;
 
+    private android.view.WindowManager indicatoreWindowManager;
+    private android.view.View indicatoreLisa;
+    private android.view.WindowManager.LayoutParams indicatoreLp;
+    private volatile boolean indicatoreAscolto = false;
+
+    // ===== CONTEXT ENGINE V1 =====
+    private volatile String contestoPacchetto = "";
+    private volatile String contestoClasse = "";
+    private volatile int contestoWindowId = -1;
+    private volatile boolean contestoFocusInput = false;
+    private volatile boolean contestoEditabile = false;
+    private volatile long contestoTimestamp = 0L;
+
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
         instance = this;
         Log.d(TAG, "Servizio accessibilita connesso");
+
+        mostraStatoLisa(false);
     }
+
+    public static void aggiornaIndicatoreAscolto(
+            boolean ascolto) {
+
+        LisaAccessibilityService servizio = instance;
+
+        if (servizio == null) {
+            return;
+        }
+
+        new android.os.Handler(
+                android.os.Looper.getMainLooper()
+        ).post(() -> servizio.mostraStatoLisa(ascolto));
+    }
+
+
+    private int dp(int valore) {
+        return Math.round(
+                valore * getResources().getDisplayMetrics().density
+        );
+    }
+
+
+    private android.graphics.drawable.GradientDrawable creaBollaLisa(
+            boolean ascolto) {
+
+        android.graphics.drawable.GradientDrawable d =
+                new android.graphics.drawable.GradientDrawable();
+
+        d.setShape(
+                android.graphics.drawable.GradientDrawable.OVAL
+        );
+
+        d.setColor(
+                ascolto
+                        ? android.graphics.Color.rgb(255, 145, 0)
+                        : android.graphics.Color.rgb(35, 200, 80)
+        );
+
+        d.setStroke(
+                dp(2),
+                android.graphics.Color.WHITE
+        );
+
+        return d;
+    }
+
+
+    private void mostraStatoLisa(boolean ascolto) {
+
+        indicatoreAscolto = ascolto;
+
+        try {
+
+            if (indicatoreWindowManager == null) {
+
+                indicatoreWindowManager =
+                        (android.view.WindowManager)
+                                getSystemService(
+                                        android.content.Context.WINDOW_SERVICE
+                                );
+            }
+
+            if (indicatoreWindowManager == null) {
+                return;
+            }
+
+            if (indicatoreLisa == null) {
+
+                indicatoreLisa =
+                        new android.view.View(this);
+
+                indicatoreLp =
+                        new android.view.WindowManager.LayoutParams(
+                                dp(42),
+                                dp(42),
+                                android.view.WindowManager.LayoutParams
+                                        .TYPE_ACCESSIBILITY_OVERLAY,
+                                android.view.WindowManager.LayoutParams
+                                        .FLAG_NOT_FOCUSABLE
+                                        | android.view.WindowManager.LayoutParams
+                                        .FLAG_NOT_TOUCH_MODAL
+                                        | android.view.WindowManager.LayoutParams
+                                        .FLAG_LAYOUT_IN_SCREEN,
+                                android.graphics.PixelFormat.TRANSLUCENT
+                        );
+
+                indicatoreLp.gravity =
+                        android.view.Gravity.TOP
+                                | android.view.Gravity.START;
+
+                android.content.SharedPreferences prefs =
+                        getSharedPreferences(
+                                "lisa_ui",
+                                MODE_PRIVATE
+                        );
+
+                indicatoreLp.x =
+                        prefs.getInt(
+                                "indicatore_x",
+                                dp(25)
+                        );
+
+                indicatoreLp.y =
+                        prefs.getInt(
+                                "indicatore_y",
+                                dp(160)
+                        );
+
+
+                final float[] downX = new float[1];
+                final float[] downY = new float[1];
+                final int[] startX = new int[1];
+                final int[] startY = new int[1];
+                final boolean[] trascinato = new boolean[1];
+
+
+                indicatoreLisa.setOnTouchListener(
+                        (v, event) -> {
+
+                            switch (event.getActionMasked()) {
+
+                                case android.view.MotionEvent.ACTION_DOWN:
+
+                                    downX[0] = event.getRawX();
+                                    downY[0] = event.getRawY();
+
+                                    startX[0] = indicatoreLp.x;
+                                    startY[0] = indicatoreLp.y;
+
+                                    trascinato[0] = false;
+
+                                    return true;
+
+
+                                case android.view.MotionEvent.ACTION_MOVE:
+
+                                    float dx =
+                                            event.getRawX()
+                                                    - downX[0];
+
+                                    float dy =
+                                            event.getRawY()
+                                                    - downY[0];
+
+                                    if (Math.abs(dx) > dp(6)
+                                            || Math.abs(dy) > dp(6)) {
+
+                                        trascinato[0] = true;
+                                    }
+
+                                    indicatoreLp.x =
+                                            startX[0]
+                                                    + Math.round(dx);
+
+                                    indicatoreLp.y =
+                                            startY[0]
+                                                    + Math.round(dy);
+
+                                    android.util.DisplayMetrics dm =
+                                            getResources()
+                                                    .getDisplayMetrics();
+
+                                    indicatoreLp.x =
+                                            Math.max(
+                                                    0,
+                                                    Math.min(
+                                                            indicatoreLp.x,
+                                                            dm.widthPixels
+                                                                    - dp(42)
+                                                    )
+                                            );
+
+                                    indicatoreLp.y =
+                                            Math.max(
+                                                    0,
+                                                    Math.min(
+                                                            indicatoreLp.y,
+                                                            dm.heightPixels
+                                                                    - dp(42)
+                                                    )
+                                            );
+
+                                    try {
+
+                                        indicatoreWindowManager
+                                                .updateViewLayout(
+                                                        indicatoreLisa,
+                                                        indicatoreLp
+                                                );
+
+                                    } catch (Exception ignored) {
+                                    }
+
+                                    return true;
+
+
+                                case android.view.MotionEvent.ACTION_UP:
+
+                                    prefs.edit()
+                                            .putInt(
+                                                    "indicatore_x",
+                                                    indicatoreLp.x
+                                            )
+                                            .putInt(
+                                                    "indicatore_y",
+                                                    indicatoreLp.y
+                                            )
+                                            .apply();
+
+                                    if (!trascinato[0]) {
+
+                                        try {
+
+                                            android.content.Intent i =
+                                                    new android.content.Intent(
+                                                            this,
+                                                            MainActivity.class
+                                                    );
+
+                                            i.addFlags(
+                                                    android.content.Intent
+                                                            .FLAG_ACTIVITY_NEW_TASK
+                                                            | android.content.Intent
+                                                            .FLAG_ACTIVITY_SINGLE_TOP
+                                            );
+
+                                            startActivity(i);
+
+                                            Log.i(
+                                                    TAG,
+                                                    "BOLLA LISA: apertura pannello Lisa"
+                                            );
+
+                                        } catch (Exception e) {
+
+                                            Log.e(
+                                                    TAG,
+                                                    "Errore apertura Lisa dalla bolla",
+                                                    e
+                                            );
+                                        }
+                                    }
+
+                                    return true;
+                            }
+
+                            return false;
+                        }
+                );
+
+
+                indicatoreWindowManager.addView(
+                        indicatoreLisa,
+                        indicatoreLp
+                );
+
+                Log.i(
+                        TAG,
+                        "BOLLA LISA AGGIUNTA"
+                );
+            }
+
+
+            indicatoreLisa.setBackground(
+                    creaBollaLisa(ascolto)
+            );
+
+            Log.i(
+                    TAG,
+                    "BOLLA LISA: "
+                            + (
+                                ascolto
+                                        ? "ARANCIONE - ASCOLTO"
+                                        : "VERDE - RIPOSO"
+                            )
+            );
+
+
+        } catch (Throwable e) {
+
+            Log.e(
+                    TAG,
+                    "ERRORE BOLLA LISA",
+                    e
+            );
+        }
+    }
+
+
+    private void rimuoviIndicatoreLisa() {
+
+        if (indicatoreLisa != null
+                && indicatoreWindowManager != null) {
+
+            try {
+
+                indicatoreWindowManager.removeView(
+                        indicatoreLisa
+                );
+
+            } catch (Exception ignored) {
+            }
+        }
+
+        indicatoreLisa = null;
+        indicatoreLp = null;
+        indicatoreWindowManager = null;
+    }
+
 
     @Override
     public void onAccessibilityEvent(android.view.accessibility.AccessibilityEvent event) {
+        if (event == null) return;
+
+        int tipo = event.getEventType();
+
+        if (tipo != android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
+            tipo != android.view.accessibility.AccessibilityEvent.TYPE_VIEW_FOCUSED) {
+            return;
+        }
+
+        String eventPkg =
+                event.getPackageName() == null
+                        ? ""
+                        : event.getPackageName().toString();
+
+        String eventClass =
+                event.getClassName() == null
+                        ? ""
+                        : event.getClassName().toString();
+
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+
+        String rootPkg = "";
+        String rootClass = "";
+
+        if (root != null) {
+            rootPkg =
+                    root.getPackageName() == null
+                            ? ""
+                            : root.getPackageName().toString();
+
+            rootClass =
+                    root.getClassName() == null
+                            ? ""
+                            : root.getClassName().toString();
+        }
+
+        // Lisa è il pannello di controllo dell'assistente:
+        // non deve sostituire l'app che l'utente stava realmente usando.
+        String pacchettoLisa = getPackageName();
+
+        if (pacchettoLisa.equals(eventPkg)) {
+            Log.i(
+                    TAG,
+                    "CTX_V1 ignore_self keep=" + contestoPacchetto
+            );
+            return;
+        }
+
+        boolean eventoTransitorio =
+                "com.google.android.inputmethod.latin".equals(eventPkg) ||
+                "com.android.systemui".equals(eventPkg) ||
+                ("com.google.android.googlequicksearchbox".equals(eventPkg)
+                        && !rootPkg.isEmpty()
+                        && !eventPkg.equals(rootPkg));
+
+        // Anche tastiera/SystemUI sopra la finestra di Lisa
+        // non devono cancellare l'ultimo contesto reale.
+        if (eventoTransitorio && pacchettoLisa.equals(rootPkg)) {
+            Log.i(
+                    TAG,
+                    "CTX_V1 ignore_overlay_self keep=" + contestoPacchetto
+            );
+            return;
+        }
+
+        String pacchettoScelto;
+
+        if (eventoTransitorio && !rootPkg.isEmpty()) {
+            pacchettoScelto = rootPkg;
+        } else if (!eventPkg.isEmpty()) {
+            pacchettoScelto = eventPkg;
+        } else {
+            pacchettoScelto = rootPkg;
+        }
+
+        boolean focusInput = false;
+        boolean editabile = false;
+
+        // La root viene usata per il focus solo se appartiene
+        // realmente all'app che stiamo considerando corrente.
+        if (root != null && pacchettoScelto.equals(rootPkg)) {
+            AccessibilityNodeInfo focus =
+                    root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
+
+            if (focus != null) {
+                focusInput = true;
+                editabile = focus.isEditable();
+            }
+        }
+
+        contestoPacchetto = pacchettoScelto;
+        contestoClasse =
+                pacchettoScelto.equals(eventPkg)
+                        ? eventClass
+                        : rootClass;
+        contestoWindowId = event.getWindowId();
+        contestoFocusInput = focusInput;
+        contestoEditabile = editabile;
+        contestoTimestamp = System.currentTimeMillis();
+
+        Log.i(TAG,
+                "CTX_V1"
+                + " app=" + contestoPacchetto
+                + " classe=" + contestoClasse
+                + " window=" + contestoWindowId
+                + " focus=" + contestoFocusInput
+                + " editable=" + contestoEditabile);
+    }
+
+    public String getCurrentPackageName() {
+        return contestoPacchetto;
+    }
+
+    public String getCurrentClassName() {
+        return contestoClasse;
+    }
+
+    public int getCurrentWindowId() {
+        return contestoWindowId;
+    }
+
+    public boolean hasCurrentInputFocus() {
+        return contestoFocusInput;
+    }
+
+    public boolean isCurrentEditable() {
+        return contestoEditabile;
+    }
+
+    public long getCurrentContextTimestamp() {
+        return contestoTimestamp;
+    }
+
+    public java.util.ArrayList<String> getVisiblePackageNames() {
+        java.util.LinkedHashSet<String> trovati =
+                new java.util.LinkedHashSet<>();
+
+        try {
+            java.util.List<android.view.accessibility.AccessibilityWindowInfo> finestre =
+                    getWindows();
+
+            if (finestre != null) {
+                for (android.view.accessibility.AccessibilityWindowInfo finestra : finestre) {
+                    if (finestra == null) continue;
+
+                    AccessibilityNodeInfo root = finestra.getRoot();
+                    if (root == null || root.getPackageName() == null) continue;
+
+                    String pkg = root.getPackageName().toString().trim();
+
+                    if (pkg.isEmpty()) continue;
+                    if (pkg.equals(getPackageName())) continue;
+                    if ("com.google.android.inputmethod.latin".equals(pkg)) continue;
+                    if ("com.android.systemui".equals(pkg)) continue;
+
+                    trovati.add(pkg);
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "CTX_WINDOWS errore", e);
+        }
+
+        return new java.util.ArrayList<>(trovati);
     }
 
     @Override
@@ -28,6 +516,7 @@ public class LisaAccessibilityService extends AccessibilityService {
 
 
     private void spegniLisaCompletamente() {
+        rimuoviIndicatoreLisa();
         instance = null;
 
         LisaSpeaker.spegni();
@@ -623,6 +1112,207 @@ public class LisaAccessibilityService extends AccessibilityService {
         return true;
     }
 
+    public boolean cercaContattoEInvia(
+            String contatto,
+            String messaggio,
+            String app,
+            String pacchetto) {
+
+        String canale = app == null
+                ? ""
+                : app.trim().toLowerCase(java.util.Locale.ITALIAN);
+
+        String pkg = pacchetto == null
+                ? ""
+                : pacchetto.trim();
+
+        // WhatsApp resta sul flusso stabile già esistente.
+        if (canale.isEmpty()
+                || "whatsapp".equals(canale)
+                || "com.whatsapp".equals(pkg)) {
+            return cercaContattoEScrivi(contatto, messaggio);
+        }
+
+        String contattoRisolto = risolviContattoRubrica(contatto);
+
+        if (contattoRisolto == null) {
+            testoMessaggioAmbiguo = messaggio;
+            azioneAmbigua = "messaggio";
+            appAmbigua = canale;
+            return false;
+        }
+
+        String numero = trovaNumeroContattoEsatto(contattoRisolto);
+
+        if ("sms".equals(canale)) {
+            if (numero == null || numero.trim().isEmpty()) return false;
+
+            try {
+                android.content.Intent intent =
+                        new android.content.Intent(
+                                android.content.Intent.ACTION_SENDTO
+                        );
+
+                intent.setData(
+                        android.net.Uri.parse(
+                                "smsto:" + android.net.Uri.encode(numero)
+                        )
+                );
+
+                intent.putExtra("sms_body", messaggio);
+                intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+
+                startActivity(intent);
+
+                messaggioInAttesa = messaggio;
+
+                Log.i(
+                        "LisaAccessibility",
+                        "Dispatcher messaggio: SMS -> " + contattoRisolto
+                );
+
+                return true;
+
+            } catch (Exception e) {
+                Log.e("LisaAccessibility", "Errore apertura SMS", e);
+                return false;
+            }
+        }
+
+        if ("telegram".equals(canale)) {
+            if (numero == null || numero.trim().isEmpty()) return false;
+
+            try {
+                String numeroPulito =
+                        numero.replaceAll("[^0-9+]", "");
+
+                String uri =
+                        "tg://resolve?phone="
+                                + android.net.Uri.encode(numeroPulito)
+                                + "&text="
+                                + android.net.Uri.encode(messaggio);
+
+                android.content.Intent intent =
+                        new android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse(uri)
+                        );
+
+                intent.setPackage("org.telegram.messenger");
+                intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+
+                startActivity(intent);
+
+                messaggioInAttesa = messaggio;
+
+                Log.i(
+                        "LisaAccessibility",
+                        "Dispatcher messaggio: Telegram -> " + contattoRisolto
+                );
+
+                return true;
+
+            } catch (Exception e) {
+                Log.e("LisaAccessibility", "Errore apertura Telegram", e);
+                return false;
+            }
+        }
+
+        if ("email".equals(canale) || "mail".equals(canale)) {
+            String email = trovaEmailContattoEsatto(contattoRisolto);
+
+            if (email == null || email.trim().isEmpty()) return false;
+
+            try {
+                android.content.Intent intent =
+                        new android.content.Intent(
+                                android.content.Intent.ACTION_SENDTO
+                        );
+
+                intent.setData(
+                        android.net.Uri.parse(
+                                "mailto:" + android.net.Uri.encode(email)
+                        )
+                );
+
+                intent.putExtra(
+                        android.content.Intent.EXTRA_TEXT,
+                        messaggio
+                );
+
+                intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+
+                startActivity(intent);
+
+                messaggioInAttesa = messaggio;
+
+                Log.i(
+                        "LisaAccessibility",
+                        "Dispatcher messaggio: EMAIL -> " + contattoRisolto
+                );
+
+                return true;
+
+            } catch (Exception e) {
+                Log.e("LisaAccessibility", "Errore apertura email", e);
+                return false;
+            }
+        }
+
+        Log.w(
+                "LisaAccessibility",
+                "Canale messaggio non ancora supportato: "
+                        + canale
+                        + " pacchetto="
+                        + pkg
+        );
+
+        return false;
+    }
+
+    private String trovaEmailContattoEsatto(String nome) {
+        android.database.Cursor cursor = null;
+
+        try {
+            cursor = getContentResolver().query(
+                    android.provider.ContactsContract.CommonDataKinds.Email.CONTENT_URI,
+                    new String[] {
+                            android.provider.ContactsContract.CommonDataKinds.Email.ADDRESS,
+                            android.provider.ContactsContract.CommonDataKinds.Email.DISPLAY_NAME
+                    },
+                    android.provider.ContactsContract.CommonDataKinds.Email.DISPLAY_NAME
+                            + " = ? COLLATE NOCASE",
+                    new String[] { nome },
+                    null
+            );
+
+            if (cursor != null && cursor.moveToFirst()) {
+                int indice = cursor.getColumnIndex(
+                        android.provider.ContactsContract.CommonDataKinds.Email.ADDRESS
+                );
+
+                if (indice >= 0) {
+                    String email = cursor.getString(indice);
+                    if (email != null && !email.trim().isEmpty()) {
+                        return email.trim();
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            Log.e(
+                    "LisaAccessibility",
+                    "Errore ricerca email per " + nome,
+                    e
+            );
+
+        } finally {
+            if (cursor != null) cursor.close();
+        }
+
+        return null;
+    }
+
     public boolean cercaContattoEScrivi(
             String contatto,
             String messaggio) {
@@ -705,6 +1395,7 @@ public class LisaAccessibilityService extends AccessibilityService {
 
     public void annullaInvio() {
         messaggioInAttesa = null;
+        inAttesaNuovoTesto = false;
         Log.i("LisaAccessibility", "Invio annullato dalla voce");
     }
 
@@ -715,6 +1406,11 @@ public class LisaAccessibilityService extends AccessibilityService {
 
     public boolean inAttesaDiNuovoTesto() {
         return inAttesaNuovoTesto;
+    }
+
+    public boolean haMessaggioInAttesa() {
+        return messaggioInAttesa != null
+                && !messaggioInAttesa.trim().isEmpty();
     }
 
     /**
@@ -730,6 +1426,27 @@ public class LisaAccessibilityService extends AccessibilityService {
             messaggioInAttesa = nuovoTesto;
         }
         return scritto;
+    }
+
+    public boolean cancellaTestoCorrente() {
+        boolean cancellato = scriviTesto("");
+
+        if (cancellato) {
+            // Non deve essere possibile inviare accidentalmente
+            // il vecchio testo dopo averlo cancellato.
+            messaggioInAttesa = null;
+
+            // Rimaniamo in modalità riscrittura:
+            // Lisa aspetta il nuovo contenuto.
+            inAttesaNuovoTesto = true;
+
+            Log.i(
+                    "LisaAccessibility",
+                    "Campo testo cancellato; attesa nuovo testo attiva"
+            );
+        }
+
+        return cancellato;
     }
 
     public boolean confermaInvio() {

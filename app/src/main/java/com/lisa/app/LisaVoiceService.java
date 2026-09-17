@@ -290,7 +290,9 @@ if (servizio.recognizer != null) {
                             .replaceAll("\\s+", " ")
                             .trim();
 
-            boolean eseguito =
+            Log.i(TAG, "DEBUG WHISPER COMANDO=[" + comando + "]");
+
+        boolean eseguito =
                     servizio.eseguiLocaleRapido(comando);
 
             String comandoUsato = comando;
@@ -361,8 +363,49 @@ if (servizio.recognizer != null) {
                 .replaceAll("\\s+", " ")
                 .trim();
 
+        // Correzioni ASR mirate SOLO nei comandi volume/luminosità.
+        // Mantiene invariata tutta la parte variabile della frase
+        // (es. "al 50%", "del 10%", ecc.).
+        String testoPrimaCorrezioneAsr = testo;
+
+        testo = testo
+                .replaceAll(
+                        "(^|\\s)a bassa(?=\\s+(?:il\\s+)?(?:volume|luminosita|luminosità)\\b)",
+                        "$1abbassa"
+                )
+                .replaceAll(
+                        "(^|\\s)bassa(?=\\s+(?:il\\s+)?(?:volume|luminosita|luminosità)\\b)",
+                        "$1abbassa"
+                );
+
+        // Se la correzione ASR strutturale è intervenuta,
+        // restituisce subito il comando corretto prima del Levenshtein.
+        if (!testo.equals(testoPrimaCorrezioneAsr)) {
+            Log.i(TAG, "NORMALIZZAZIONE WHISPER: " + testoPrimaCorrezioneAsr + " -> " + testo);
+            return testo;
+        }
+
         // Non correggere frasi troppo corte:
         // riduce il rischio di falsi comandi.
+        // Comandi preceduti da formule naturali in modalità conversazione.
+        String[] prefissiConversazione = {
+                "va bene ",
+                "ok ",
+                "certo ",
+                "sì ",
+                "si "
+        };
+
+        for (String prefisso : prefissiConversazione) {
+            if (testo.startsWith(prefisso) && testo.length() > prefisso.length()) {
+                String comandoDopoPrefisso = testo.substring(prefisso.length()).trim();
+
+                Log.i(TAG, "COMANDO CONVERSAZIONE: " + testo
+                        + " -> " + comandoDopoPrefisso);
+                return comandoDopoPrefisso;
+            }
+        }
+
         if (testo.length() < 7) {
             return originale;
         }
@@ -385,7 +428,17 @@ if (servizio.recognizer != null) {
                 "alza volume",
                 "alza il volume",
                 "volume su",
-                "aumenta volume"
+                "aumenta volume",
+
+                "luminosita su",
+                "luminosità su",
+                "aumenta luminosita",
+                "aumenta luminosità",
+
+                "luminosita giu",
+                "luminosità giù",
+                "abbassa luminosita",
+                "abbassa luminosità"
         };
 
         String migliore = null;
@@ -1044,7 +1097,10 @@ if (servizio.recognizer != null) {
     }
 
     private void gestisciFrase(String frase) {
-        String testo = frase.toLowerCase(Locale.ITALIAN).trim();
+        String testo = frase.toLowerCase(Locale.ITALIAN).trim()
+                .replaceAll("[,;:!?\\.]+", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
 
         // STOP ASSOLUTO: priorità massima.
         if (richiestaStop(testo)) {
@@ -1085,7 +1141,20 @@ if (servizio.recognizer != null) {
         }
 
         // RISPOSTA CONTESTUALE A "VUOI FARE ALTRO?"
-        if (inAttesaVuoiFareAltro) {
+        try {
+    java.io.File f = new java.io.File(getFilesDir(), "runtime_no_debug.txt");
+    java.io.FileWriter w = new java.io.FileWriter(f, true);
+    w.write("testo=[" + testo
+            + "] stato=" + inAttesaVuoiFareAltro
+            + " riscrittura=" + (LisaAccessibilityService.getInstance() != null
+            && LisaAccessibilityService.getInstance().inAttesaDiNuovoTesto())
+            + "\\n");
+    w.close();
+} catch (Exception e) {
+    Log.e(TAG, "ERRORE RUNTIME DEBUG", e);
+}
+
+if (inAttesaVuoiFareAltro) {
 
             boolean rispostaNo =
                     testo.equals("no")
@@ -1105,14 +1174,14 @@ if (servizio.recognizer != null) {
             if (rispostaNo) {
                 inAttesaVuoiFareAltro = false;
 
-                terminaSessione(false);
-
+                // "No" significa no alla domanda "Vuoi fare altro?",
+                // ma Lisa resta attiva in modalità conversazione.
                 LisaSpeaker.parla(
                         getApplicationContext(),
-                        "Va bene.",
-                        () -> {}
+                        "Va bene, sono in ascolto.",
+                        () -> programmaAscolto(250)
                 );
-
+                aggiornaNotifica("Lisa pronta");
                 return;
             }
 
@@ -1143,6 +1212,11 @@ if (servizio.recognizer != null) {
                 && statoMessaggio.haMessaggioInAttesa()
                 && (testo.equals("invia")
                 || testo.equals("invio")
+                || testo.equals("in via")
+                || testo.equals("un via")
+                || testo.equals("manda")
+                || testo.equals("mandalo")
+                || testo.equals("manda messaggio")
                 || testo.equals("sì")
                 || testo.equals("si")
                 || testo.equals("ok")
@@ -1154,9 +1228,17 @@ if (servizio.recognizer != null) {
             conferma.putExtra("azione", "conferma_invio");
             sendBroadcast(conferma);
 
-            // Fine procedura WhatsApp:
-            // dopo INVIA Lisa torna inattiva.
-            terminaSessione(false);
+            // Dopo INVIA Lisa resta in ascolto:
+            // chiede se vuole fare altro, invece di chiudere.
+            LisaSpeaker.parla(
+                LisaVoiceService.this,
+                "Inviato. Vuoi fare altro?",
+                () -> {
+                    inAttesaVuoiFareAltro = true;
+                    programmaAscolto(250);
+                }
+        );
+            aggiornaNotifica("Lisa pronta");
             return;
         }
 
@@ -1178,7 +1260,7 @@ if (servizio.recognizer != null) {
         if (statoMessaggio != null
                 && statoMessaggio.haMessaggioInAttesa()
                 && (testo.equals("no")
-                || testo.equals("no, riscrivi")
+                || testo.equals("no riscrivi")
                 || testo.contains("riscrivi")
                 || testo.contains("cambia messaggio"))) {
             LisaAccessibilityService servizioRiscrivi = LisaAccessibilityService.getInstance();
@@ -1243,7 +1325,7 @@ if (servizio.recognizer != null) {
                 servizioEditing.annullaInvio();
 
                 if (richiestaNienteHome) {
-                    eseguiLocaleRapido("torna alla home");
+
                 }
 
                 String risposta = cancellato
@@ -1456,6 +1538,7 @@ if (servizio.recognizer != null) {
         if (testo.isEmpty()) return false;
 
         return testo.equals("basta")
+                || testo.equals("esci")
                 || testo.equals("stop")
                 || testo.equals("fermati")
                 || testo.equals("smetti")
@@ -1522,7 +1605,54 @@ if (servizio.recognizer != null) {
         String testo =
                 frase.toLowerCase(Locale.ITALIAN).trim();
 
-        // VOICE_ALL_V1
+        // PERCENTUALI / MASSIMO / MINIMO -> esecuzione locale, senza cervello.
+        java.util.regex.Matcher percentuale =
+                java.util.regex.Pattern.compile(
+                        "(?i)^(?:lisa[,;:]?\\s+)?" +
+                        "(alza|aumenta|abbassa|diminuisci|imposta)\\s+" +
+                        "(?:il\\s+)?" +
+                        "(volume|luminosita|luminosità)\\s+" +
+                        "(del|di|dal|al|a)\\s*" +
+                        "(massimo|minimo|\\d{1,3})\\s*(?:%|per\\s+cento)?\\.?$"
+                ).matcher(testo);
+
+        if (percentuale.matches()) {
+            String verbo = percentuale.group(1);
+            String tipo = percentuale.group(2);
+            String modo = percentuale.group(3);
+            String valoreTesto = percentuale.group(4);
+
+            String operazione;
+
+            if ("massimo".equalsIgnoreCase(valoreTesto)) {
+                valoreTesto = "100";
+                operazione = "imposta";
+            } else if ("minimo".equalsIgnoreCase(valoreTesto)) {
+                valoreTesto = "0";
+                operazione = "imposta";
+            } else if ("al".equalsIgnoreCase(modo)
+                    || "a".equalsIgnoreCase(modo)) {
+                operazione = "imposta";
+            } else if ("alza".equalsIgnoreCase(verbo)
+                    || "aumenta".equalsIgnoreCase(verbo)) {
+                operazione = "aumenta";
+            } else {
+                operazione = "diminuisci";
+            }
+
+            boolean riuscito =
+                    SystemController.regola(
+                            this,
+                            tipo,
+                            operazione,
+                            valoreTesto
+                    );
+
+            if (riuscito) {
+                return true;
+            }
+        }
+
         if (testo.equals("volume su") || testo.equals("alza volume") || testo.equals("alza il volume") || testo.equals("aumenta volume")) { android.media.AudioManager am=(android.media.AudioManager)getSystemService(android.content.Context.AUDIO_SERVICE); if(am!=null){ am.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC,android.media.AudioManager.ADJUST_RAISE,android.media.AudioManager.FLAG_SHOW_UI); return true; } }
         if (testo.equals("volume giu") || testo.equals("volume giù") || testo.equals("abbassa volume") || testo.equals("abbassa il volume") || testo.equals("diminuisci volume")) { android.media.AudioManager am=(android.media.AudioManager)getSystemService(android.content.Context.AUDIO_SERVICE); if(am!=null){ am.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC,android.media.AudioManager.ADJUST_LOWER,android.media.AudioManager.FLAG_SHOW_UI); return true; } }
         if (testo.equals("luminosita su") || testo.equals("luminosità su") || testo.equals("aumenta luminosita") || testo.equals("aumenta luminosità")) { if(android.provider.Settings.System.canWrite(this)){ int v=android.provider.Settings.System.getInt(getContentResolver(),android.provider.Settings.System.SCREEN_BRIGHTNESS,128); android.provider.Settings.System.putInt(getContentResolver(),android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE,android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL); android.provider.Settings.System.putInt(getContentResolver(),android.provider.Settings.System.SCREEN_BRIGHTNESS,Math.min(255,v+25)); return true; } }

@@ -16,6 +16,7 @@ public class MainActivity extends Activity {
     private static final int PERM_REQUEST = 100;
     private static volatile Button btnVoceLisaStatico;
     private LocalWhisperAsrProbeManager localWhisperAsrProbe;
+    private Button btnAsrPipeTest;
 
     public static void aggiornaStatoPulsante() {
         Button pulsante = btnVoceLisaStatico;
@@ -94,6 +95,14 @@ public class MainActivity extends Activity {
                 return;
             }
 
+            // Il pulsante principale usa ora il nuovo motore
+            // Whisper Small + Silero VAD continuo.
+            if (btnAsrPipeTest != null) {
+                btnAsrPipeTest.performClick();
+                return;
+            }
+
+            // Fallback di sicurezza: vecchio motore.
             Intent intent = new Intent(this, LisaVoiceService.class);
 
             if (LisaVoiceService.isSessioneAttiva()) {
@@ -122,8 +131,9 @@ public class MainActivity extends Activity {
         layout.addView(btnVoceLisa);
 
         // TEST ISOLATO ASR CON AUDIO SOURCE
-        Button btnAsrPipeTest = new Button(this);
+        btnAsrPipeTest = new Button(this);
         btnAsrPipeTest.setText("🧠 TEST VOCE LOCALE");
+        btnAsrPipeTest.setVisibility(android.view.View.GONE);
         btnAsrPipeTest.setTextSize(18);
         btnAsrPipeTest.setMinHeight(120);
 

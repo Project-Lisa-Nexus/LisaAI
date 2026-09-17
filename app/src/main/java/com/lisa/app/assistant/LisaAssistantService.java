@@ -1,7 +1,9 @@
 package com.lisa.app.assistant;
 
 import android.service.voice.VoiceInteractionService;
+import android.content.Intent;
 import android.util.Log;
+import com.lisa.app.LisaVoiceService;
 
 public class LisaAssistantService extends VoiceInteractionService {
 
@@ -17,6 +19,8 @@ public class LisaAssistantService extends VoiceInteractionService {
     public void onReady() {
         super.onReady();
         Log.i(TAG, "Lisa Assistant pronta");
+
+        Log.i(TAG, "Lisa Assistant pronta: avvio microfono manuale");
     }
 
     @Override

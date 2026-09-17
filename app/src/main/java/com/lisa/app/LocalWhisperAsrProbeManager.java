@@ -34,6 +34,7 @@ public final class LocalWhisperAsrProbeManager {
     private final Runnable statoListener;
     private volatile boolean running = false;
     private volatile boolean stopRichiesto = false;
+    private volatile boolean stopConRispostaVocale = false;
     private volatile AudioRecord audioRecord;
 
     // Whisper Small rimane caricato in RAM tra una frase e la successiva.
@@ -62,6 +63,60 @@ public final class LocalWhisperAsrProbeManager {
                 Toast.makeText(context, testo, Toast.LENGTH_LONG).show()
         );
     }
+
+    private void segnaleAudio(boolean avvio) {
+
+        try {
+
+            AudioManager am =
+                    (AudioManager) context.getSystemService(
+                            Context.AUDIO_SERVICE
+                    );
+
+            if (am == null) {
+                return;
+            }
+
+            if (avvio) {
+
+                // Click di sistema Android, simile al feedback tastiera.
+                am.playSoundEffect(
+                        AudioManager.FX_KEYPRESS_STANDARD,
+                        1.0f
+                );
+
+                // Il microfono parte dopo il click:
+                // Lisa non registra il proprio segnale.
+                Thread.sleep(180L);
+
+                Log.i(TAG, "CLICK AUDIO START");
+
+            } else {
+
+                // Segnale diverso per indicare fine ascolto.
+                am.playSoundEffect(
+                        AudioManager.FX_KEY_CLICK,
+                        0.35f
+                );
+
+                Thread.sleep(140L);
+
+                am.playSoundEffect(
+                        AudioManager.FX_KEY_CLICK,
+                        0.35f
+                );
+
+                Thread.sleep(180L);
+
+                Log.i(TAG, "DOUBLE CLICK AUDIO STOP");
+            }
+
+        } catch (Throwable e) {
+
+            Log.w(TAG, "Click audio non disponibile", e);
+        }
+    }
+
 
     public synchronized void start() {
 
@@ -121,6 +176,7 @@ public final class LocalWhisperAsrProbeManager {
         OfflineRecognizer recognizer = recognizerPersistente;
         OfflineStream stream = null;
         com.k2fsa.sherpa.onnx.Vad vad = null;
+        boolean micAvviato = false;
 
         try {
 
@@ -233,8 +289,16 @@ public final class LocalWhisperAsrProbeManager {
 
             short[] framePcm = new short[512];
             boolean parlatoVisto = false;
+            boolean scartoTts = false;
+
+            segnaleAudio(true);
 
             audioRecord.startRecording();
+            micAvviato = true;
+
+            LisaAccessibilityService.aggiornaIndicatoreAscolto(
+                    true
+            );
 
             Log.i(
                     TAG,
@@ -250,7 +314,7 @@ public final class LocalWhisperAsrProbeManager {
                             + " window=512"
             );
 
-            toast("🎤 PARLA ORA");
+            toast("🎤 Lisa in ascolto");
 
             while (!stopRichiesto) {
 
@@ -265,6 +329,33 @@ public final class LocalWhisperAsrProbeManager {
                 if (n <= 0) {
                     if (stopRichiesto) break;
                     continue;
+                }
+
+                // Il microfono resta aperto, ma mentre Lisa parla
+                // l'audio viene drenato e NON dato al VAD/Whisper.
+                if (LisaSpeaker.isParlando()) {
+
+                    if (!scartoTts) {
+                        try { vad.reset(); } catch (Exception ignored) {}
+                        parlatoVisto = false;
+                        scartoTts = true;
+                        Log.i(TAG, "ASR SOSPESO DURANTE TTS");
+                    }
+
+                    continue;
+                }
+
+                if (scartoTts) {
+
+                    try { vad.reset(); } catch (Exception ignored) {}
+
+                    parlatoVisto = false;
+                    scartoTts = false;
+
+                    Log.i(
+                            TAG,
+                            "ASR RIPRESO DOPO TTS"
+                    );
                 }
 
                 float[] frame = new float[n];
@@ -357,7 +448,6 @@ public final class LocalWhisperAsrProbeManager {
                     try { stream.release(); } catch (Exception ignored) {}
                     stream = null;
 
-                    toast("Lisa ha capito: " + testo);
 
                     String normale =
                             testo.toLowerCase(java.util.Locale.ITALIAN)
@@ -365,14 +455,28 @@ public final class LocalWhisperAsrProbeManager {
                                     .replaceAll("\\s+", " ")
                                     .trim();
 
-                    if (normale.equals("basta")
+                    boolean stopVocale =
+                            normale.equals("basta")
                             || normale.equals("stop")
+                            || normale.equals("masta")
+                            || normale.equals("master")
+                            || normale.equals("pasta")
+                            || normale.equals("bassa")
                             || normale.contains("smetti di ascoltare")
-                            || normale.contains("smettere di ascoltare")) {
+                            || normale.contains("smettere di ascoltare");
 
-                        Log.i(TAG, "STOP VOCALE RICEVUTO: " + testo);
+                    if (stopVocale) {
+
+                        Log.i(
+                                TAG,
+                                "STOP VOCALE RICEVUTO: "
+                                        + testo
+                                        + " | normalizzato="
+                                        + normale
+                        );
+
                         stopRichiesto = true;
-                        toast("⏹ Lisa ha smesso di ascoltare");
+                        stopConRispostaVocale = true;
                         break;
                     }
 
@@ -407,11 +511,30 @@ public final class LocalWhisperAsrProbeManager {
                 try { vad.release(); } catch (Exception ignored) {}
             }
 
+            boolean deveRispondereStop = stopConRispostaVocale;
+
             running = false;
             stopRichiesto = false;
+            stopConRispostaVocale = false;
             notificaStato();
 
-            LisaVoiceService.fermaSessioneWhisperLocale();
+            if (deveRispondereStop) {
+                LisaSpeaker.parla(
+                        context,
+                        "Va bene.",
+                        () -> LisaVoiceService.fermaSessioneWhisperLocale()
+                );
+            } else {
+                LisaVoiceService.fermaSessioneWhisperLocale();
+            }
+
+            LisaAccessibilityService.aggiornaIndicatoreAscolto(
+                    false
+            );
+
+            if (micAvviato) {
+                toast("⏹️ Lisa ha smesso di ascoltare");
+            }
 
             Log.i(
                     TAG,

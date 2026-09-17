@@ -76,6 +76,17 @@ public final class LisaSpeaker {
                                     Locale.ITALIAN
                             );
 
+                            voce.setAudioAttributes(
+                                    new android.media.AudioAttributes.Builder()
+                                            .setUsage(
+                                                    android.media.AudioAttributes.USAGE_ASSISTANT
+                                            )
+                                            .setContentType(
+                                                    android.media.AudioAttributes.CONTENT_TYPE_SPEECH
+                                            )
+                                            .build()
+                            );
+
                             voce.setOnUtteranceProgressListener(
                                     new UtteranceProgressListener() {
 
@@ -121,10 +132,16 @@ public final class LisaSpeaker {
                 "LISA_" +
                         UUID.randomUUID().toString();
 
+        android.os.Bundle parametriVoce = new android.os.Bundle();
+        parametriVoce.putFloat(
+                TextToSpeech.Engine.KEY_PARAM_VOLUME,
+                1.0f
+        );
+
         voce.speak(
                 testo,
                 TextToSpeech.QUEUE_FLUSH,
-                null,
+                parametriVoce,
                 id
         );
     }
