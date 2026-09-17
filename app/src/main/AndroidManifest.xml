@@ -65,6 +65,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- LISA ASSIST - IMPOSTAZIONI -->
+        <activity
+            android:name=".LisaSettingsActivity"
+            android:exported="false" />
+
         
         <!-- Servizio di accessibilità -->
         <service android:name=".LisaAccessibilityService"

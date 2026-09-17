@@ -68,14 +68,64 @@ public class MainActivity extends Activity {
         richiediPermessi();
 
 
+        // ===== LISA ASSIST - DASHBOARD V1 =====
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(40, 100, 40, 40);
+
+        float density = getResources().getDisplayMetrics().density;
+        int paddingLaterale = Math.round(18 * density);
+        int paddingAlto = Math.round(24 * density);
+        int paddingBasso = Math.round(24 * density);
+        int gapDashboard = Math.round(6 * density);
+
+        layout.setPadding(
+                paddingLaterale,
+                paddingAlto,
+                paddingLaterale,
+                paddingBasso
+        );
 
         TextView title = new TextView(this);
-        title.setText("Lisa - Assistente vocale");
-        title.setTextSize(20);
+        title.setText("Lisa Assist");
+        title.setTextSize(26);
+        title.setTypeface(
+                android.graphics.Typeface.DEFAULT,
+                android.graphics.Typeface.BOLD
+        );
         layout.addView(title);
+
+        TextView subtitle = new TextView(this);
+        subtitle.setText("Assistente personale");
+        subtitle.setTextSize(15);
+
+        LinearLayout.LayoutParams subtitleLp =
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                );
+        subtitleLp.bottomMargin = Math.round(10 * density);
+
+        layout.addView(subtitle, subtitleLp);
+
+        TextView statoLisa = new TextView(this);
+        statoLisa.setTextSize(16);
+
+        if (LisaVoiceService.isSessioneAttiva()) {
+            statoLisa.setText("● Lisa attiva");
+        } else if (LisaAccessibilityService.getInstance() != null) {
+            statoLisa.setText("● Lisa pronta");
+        } else {
+            statoLisa.setText("○ Accessibilità Lisa non attiva");
+        }
+
+        LinearLayout.LayoutParams statoLp =
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                );
+        statoLp.bottomMargin = Math.round(14 * density);
+
+        layout.addView(statoLisa, statoLp);
 
         Button btnVoceLisa = new Button(this);
         btnVoceLisaStatico = btnVoceLisa;
@@ -85,7 +135,7 @@ public class MainActivity extends Activity {
                     : "🎤 Attiva Lisa"
         );
         btnVoceLisa.setTextSize(20);
-        btnVoceLisa.setMinHeight(140);
+        btnVoceLisa.setMinHeight(Math.round(64 * density));
         btnVoceLisa.setOnClickListener(v -> {
 
             if (localWhisperAsrProbe != null
@@ -179,7 +229,6 @@ public class MainActivity extends Activity {
             Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
             startActivity(intent);
         });
-        layout.addView(btnAccess);
 
 
         Button btnHome = new Button(this);
@@ -192,7 +241,6 @@ public class MainActivity extends Activity {
                 );
             }
         });
-        layout.addView(btnHome);
 
         Button btnVolumeUp = new Button(this);
         btnVolumeUp.setText("Volume +");
@@ -206,7 +254,6 @@ public class MainActivity extends Activity {
                 android.media.AudioManager.FLAG_SHOW_UI
             );
         });
-        layout.addView(btnVolumeUp);
 
         Button btnVolumeDown = new Button(this);
         btnVolumeDown.setText("Volume -");
@@ -220,7 +267,6 @@ public class MainActivity extends Activity {
                 android.media.AudioManager.FLAG_SHOW_UI
             );
         });
-        layout.addView(btnVolumeDown);
 
         Button btnBrightnessUp = new Button(this);
         btnBrightnessUp.setText("Luminosita +");
@@ -263,7 +309,6 @@ public class MainActivity extends Activity {
                 e.printStackTrace();
             }
         });
-        layout.addView(btnBrightnessUp);
 
         Button btnBrightnessDown = new Button(this);
         btnBrightnessDown.setText("Luminosita -");
@@ -306,7 +351,6 @@ public class MainActivity extends Activity {
                 e.printStackTrace();
             }
         });
-        layout.addView(btnBrightnessDown);
 
         Button btnBack = new Button(this);
         btnBack.setText("Indietro");
@@ -315,7 +359,6 @@ public class MainActivity extends Activity {
             if(s!=null)
                 s.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK);
         });
-        layout.addView(btnBack);
 
         Button btnRecent = new Button(this);
         btnRecent.setText("Recenti");
@@ -324,7 +367,6 @@ public class MainActivity extends Activity {
             if(s!=null)
                 s.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS);
         });
-        layout.addView(btnRecent);
 
         Button btnNotif = new Button(this);
         btnNotif.setText("Notifiche");
@@ -333,14 +375,12 @@ public class MainActivity extends Activity {
             if(s!=null)
                 s.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS);
         });
-        layout.addView(btnNotif);
 
         Button btnSettings = new Button(this);
         btnSettings.setText("Impostazioni");
         btnSettings.setOnClickListener(v -> {
             startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS));
         });
-        layout.addView(btnSettings);
 
         Button btnLock=new Button(this);
         btnLock.setText("Blocca schermo");
@@ -349,7 +389,6 @@ public class MainActivity extends Activity {
             if(s!=null)
                 s.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN);
         });
-        layout.addView(btnLock);
 
         Button btnScreenshot=new Button(this);
         btnScreenshot.setText("Screenshot");
@@ -358,7 +397,6 @@ public class MainActivity extends Activity {
             if(s!=null)
                 s.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT);
         });
-        layout.addView(btnScreenshot);
 
         Button btnTorch=new Button(this);
         btnTorch.setText("Torcia");
@@ -411,7 +449,6 @@ public class MainActivity extends Activity {
                 ).show();
             }
         });
-        layout.addView(btnTorch);
 
         Button btnVibra=new Button(this);
         btnVibra.setText("Vibrazione");
@@ -424,10 +461,113 @@ public class MainActivity extends Activity {
                     vib.vibrate(250);
             }
         });
-        layout.addView(btnVibra);
 
 
 
+
+
+        // ===== COMANDI RAPIDI DASHBOARD =====
+
+        TextView titoloRapidi = new TextView(this);
+        titoloRapidi.setText("Comandi rapidi");
+        titoloRapidi.setTextSize(17);
+        titoloRapidi.setTypeface(
+                android.graphics.Typeface.DEFAULT,
+                android.graphics.Typeface.BOLD
+        );
+
+        LinearLayout.LayoutParams titoloRapidiLp =
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                );
+
+        titoloRapidiLp.topMargin = Math.round(16 * density);
+        titoloRapidiLp.bottomMargin = Math.round(8 * density);
+
+        layout.addView(titoloRapidi, titoloRapidiLp);
+
+        btnHome.setText("🏠 Home");
+        btnBack.setText("↩ Indietro");
+
+        btnRecent.setText("▣ Recenti");
+        btnNotif.setText("🔔 Notifiche");
+
+        btnVolumeUp.setText("🔊 Volume +");
+        btnVolumeDown.setText("🔉 Volume -");
+
+        btnBrightnessUp.setText("☀ Luminosità +");
+        btnBrightnessDown.setText("☀ Luminosità -");
+
+        btnScreenshot.setText("📸 Screenshot");
+        btnLock.setText("🔒 Blocca");
+
+        layout.addView(
+                creaRigaDashboard(
+                        btnHome,
+                        btnBack,
+                        gapDashboard
+                )
+        );
+
+        layout.addView(
+                creaRigaDashboard(
+                        btnRecent,
+                        btnNotif,
+                        gapDashboard
+                )
+        );
+
+        layout.addView(
+                creaRigaDashboard(
+                        btnVolumeUp,
+                        btnVolumeDown,
+                        gapDashboard
+                )
+        );
+
+        layout.addView(
+                creaRigaDashboard(
+                        btnBrightnessUp,
+                        btnBrightnessDown,
+                        gapDashboard
+                )
+        );
+
+        layout.addView(
+                creaRigaDashboard(
+                        btnScreenshot,
+                        btnLock,
+                        gapDashboard
+                )
+        );
+
+        Button btnLisaSettings = new Button(this);
+        btnLisaSettings.setText("⚙ Tutte le impostazioni Lisa");
+        btnLisaSettings.setTextSize(16);
+
+        btnLisaSettings.setOnClickListener(v -> {
+            Intent intent =
+                    new Intent(
+                            this,
+                            LisaSettingsActivity.class
+                    );
+
+            startActivity(intent);
+        });
+
+        LinearLayout.LayoutParams impostazioniLp =
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                );
+
+        impostazioniLp.topMargin = Math.round(18 * density);
+
+        layout.addView(
+                btnLisaSettings,
+                impostazioniLp
+        );
 
 
         android.widget.ScrollView scrollView =
@@ -441,6 +581,47 @@ public class MainActivity extends Activity {
 
         scrollView.addView(layout);
         setContentView(scrollView);
+    }
+
+    private LinearLayout creaRigaDashboard(
+            Button sinistra,
+            Button destra,
+            int gap) {
+
+        LinearLayout riga = new LinearLayout(this);
+        riga.setOrientation(LinearLayout.HORIZONTAL);
+
+        LinearLayout.LayoutParams lpSinistra =
+                new LinearLayout.LayoutParams(
+                        0,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        1f
+                );
+
+        lpSinistra.rightMargin = gap / 2;
+        lpSinistra.bottomMargin = gap;
+
+        LinearLayout.LayoutParams lpDestra =
+                new LinearLayout.LayoutParams(
+                        0,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        1f
+                );
+
+        lpDestra.leftMargin = gap / 2;
+        lpDestra.bottomMargin = gap;
+
+        riga.addView(
+                sinistra,
+                lpSinistra
+        );
+
+        riga.addView(
+                destra,
+                lpDestra
+        );
+
+        return riga;
     }
 
     private void richiediPermessi() {
