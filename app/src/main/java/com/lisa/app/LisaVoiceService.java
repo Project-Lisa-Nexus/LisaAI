@@ -363,6 +363,43 @@ if (servizio.recognizer != null) {
                 .replaceAll("\\s+", " ")
                 .trim();
 
+        // DEDUP WHISPER:
+        // corregge una sola ripetizione identica consecutiva X X.
+        // La prima metà deve avere almeno 5 caratteri.
+        String[] partiDedup = testo.split(" ", -1);
+
+        if (partiDedup.length >= 2
+                && partiDedup.length % 2 == 0) {
+
+            int meta = partiDedup.length / 2;
+            StringBuilder primaMeta = new StringBuilder();
+            StringBuilder secondaMeta = new StringBuilder();
+
+            for (int i = 0; i < meta; i++) {
+                if (i > 0) primaMeta.append(" ");
+                primaMeta.append(partiDedup[i]);
+            }
+
+            for (int i = meta; i < partiDedup.length; i++) {
+                if (i > meta) secondaMeta.append(" ");
+                secondaMeta.append(partiDedup[i]);
+            }
+
+            String prima = primaMeta.toString();
+            String seconda = secondaMeta.toString();
+
+            if (prima.length() >= 5 && prima.equals(seconda)) {
+                Log.i(
+                        TAG,
+                        "DEDUP WHISPER: "
+                                + originale
+                                + " -> "
+                                + prima
+                );
+                testo = prima;
+            }
+        }
+
         // Correzioni ASR mirate SOLO nei comandi volume/luminosità.
         // Mantiene invariata tutta la parte variabile della frase
         // (es. "al 50%", "del 10%", ecc.).
@@ -382,6 +419,27 @@ if (servizio.recognizer != null) {
         // restituisce subito il comando corretto prima del Levenshtein.
         if (!testo.equals(testoPrimaCorrezioneAsr)) {
             Log.i(TAG, "NORMALIZZAZIONE WHISPER: " + testoPrimaCorrezioneAsr + " -> " + testo);
+            return testo;
+        }
+
+        // NORMALIZZAZIONE CONTESTUALE HOME:
+        // corregge SOLO le sei deformazioni ASR osservate
+        // quando sono precedute da una struttura Home conosciuta.
+        // Nessuna sostituzione globale di "arm", "om", ecc.
+        String testoPrimaCorrezioneHome = testo;
+        testo = testo.replaceAll(
+                "(vai|via|torna|portami)\\s+(alla|all|al|la|l)\\s+(oma|om|omm|aum|arm|hom)\\b",
+                "$1 alla home"
+        );
+
+        if (!testo.equals(testoPrimaCorrezioneHome)) {
+            Log.i(
+                    TAG,
+                    "NORMALIZZAZIONE HOME WHISPER: "
+                            + testoPrimaCorrezioneHome
+                            + " -> "
+                            + testo
+            );
             return testo;
         }
 
@@ -1561,13 +1619,33 @@ if (inAttesaVuoiFareAltro) {
     private String rimuoviRichiamoLisa(
             String frase) {
 
+        if (frase == null) {
+            return "";
+        }
+
         String originale =
                 frase.trim();
 
-        String basso =
-                originale.toLowerCase(
-                        Locale.ITALIAN
-                );
+        if (originale.isEmpty()) {
+            return "";
+        }
+
+        String normalizzata =
+                java.text.Normalizer.normalize(
+                        originale.toLowerCase(Locale.ITALIAN),
+                        java.text.Normalizer.Form.NFD
+                )
+                .replaceAll("\\p{M}+", "")
+                .replaceAll("[^\\p{L}\\p{N}\\s]+", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+
+        if (normalizzata.isEmpty()) {
+            return "";
+        }
+
+        String[] parole =
+                normalizzata.split("\\s+");
 
         String[] richiami = {
                 "ehi lisa",
@@ -1577,23 +1655,184 @@ if (inAttesaVuoiFareAltro) {
                 "hey elisa",
                 "ciao elisa",
                 "elisa",
-                "lisa"
+                "lisa",
+                "liza"
         };
 
         for (String richiamo : richiami) {
 
-            if (basso.equals(richiamo)) {
+            if (normalizzata.equals(richiamo)) {
                 return "";
             }
 
-            if (basso.startsWith(
-                    richiamo + " ")) {
+            if (normalizzata.startsWith(richiamo + " ")) {
 
-                return originale
-                        .substring(
-                                richiamo.length()
-                        )
-                        .trim();
+                String resto =
+                        normalizzata
+                                .substring(richiamo.length())
+                                .trim();
+
+                Log.i(
+                        TAG,
+                        "RICHIAMO LISA: "
+                                + originale
+                                + " -> "
+                                + resto
+                );
+
+                return resto;
+            }
+        }
+
+        /*
+         * Fuzzy SOLO sul nome Lisa/Elisa.
+         *
+         * Struttura attesa:
+         *   aggancio deformazioneLisa resto...
+         *
+         * Con aggancio = e / ehi / hey / ciao.
+         *
+         * Caso singolo:
+         *   distanza <= 1, lunghezza >= 5
+         *
+         * Caso con "il":
+         *   distanza <= 2
+         */
+        if (parole.length >= 3) {
+
+            String[] agganci = {
+                    "e",
+                    "ehi",
+                    "hey",
+                    "ciao"
+            };
+
+            boolean aggancioValido = false;
+
+            for (String aggancio : agganci) {
+                if (parole[0].equals(aggancio)) {
+                    aggancioValido = true;
+                    break;
+                }
+            }
+
+            if (aggancioValido) {
+
+                /*
+                 * Esempi:
+                 * "e ilisa vai alla home"
+                 * "ehi ilisa vai alla home"
+                 */
+                String possibileLisa =
+                        parole[1];
+
+                int distanzaLisa =
+                        distanzaLevenshtein(
+                                possibileLisa,
+                                "lisa"
+                        );
+
+                int distanzaElisa =
+                        distanzaLevenshtein(
+                                possibileLisa,
+                                "elisa"
+                        );
+
+                int distanza =
+                        Math.min(
+                                distanzaLisa,
+                                distanzaElisa
+                        );
+
+                if (possibileLisa.length() >= 5
+                        && distanza <= 1) {
+
+                    String resto =
+                            String.join(
+                                    " ",
+                                    java.util.Arrays.copyOfRange(
+                                            parole,
+                                            2,
+                                            parole.length
+                                    )
+                            ).trim();
+
+                    if (!resto.isEmpty()) {
+
+                        Log.i(
+                                TAG,
+                                "RICHIAMO LISA FUZZY: "
+                                        + possibileLisa
+                                        + " -> lisa"
+                                        + " | resto="
+                                        + resto
+                                        + " | distanza="
+                                        + distanza
+                        );
+
+                        return resto;
+                    }
+                }
+
+                /*
+                 * Esempi:
+                 * "e il risa torna alla home"
+                 * "ehi il lisa torna alla home"
+                 */
+                if (parole.length >= 4
+                        && parole[1].equals("il")) {
+
+                    String possibileLisaIl =
+                            parole[2];
+
+                    int distanzaLisaIl =
+                            distanzaLevenshtein(
+                                    possibileLisaIl,
+                                    "lisa"
+                            );
+
+                    int distanzaElisaIl =
+                            distanzaLevenshtein(
+                                    possibileLisaIl,
+                                    "elisa"
+                            );
+
+                    int distanzaIl =
+                            Math.min(
+                                    distanzaLisaIl,
+                                    distanzaElisaIl
+                            );
+
+                    if (possibileLisaIl.length() >= 4
+                            && distanzaIl <= 2) {
+
+                        String resto =
+                                String.join(
+                                        " ",
+                                        java.util.Arrays.copyOfRange(
+                                                parole,
+                                                3,
+                                                parole.length
+                                        )
+                                ).trim();
+
+                        if (!resto.isEmpty()) {
+
+                            Log.i(
+                                    TAG,
+                                    "RICHIAMO LISA FUZZY (il): "
+                                            + possibileLisaIl
+                                            + " -> lisa"
+                                            + " | resto="
+                                            + resto
+                                            + " | distanza="
+                                            + distanzaIl
+                            );
+
+                            return resto;
+                        }
+                    }
+                }
             }
         }
 
@@ -1798,11 +2037,7 @@ if (inAttesaVuoiFareAltro) {
                 || testo.equals("vai alla schermata principale")
                 || testo.equals("torna alla schermata principale")) {
 
-            return servizio.performGlobalAction(
-                    android.accessibilityservice
-                            .AccessibilityService
-                            .GLOBAL_ACTION_HOME
-            );
+            return LisaHomeController.vaiAllaHomePrincipale();
         }
 
         if (testo.equals("indietro")
