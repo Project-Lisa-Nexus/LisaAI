@@ -234,12 +234,7 @@ public class MainActivity extends Activity {
         Button btnHome = new Button(this);
         btnHome.setText("Vai alla Home");
         btnHome.setOnClickListener(v -> {
-            LisaAccessibilityService service = LisaAccessibilityService.getInstance();
-            if (service != null) {
-                service.performGlobalAction(
-                    android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME
-                );
-            }
+            LisaHomeController.vaiAllaHomePrincipale();
         });
 
         Button btnVolumeUp = new Button(this);
@@ -541,6 +536,20 @@ public class MainActivity extends Activity {
                         gapDashboard
                 )
         );
+
+        // Accessibilità Lisa: necessaria per bolla e comandi Android
+        btnAccess.setText("♿ Accessibilità Lisa");
+
+        LinearLayout.LayoutParams accessLp =
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                );
+
+        accessLp.topMargin = Math.round(14 * density);
+
+        layout.addView(btnAccess, accessLp);
+
 
         Button btnLisaSettings = new Button(this);
         btnLisaSettings.setText("⚙ Tutte le impostazioni Lisa");
