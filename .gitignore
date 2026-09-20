@@ -5,3 +5,10 @@ app-debug.apk
 .gradle/
 /build/
 /app/build/
+
+# Backup locali non tracciati
+*.bak_*
+*.A1_BACKUP_*
+backup/
+backups/
+BASELINE_GIT_*.txt
