@@ -213,6 +213,10 @@ if (servizio.recognizer != null) {
             chiediAudioFocus();
             voiceController.startSession();
 
+            LisaAccessibilityService.aggiornaVignettaSemplice(
+                    "🎤 Lisa Voice Control attivo"
+            );
+
             if (wakeWordManager != null) {
                 wakeWordManager.stopListening();
             }
@@ -767,6 +771,10 @@ if (servizio.recognizer != null) {
             }
 
             LisaAccessibilityService.nascondiTelemetria();
+
+            LisaAccessibilityService.aggiornaVignettaSemplice(
+                    "⏹ Lisa Voice Control disattivato"
+            );
 
             servizio.stopSelf();
 
