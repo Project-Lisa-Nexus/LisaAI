@@ -128,7 +128,6 @@ public final class LocalWhisperAsrProbeManager {
                 try { ar.stop(); } catch (Exception ignored) {}
             }
 
-            toast("⏹ Ascolto locale fermato");
             return;
         }
 
@@ -166,7 +165,6 @@ public final class LocalWhisperAsrProbeManager {
         stopRichiesto = false;
         running = true;
         notificaStato();
-        toast("🧠 Avvio ascolto locale...");
 
         new Thread(this::esegui, "Lisa-Whisper-IT").start();
     }
@@ -314,7 +312,6 @@ public final class LocalWhisperAsrProbeManager {
                             + " window=512"
             );
 
-            toast("🎤 Lisa in ascolto");
 
             while (!stopRichiesto) {
 
@@ -552,7 +549,6 @@ public final class LocalWhisperAsrProbeManager {
             }
 
             if (micAvviato) {
-                toast("⏹️ Lisa ha smesso di ascoltare");
             }
 
             Log.i(
