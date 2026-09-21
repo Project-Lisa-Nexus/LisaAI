@@ -86,6 +86,14 @@ public class LisaAccessibilityService extends AccessibilityService {
         LisaAccessibilityService servizio = instance;
         if (servizio == null) return;
 
+        if (servizio.diagnosiAutohideHandler != null
+                && servizio.diagnosiAutohideRunnable != null) {
+            servizio.diagnosiAutohideHandler.removeCallbacks(
+                    servizio.diagnosiAutohideRunnable
+            );
+            servizio.diagnosiAutohideRunnable = null;
+        }
+
         new android.os.Handler(
                 android.os.Looper.getMainLooper()
         ).post(servizio::rimuoviIndicatoreTelemetria);
@@ -110,6 +118,8 @@ public class LisaAccessibilityService extends AccessibilityService {
     }
 
     private android.widget.LinearLayout diagnosiLayout;
+    private android.os.Handler diagnosiAutohideHandler;
+    private Runnable diagnosiAutohideRunnable;
 
     public static void resetDiagnosi() {
         LisaAccessibilityService s = instance;
@@ -128,7 +138,15 @@ public class LisaAccessibilityService extends AccessibilityService {
         new android.os.Handler(
                 android.os.Looper.getMainLooper()
         ).post(() -> {
-            if (s.diagnosiLayout == null) return;
+            if (s.diagnosiLayout == null) {
+                s.mostraTelemetria(
+                        null,
+                        null,
+                        null,
+                        null
+                );
+                if (s.diagnosiLayout == null) return;
+            }
 
             android.widget.TextView tv =
                     s.creaRigaTelemetria(
@@ -136,6 +154,36 @@ public class LisaAccessibilityService extends AccessibilityService {
                     );
 
             s.diagnosiLayout.addView(tv);
+
+            if (s.diagnosiAutohideHandler == null) {
+                s.diagnosiAutohideHandler =
+                        new android.os.Handler(
+                                android.os.Looper.getMainLooper()
+                        );
+            }
+
+            if (s.diagnosiAutohideRunnable != null) {
+                s.diagnosiAutohideHandler.removeCallbacks(
+                        s.diagnosiAutohideRunnable
+                );
+            }
+
+            int delayMs =
+                    s.getSharedPreferences(
+                            "lisa_ui",
+                            MODE_PRIVATE
+                    ).getInt(
+                            "diagnosi_autohide_ms",
+                            10000
+                    );
+
+            s.diagnosiAutohideRunnable =
+                    LisaAccessibilityService::nascondiTelemetria;
+
+            s.diagnosiAutohideHandler.postDelayed(
+                    s.diagnosiAutohideRunnable,
+                    delayMs
+            );
 
             android.util.Log.i(
                     TAG,
@@ -554,6 +602,7 @@ public class LisaAccessibilityService extends AccessibilityService {
         if (rimossa) {
             indicatoreTelemetria = null;
             indicatoreTelemetriaLp = null;
+            diagnosiLayout = null;
             telemetriaAscoltato = null;
             telemetriaInterpretato = null;
             telemetriaAzione = null;
