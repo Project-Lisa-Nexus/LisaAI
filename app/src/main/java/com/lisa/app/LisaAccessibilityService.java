@@ -255,8 +255,7 @@ public class LisaAccessibilityService extends AccessibilityService {
                             android.view.WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
                             android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                                     | android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-                                    | android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-                                    | android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+                                    | android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                             android.graphics.PixelFormat.TRANSLUCENT
                     );
 
@@ -285,6 +284,60 @@ public class LisaAccessibilityService extends AccessibilityService {
             telemetriaWindowManager.addView(
                     indicatoreTelemetria,
                     indicatoreTelemetriaLp
+            );
+
+            final int[] initX = { indicatoreTelemetriaLp.x };
+            final int[] initY = { indicatoreTelemetriaLp.y };
+            final float[] touchX = { 0f };
+            final float[] touchY = { 0f };
+
+            indicatoreTelemetria.setOnTouchListener(
+                    (v, event) -> {
+                        switch (event.getActionMasked()) {
+
+                            case android.view.MotionEvent.ACTION_DOWN:
+                                initX[0] = indicatoreTelemetriaLp.x;
+                                initY[0] = indicatoreTelemetriaLp.y;
+                                touchX[0] = event.getRawX();
+                                touchY[0] = event.getRawY();
+                                return true;
+
+                            case android.view.MotionEvent.ACTION_MOVE:
+                                indicatoreTelemetriaLp.x =
+                                        initX[0]
+                                                + (int) (event.getRawX() - touchX[0]);
+
+                                indicatoreTelemetriaLp.y =
+                                        initY[0]
+                                                + (int) (event.getRawY() - touchY[0]);
+
+                                telemetriaWindowManager.updateViewLayout(
+                                        indicatoreTelemetria,
+                                        indicatoreTelemetriaLp
+                                );
+                                return true;
+
+                            case android.view.MotionEvent.ACTION_UP:
+                            case android.view.MotionEvent.ACTION_CANCEL:
+                                getSharedPreferences(
+                                        "lisa_ui",
+                                        MODE_PRIVATE
+                                )
+                                        .edit()
+                                        .putInt(
+                                                "telemetria_x",
+                                                indicatoreTelemetriaLp.x
+                                        )
+                                        .putInt(
+                                                "telemetria_y",
+                                                indicatoreTelemetriaLp.y
+                                        )
+                                        .apply();
+                                return true;
+                        }
+
+                        return false;
+                    }
             );
 
             android.util.Log.i(

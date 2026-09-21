@@ -161,10 +161,18 @@ public class LisaSettingsActivity extends Activity {
                 prefs.getBoolean("telemetria_diagnosi_attiva", false)
         );
         vignettaDiagnosi.setOnCheckedChangeListener(
-                (buttonView, isChecked) ->
-                        prefs.edit()
-                                .putBoolean("telemetria_diagnosi_attiva", isChecked)
-                                .apply()
+                (buttonView, isChecked) -> {
+                    prefs.edit()
+                            .putBoolean(
+                                    "telemetria_diagnosi_attiva",
+                                    isChecked
+                            )
+                            .apply();
+
+                    if (!isChecked) {
+                        LisaAccessibilityService.nascondiTelemetria();
+                    }
+                }
         );
         layout.addView(vignettaDiagnosi);
     }
