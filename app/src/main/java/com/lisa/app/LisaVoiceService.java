@@ -354,8 +354,7 @@ if (servizio.recognizer != null) {
             // Blocca il rumore ASR evidente prima di programmare
             // la risposta semplice e prima di inviare a LisaOS.
             if (!eseguito
-                    && comandoUsato.length() == 1
-                    && Character.isLetter(comandoUsato.charAt(0))) {
+                    && java.util.Arrays.asList("a","e","i","o","u","ah","eh","ih","oh","uh","mm","mh","hmm","hm","mmm","ehm","boh","mah").contains(comandoUsato.trim().toLowerCase())) {
 
                 LisaAccessibilityService.aggiungiRigaDiagnosi(
                         "⚠️",
@@ -2337,6 +2336,11 @@ if (inAttesaVuoiFareAltro) {
                 String risposta =
                         leggiFlusso(flusso);
 
+                if (!sessioneAttiva) {
+                    Log.i(TAG, "LisaOS: risposta scartata dopo STOP");
+                    return;
+                }
+
                 if (codice < 200 || codice >= 300) {
                     Log.e(
                             TAG,
@@ -2344,6 +2348,15 @@ if (inAttesaVuoiFareAltro) {
                                     + codice
                                     + ": "
                                     + risposta
+                    );
+
+                    LisaAccessibilityService.aggiungiRigaDiagnosi(
+                            "⚠️",
+                            "Non ho capito"
+                    );
+
+                    LisaAccessibilityService.aggiornaVignettaSemplice(
+                            "⚠️ Non ho capito"
                     );
 
                     final int codiceErrore = codice;
@@ -2418,12 +2431,16 @@ if (inAttesaVuoiFareAltro) {
                             "Non ho capito"
                     );
 
-                    handler.post(() ->
-                            LisaAccessibilityService
-                                    .aggiornaVignettaSemplice(
-                                            "⚠️ Non ho capito"
-                                    )
-                    );
+                    handler.post(() -> {
+                        if (!sessioneAttiva) {
+                            return;
+                        }
+
+                        LisaAccessibilityService
+                                .aggiornaVignettaSemplice(
+                                        "⚠️ Non ho capito"
+                                );
+                    });
 
                     Log.i(
                             TAG,
@@ -2472,6 +2489,27 @@ if (inAttesaVuoiFareAltro) {
                         "Errore comunicazione/elaborazione LisaOS",
                         errore
                 );
+
+                if (!sessioneAttiva) {
+                    Log.i(TAG, "LisaOS: errore/timeout scartato dopo STOP");
+                    return;
+                }
+
+                LisaAccessibilityService.aggiungiRigaDiagnosi(
+                        "⚠️",
+                        "Non ho capito"
+                );
+
+                handler.post(() -> {
+                    if (!sessioneAttiva) {
+                        return;
+                    }
+
+                    LisaAccessibilityService
+                            .aggiornaVignettaSemplice(
+                                    "⚠️ Non ho capito"
+                            );
+                });
 
                 handler.post(() -> {
 

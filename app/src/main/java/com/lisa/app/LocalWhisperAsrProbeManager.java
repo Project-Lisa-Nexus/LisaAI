@@ -248,7 +248,7 @@ public final class LocalWhisperAsrProbeManager {
 
             audioRecord =
                     new AudioRecord(
-                            MediaRecorder.AudioSource.VOICE_RECOGNITION,
+                            MediaRecorder.AudioSource.MIC,
                             SR,
                             AudioFormat.CHANNEL_IN_MONO,
                             AudioFormat.ENCODING_PCM_16BIT,
@@ -267,7 +267,7 @@ public final class LocalWhisperAsrProbeManager {
 
             silero.setModel("silero_vad.onnx");
             silero.setThreshold(0.5f);
-            silero.setMinSilenceDuration(0.8f);
+            silero.setMinSilenceDuration(1.2f);
             silero.setMinSpeechDuration(0.15f);
             silero.setWindowSize(512);
             silero.setMaxSpeechDuration(20.0f);
