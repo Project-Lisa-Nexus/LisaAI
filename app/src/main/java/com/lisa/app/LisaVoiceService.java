@@ -292,6 +292,10 @@ if (servizio.recognizer != null) {
 
             Log.i(TAG, "DEBUG WHISPER COMANDO=[" + comando + "]");
 
+            LisaAccessibilityService.aggiornaVignettaSemplice(
+                    comando
+            );
+
         boolean eseguito =
                     servizio.eseguiLocaleRapido(comando);
 
@@ -318,6 +322,18 @@ if (servizio.recognizer != null) {
                 }
             }
 
+            LisaAccessibilityService.aggiungiRigaDiagnosi(
+                    "🧠",
+                    "Interpretato: " + comandoUsato
+            );
+
+            if (eseguito) {
+                LisaAccessibilityService.aggiungiRigaDiagnosi(
+                        "⚙️",
+                        "Azione: " + fraseInPrimaPersona(comandoUsato)
+                );
+            }
+
             Log.i(
                     TAG,
                     "WHISPER -> COMANDO LOCALE: "
@@ -328,10 +344,67 @@ if (servizio.recognizer != null) {
                             + eseguito
             );
 
+            if (eseguito) {
+                LisaAccessibilityService.aggiungiRigaDiagnosi(
+                        "✅",
+                        "Risultato: eseguito=true"
+                );
+            }
+
+            // Blocca il rumore ASR evidente prima di programmare
+            // la risposta semplice e prima di inviare a LisaOS.
+            if (!eseguito
+                    && comandoUsato.length() == 1
+                    && Character.isLetter(comandoUsato.charAt(0))) {
+
+                LisaAccessibilityService.aggiungiRigaDiagnosi(
+                        "⚠️",
+                        "Non ho capito"
+                );
+
+                LisaAccessibilityService.aggiornaVignettaSemplice(
+                        "⚠️ Non ho capito"
+                );
+
+                Log.i(
+                        TAG,
+                        "WHISPER -> RUMORE EVIDENTE BLOCCATO: "
+                                + comandoUsato
+                );
+
+                return;
+            }
+
+            // La vignetta semplice non deve mostrare
+            // "Invio a LisaOS".
+            // Per i comandi locali mostra la risposta finale
+            // dopo 1,5 secondi. Per il fallback LisaOS resta
+            // invece sul comando iniziale fino alla risposta.
+            if (eseguito) {
+
+                final String rispostaSemplice =
+                        fraseInPrimaPersona(comandoUsato);
+
+                new android.os.Handler(
+                        android.os.Looper.getMainLooper()
+                ).postDelayed(
+                        () -> LisaAccessibilityService
+                                .aggiornaVignettaSemplice(
+                                        rispostaSemplice
+                                ),
+                        1500L
+                );
+            }
+
             // Se non è un comando Android locale,
             // passa la frase ORIGINALE a tutto il cervello Lisa:
             // WhatsApp, contesto, LisaOS, messaggi, ecc.
             if (!eseguito) {
+
+                LisaAccessibilityService.aggiungiRigaDiagnosi(
+                        "🌐",
+                        "LisaOS: elaborazione richiesta"
+                );
 
                 Log.i(
                         TAG,
@@ -344,7 +417,74 @@ if (servizio.recognizer != null) {
         });
     }
 
-    private String correggiComandoWhisperLocale(
+    private static String fraseInPrimaPersona(String comando) {
+        if (comando == null) return "";
+        String c = comando.toLowerCase(java.util.Locale.ITALIAN).trim();
+
+        if (c.equals("vai alla home") || c.equals("home")
+                || c.equals("torna alla home")
+                || c.equals("portami alla home")
+                || c.equals("schermata principale")
+                || c.equals("vai alla schermata principale")
+                || c.equals("torna alla schermata principale")) {
+            return "Apro la schermata Home";
+        }
+        if (c.equals("indietro") || c.equals("torna indietro")
+                || c.equals("vai indietro")) {
+            return "Torno indietro";
+        }
+        if (c.equals("recenti") || c.equals("app recenti")
+                || c.equals("mostra recenti")) {
+            return "Apro le app recenti";
+        }
+        if (c.equals("notifiche") || c.equals("apri notifiche")
+                || c.equals("mostra notifiche")) {
+            return "Apro le notifiche";
+        }
+        if (c.equals("screenshot") || c.equals("fai screenshot")
+                || c.equals("fai uno screenshot")) {
+            return "Faccio uno screenshot";
+        }
+        if (c.equals("blocca schermo") || c.equals("blocca lo schermo")
+                || c.equals("spegni schermo")) {
+            return "Blocco lo schermo";
+        }
+        if (c.startsWith("alza volume")
+                || c.startsWith("aumenta volume")
+                || c.equals("volume su")) {
+            return "Alzo il volume";
+        }
+        if (c.startsWith("abbassa volume")
+                || c.startsWith("diminuisci volume")
+                || c.equals("volume giu") || c.equals("volume giù")) {
+            return "Abbasso il volume";
+        }
+        if (c.startsWith("alza luminosita")
+                || c.startsWith("aumenta luminosita")
+                || c.startsWith("luminosita su")) {
+            return "Alzo la luminosità";
+        }
+        if (c.startsWith("abbassa luminosita")
+                || c.startsWith("luminosita giu")
+                || c.startsWith("luminosita giù")) {
+            return "Abbasso la luminosità";
+        }
+        if (c.startsWith("apri ")) {
+            String nome = comando.substring(5).trim();
+            if (!nome.isEmpty()) return "Apro " + nome;
+        }
+        if (c.startsWith("avvia ")) {
+            String nome = comando.substring(6).trim();
+            if (!nome.isEmpty()) return "Avvio " + nome;
+        }
+        if (c.startsWith("aprimi ")) {
+            String nome = comando.substring(7).trim();
+            if (!nome.isEmpty()) return "Apro " + nome;
+        }
+        return "Eseguo: " + comando;
+    }
+
+        private String correggiComandoWhisperLocale(
             String frase) {
 
         if (frase == null) {
@@ -626,6 +766,8 @@ if (servizio.recognizer != null) {
                 servizio.stopForeground(true);
             } catch (Exception ignored) {
             }
+
+            LisaAccessibilityService.nascondiTelemetria();
 
             servizio.stopSelf();
 
@@ -1844,6 +1986,16 @@ if (inAttesaVuoiFareAltro) {
         String testo =
                 frase.toLowerCase(Locale.ITALIAN).trim();
 
+        // NORMALIZZAZIONE MIRATA WHISPER:
+        // corregge alcune forme ricorrenti prima dei match locali.
+        testo = testo
+                .replaceAll("\\bvia\\s+(?:alla|la)\\s+home\\b",
+                        "vai alla home")
+                .replaceAll("\\bapre\\s+il\\s+",
+                        "apri ")
+                .replaceAll("\\baprire\\s+",
+                        "apri ");
+
         // PERCENTUALI / MASSIMO / MINIMO -> esecuzione locale, senza cervello.
         java.util.regex.Matcher percentuale =
                 java.util.regex.Pattern.compile(
@@ -2245,6 +2397,47 @@ if (inAttesaVuoiFareAltro) {
                     }
                 }
 
+
+                LisaAccessibilityService.aggiungiRigaDiagnosi(
+                        "🌐",
+                        "LisaOS: HTTP " + codice
+                );
+
+                String rispostaTesto =
+                        rispostaJson.optString("risposta", "").trim();
+
+                boolean rispostaUtile =
+                        !rispostaTesto.isEmpty()
+                        || (azioneAndroid != null
+                        && !azioneAndroid.trim().isEmpty());
+
+                if (!rispostaUtile) {
+
+                    LisaAccessibilityService.aggiungiRigaDiagnosi(
+                            "⚠️",
+                            "Non ho capito"
+                    );
+
+                    handler.post(() ->
+                            LisaAccessibilityService
+                                    .aggiornaVignettaSemplice(
+                                            "⚠️ Non ho capito"
+                                    )
+                    );
+
+                    Log.i(
+                            TAG,
+                            "LisaOS: risposta non utile, "
+                                    + "mostro Non ho capito"
+                    );
+
+                } else {
+
+                    LisaAccessibilityService.aggiungiRigaDiagnosi(
+                            "✅",
+                            "Risultato: risposta ricevuta"
+                    );
+                }
 
                 Log.i(
                         TAG,

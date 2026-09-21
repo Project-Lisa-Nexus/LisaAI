@@ -8,6 +8,7 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Switch;
 
 public class LisaSettingsActivity extends Activity {
 
@@ -68,6 +69,8 @@ public class LisaSettingsActivity extends Activity {
                 "Dimensione, posizione, trasparenza e comportamento"
         );
 
+        aggiungiSezioneBolle(layout);
+
         aggiungiSezione(
                 layout,
                 "🎤 Voce",
@@ -119,6 +122,51 @@ public class LisaSettingsActivity extends Activity {
 
         scrollView.addView(layout);
         setContentView(scrollView);
+    }
+
+    private void aggiungiSezioneBolle(LinearLayout layout) {
+        TextView titolo = new TextView(this);
+        titolo.setText("Bolle/Vignette");
+        titolo.setTextSize(18);
+        titolo.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+
+        LinearLayout.LayoutParams titoloLp =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+        titoloLp.topMargin = dp(8);
+        titoloLp.bottomMargin = dp(8);
+        layout.addView(titolo, titoloLp);
+
+        android.content.SharedPreferences prefs =
+                getSharedPreferences("lisa_ui", MODE_PRIVATE);
+
+        Switch vignettaSemplice = new Switch(this);
+        vignettaSemplice.setText("Vignetta semplice");
+        vignettaSemplice.setChecked(
+                prefs.getBoolean("vignetta_semplice_attiva", true)
+        );
+        vignettaSemplice.setOnCheckedChangeListener(
+                (buttonView, isChecked) ->
+                        prefs.edit()
+                                .putBoolean("vignetta_semplice_attiva", isChecked)
+                                .apply()
+        );
+        layout.addView(vignettaSemplice);
+
+        Switch vignettaDiagnosi = new Switch(this);
+        vignettaDiagnosi.setText("Vignetta diagnosi");
+        vignettaDiagnosi.setChecked(
+                prefs.getBoolean("telemetria_diagnosi_attiva", false)
+        );
+        vignettaDiagnosi.setOnCheckedChangeListener(
+                (buttonView, isChecked) ->
+                        prefs.edit()
+                                .putBoolean("telemetria_diagnosi_attiva", isChecked)
+                                .apply()
+        );
+        layout.addView(vignettaDiagnosi);
     }
 
     private void aggiungiSezione(

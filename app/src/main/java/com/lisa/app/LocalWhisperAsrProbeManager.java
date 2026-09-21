@@ -369,6 +369,18 @@ public final class LocalWhisperAsrProbeManager {
                 if (vad.isSpeechDetected() && !parlatoVisto) {
                     parlatoVisto = true;
                     Log.i(TAG, "VAD: INIZIO PARLATO");
+                    LisaAccessibilityService.resetDiagnosi();
+                    LisaAccessibilityService.aggiornaTelemetria(
+                            null,
+                            null,
+                            null,
+                            null
+                    );
+                    LisaAccessibilityService.aggiungiRigaDiagnosi(
+                            "🎤",
+                            "In ascolto..."
+                    );
+
                 }
 
                 while (!vad.empty() && !stopRichiesto) {
@@ -443,6 +455,10 @@ public final class LocalWhisperAsrProbeManager {
                     Log.i(TAG, "TESTO WHISPER IT: " + testo);
                     Log.i(TAG, "LINGUA RISULTATO: " + lingua);
                     Log.i(TAG, "TEMPO WHISPER: " + ms + " ms");
+                    LisaAccessibilityService.aggiungiRigaDiagnosi(
+                            "📝",
+                            "Sentito: \"" + testo + "\""
+                    );
                     Log.i(TAG, "================================");
 
                     try { stream.release(); } catch (Exception ignored) {}
@@ -518,6 +534,13 @@ public final class LocalWhisperAsrProbeManager {
             stopConRispostaVocale = false;
             notificaStato();
 
+            LisaAccessibilityService.nascondiTelemetria();
+            LisaAccessibilityService.nascondiVignettaSemplice();
+
+            LisaAccessibilityService.aggiornaIndicatoreAscolto(
+                    false
+            );
+
             if (deveRispondereStop) {
                 LisaSpeaker.parla(
                         context,
@@ -527,10 +550,6 @@ public final class LocalWhisperAsrProbeManager {
             } else {
                 LisaVoiceService.fermaSessioneWhisperLocale();
             }
-
-            LisaAccessibilityService.aggiornaIndicatoreAscolto(
-                    false
-            );
 
             if (micAvviato) {
                 toast("⏹️ Lisa ha smesso di ascoltare");

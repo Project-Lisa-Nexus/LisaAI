@@ -15,6 +15,20 @@ public class LisaAccessibilityService extends AccessibilityService {
     private android.view.WindowManager.LayoutParams indicatoreLp;
     private volatile boolean indicatoreAscolto = false;
 
+    private android.view.WindowManager sempliceWindowManager;
+    private android.widget.TextView indicatoreSemplice;
+    private android.view.WindowManager.LayoutParams indicatoreSempliceLp;
+    private Runnable sempliceAutohideRunnable;
+
+    private android.view.WindowManager telemetriaWindowManager;
+    private android.view.View indicatoreTelemetria;
+    private android.view.WindowManager.LayoutParams indicatoreTelemetriaLp;
+
+    private android.widget.TextView telemetriaAscoltato;
+    private android.widget.TextView telemetriaInterpretato;
+    private android.widget.TextView telemetriaAzione;
+    private android.widget.TextView telemetriaRisultato;
+
     // ===== CONTEXT ENGINE V1 =====
     private volatile String contestoPacchetto = "";
     private volatile String contestoClasse = "";
@@ -47,6 +61,89 @@ public class LisaAccessibilityService extends AccessibilityService {
     }
 
 
+    public static void aggiornaTelemetria(
+            String ascoltato,
+            String interpretato,
+            String azione,
+            String risultato
+    ) {
+        LisaAccessibilityService servizio = instance;
+        if (servizio == null) return;
+
+        new android.os.Handler(
+                android.os.Looper.getMainLooper()
+        ).post(() ->
+                servizio.mostraTelemetria(
+                        ascoltato,
+                        interpretato,
+                        azione,
+                        risultato
+                )
+        );
+    }
+
+    public static void nascondiTelemetria() {
+        LisaAccessibilityService servizio = instance;
+        if (servizio == null) return;
+
+        new android.os.Handler(
+                android.os.Looper.getMainLooper()
+        ).post(servizio::rimuoviIndicatoreTelemetria);
+    }
+
+    public static void aggiornaVignettaSemplice(String testo) {
+        LisaAccessibilityService servizio = instance;
+        if (servizio == null) return;
+
+        new android.os.Handler(
+                android.os.Looper.getMainLooper()
+        ).post(() -> servizio.mostraVignettaSemplice(testo));
+    }
+
+    public static void nascondiVignettaSemplice() {
+        LisaAccessibilityService servizio = instance;
+        if (servizio == null) return;
+
+        new android.os.Handler(
+                android.os.Looper.getMainLooper()
+        ).post(servizio::rimuoviVignettaSemplice);
+    }
+
+    private android.widget.LinearLayout diagnosiLayout;
+
+    public static void resetDiagnosi() {
+        LisaAccessibilityService s = instance;
+        if (s == null) return;
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+            if (s.diagnosiLayout != null) {
+                s.diagnosiLayout.removeAllViews();
+            }
+        });
+    }
+
+    public static void aggiungiRigaDiagnosi(String fase, String dettaglio) {
+        LisaAccessibilityService s = instance;
+        if (s == null) return;
+
+        new android.os.Handler(
+                android.os.Looper.getMainLooper()
+        ).post(() -> {
+            if (s.diagnosiLayout == null) return;
+
+            android.widget.TextView tv =
+                    s.creaRigaTelemetria(
+                            fase + " " + dettaglio
+                    );
+
+            s.diagnosiLayout.addView(tv);
+
+            android.util.Log.i(
+                    TAG,
+                    "DIAGNOSI LISA: " + fase + " " + dettaglio
+            );
+        });
+    }
+
     private int dp(int valore) {
         return Math.round(
                 valore * getResources().getDisplayMetrics().density
@@ -78,6 +175,343 @@ public class LisaAccessibilityService extends AccessibilityService {
         return d;
     }
 
+
+    private android.widget.TextView creaRigaTelemetria(String testo) {
+        android.widget.TextView tv =
+                new android.widget.TextView(this);
+
+        tv.setText(testo);
+        tv.setTextSize(12);
+        tv.setTextColor(android.graphics.Color.WHITE);
+        tv.setPadding(
+                dp(10),
+                dp(5),
+                dp(10),
+                dp(5)
+        );
+        tv.setSingleLine(false);
+
+        return tv;
+    }
+
+    private android.graphics.drawable.GradientDrawable creaSfondoTelemetria() {
+        android.graphics.drawable.GradientDrawable bg =
+                new android.graphics.drawable.GradientDrawable();
+
+        bg.setColor(0xDD202020);
+        bg.setCornerRadius(dp(12));
+        bg.setStroke(
+                dp(1),
+                0xAAFFFFFF
+        );
+
+        return bg;
+    }
+
+    private void mostraTelemetria(
+            String ascoltato,
+            String interpretato,
+            String azione,
+            String risultato
+    ) {
+        if (!getSharedPreferences("lisa_ui", MODE_PRIVATE)
+                .getBoolean("telemetria_diagnosi_attiva", false)) return; // vignetta diagnosi DISATTIVATA in Fase 1.2
+
+        if (telemetriaWindowManager == null) {
+            telemetriaWindowManager =
+                    (android.view.WindowManager)
+                            getSystemService(
+                                    android.content.Context.WINDOW_SERVICE
+                            );
+        }
+
+        if (telemetriaWindowManager == null) return;
+
+        if (indicatoreTelemetria == null) {
+            diagnosiLayout =
+                    new android.widget.LinearLayout(this);
+
+            diagnosiLayout.setOrientation(
+                    android.widget.LinearLayout.VERTICAL
+            );
+
+            diagnosiLayout.setPadding(
+                    dp(2),
+                    dp(2),
+                    dp(2),
+                    dp(2)
+            );
+
+            diagnosiLayout.setBackground(
+                    creaSfondoTelemetria()
+            );
+
+            indicatoreTelemetria = diagnosiLayout;
+
+            indicatoreTelemetriaLp =
+                    new android.view.WindowManager.LayoutParams(
+                            dp(300),
+                            android.view.WindowManager.LayoutParams.WRAP_CONTENT,
+                            android.view.WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                            android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                                    | android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                                    | android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                                    | android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+                            android.graphics.PixelFormat.TRANSLUCENT
+                    );
+
+            indicatoreTelemetriaLp.gravity =
+                    android.view.Gravity.TOP
+                            | android.view.Gravity.START;
+
+            android.content.SharedPreferences prefs =
+                    getSharedPreferences(
+                            "lisa_ui",
+                            MODE_PRIVATE
+                    );
+
+            indicatoreTelemetriaLp.x =
+                    prefs.getInt(
+                            "telemetria_x",
+                            dp(25)
+                    );
+
+            indicatoreTelemetriaLp.y =
+                    prefs.getInt(
+                            "telemetria_y",
+                            dp(220)
+                    );
+
+            telemetriaWindowManager.addView(
+                    indicatoreTelemetria,
+                    indicatoreTelemetriaLp
+            );
+
+            android.util.Log.i(
+                    TAG,
+                    "TELEMETRIA LISA AGGIUNTA"
+            );
+        }
+
+
+
+        if (ascoltato != null) {
+            aggiungiRigaDiagnosi(
+                    "🎤",
+                    "Ascoltato: " + ascoltato
+            );
+        }
+
+        if (interpretato != null) {
+            aggiungiRigaDiagnosi(
+                    "🧠",
+                    "Interpretato: " + interpretato
+            );
+        }
+
+        if (azione != null) {
+            aggiungiRigaDiagnosi(
+                    "⚙️",
+                    "Azione: " + azione
+            );
+        }
+
+        if (risultato != null) {
+            aggiungiRigaDiagnosi(
+                    "✅",
+                    "Risultato: " + risultato
+            );
+        }
+    }
+
+    private void mostraVignettaSemplice(String testo) {
+        if (!getSharedPreferences("lisa_ui", MODE_PRIVATE)
+                .getBoolean("vignetta_semplice_attiva", true)) return;
+
+        try {
+            if (sempliceWindowManager == null) {
+                sempliceWindowManager =
+                        (android.view.WindowManager)
+                                getSystemService(
+                                        android.content.Context.WINDOW_SERVICE
+                                );
+            }
+
+            if (sempliceWindowManager == null) return;
+
+            if (indicatoreSemplice == null) {
+                indicatoreSemplice =
+                        new android.widget.TextView(this);
+
+                indicatoreSemplice.setTextSize(15);
+                indicatoreSemplice.setTextColor(
+                        android.graphics.Color.WHITE
+                );
+                indicatoreSemplice.setPadding(
+                        dp(14),
+                        dp(8),
+                        dp(14),
+                        dp(8)
+                );
+                indicatoreSemplice.setSingleLine(true);
+
+                android.graphics.drawable.GradientDrawable bg =
+                        new android.graphics.drawable.GradientDrawable();
+                bg.setColor(0xCC202020);
+                bg.setCornerRadius(dp(20));
+                bg.setStroke(dp(1), 0xAAFFFFFF);
+                indicatoreSemplice.setBackground(bg);
+
+                indicatoreSempliceLp =
+                        new android.view.WindowManager.LayoutParams(
+                                android.view.WindowManager.LayoutParams.WRAP_CONTENT,
+                                android.view.WindowManager.LayoutParams.WRAP_CONTENT,
+                                android.view.WindowManager.LayoutParams
+                                        .TYPE_ACCESSIBILITY_OVERLAY,
+                                android.view.WindowManager.LayoutParams
+                                        .FLAG_NOT_FOCUSABLE
+                                        | android.view.WindowManager.LayoutParams
+                                        .FLAG_NOT_TOUCH_MODAL
+                                        | android.view.WindowManager.LayoutParams
+                                        .FLAG_LAYOUT_IN_SCREEN
+                                        | android.view.WindowManager.LayoutParams
+                                        .FLAG_NOT_TOUCHABLE,
+                                android.graphics.PixelFormat.TRANSLUCENT
+                        );
+
+                indicatoreSempliceLp.gravity =
+                        android.view.Gravity.TOP
+                                | android.view.Gravity.CENTER_HORIZONTAL;
+
+                android.content.SharedPreferences prefs =
+                        getSharedPreferences(
+                                "lisa_ui",
+                                MODE_PRIVATE
+                        );
+
+                indicatoreSempliceLp.y = dp(60);
+
+
+                sempliceWindowManager.addView(
+                        indicatoreSemplice,
+                        indicatoreSempliceLp
+                );
+
+                android.util.Log.i(
+                        TAG,
+                        "VIGNETTA SEMPLICE AGGIUNTA"
+                );
+            }
+
+            if (testo != null) {
+                indicatoreSemplice.setText(testo);
+            }
+
+            if (sempliceAutohideRunnable != null) {
+                new android.os.Handler(
+                        android.os.Looper.getMainLooper()
+                ).removeCallbacks(sempliceAutohideRunnable);
+            }
+
+            sempliceAutohideRunnable = () -> {
+                try {
+                    if (sempliceWindowManager != null
+                            && indicatoreSemplice != null) {
+                        sempliceWindowManager.removeView(
+                                indicatoreSemplice
+                        );
+                    }
+                } catch (Exception ignored) {
+                }
+
+                indicatoreSemplice = null;
+                indicatoreSempliceLp = null;
+                sempliceAutohideRunnable = null;
+
+                android.util.Log.i(
+                        TAG,
+                        "VIGNETTA SEMPLICE RIMOSSA (autohide)"
+                );
+            };
+
+            new android.os.Handler(
+                    android.os.Looper.getMainLooper()
+            ).postDelayed(
+                    sempliceAutohideRunnable,
+                    2500L
+            );
+
+        } catch (Throwable e) {
+            android.util.Log.e(
+                    TAG,
+                    "ERRORE VIGNETTA SEMPLICE",
+                    e
+            );
+        }
+    }
+
+    private void rimuoviVignettaSemplice() {
+        if (sempliceAutohideRunnable != null) {
+            new android.os.Handler(
+                    android.os.Looper.getMainLooper()
+            ).removeCallbacks(sempliceAutohideRunnable);
+            sempliceAutohideRunnable = null;
+        }
+
+        if (sempliceWindowManager != null
+                && indicatoreSemplice != null) {
+            try {
+                sempliceWindowManager.removeView(
+                        indicatoreSemplice
+                );
+            } catch (Exception ignored) {
+            }
+        }
+
+        indicatoreSemplice = null;
+        indicatoreSempliceLp = null;
+        sempliceWindowManager = null;
+
+        android.util.Log.i(
+                TAG,
+                "VIGNETTA SEMPLICE RIMOSSA"
+        );
+    }
+
+        private void rimuoviIndicatoreTelemetria() {
+        boolean rimossa = false;
+
+        if (telemetriaWindowManager != null
+                && indicatoreTelemetria != null) {
+
+            try {
+                telemetriaWindowManager.removeView(
+                        indicatoreTelemetria
+                );
+                rimossa = true;
+            } catch (Exception e) {
+                android.util.Log.e(
+                        TAG,
+                        "TELEMETRIA removeView fallita",
+                        e
+                );
+            }
+        }
+
+        if (rimossa) {
+            indicatoreTelemetria = null;
+            indicatoreTelemetriaLp = null;
+            telemetriaAscoltato = null;
+            telemetriaInterpretato = null;
+            telemetriaAzione = null;
+            telemetriaRisultato = null;
+        }
+
+        android.util.Log.i(
+                TAG,
+                "TELEMETRIA LISA RIMOSSA (rimossa=" + rimossa + ")"
+        );
+    }
 
     private void mostraStatoLisa(boolean ascolto) {
 
