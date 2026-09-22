@@ -367,16 +367,6 @@ public final class LocalWhisperAsrProbeManager {
                     parlatoVisto = true;
                     Log.i(TAG, "VAD: INIZIO PARLATO");
                     LisaAccessibilityService.resetDiagnosi();
-                    LisaAccessibilityService.aggiornaTelemetria(
-                            null,
-                            null,
-                            null,
-                            null
-                    );
-                    LisaAccessibilityService.aggiungiRigaDiagnosi(
-                            "🎤",
-                            "In ascolto..."
-                    );
 
                 }
 
