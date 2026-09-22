@@ -121,6 +121,20 @@ public class LisaAccessibilityService extends AccessibilityService {
     private android.os.Handler diagnosiAutohideHandler;
     private Runnable diagnosiAutohideRunnable;
 
+    // Rimozioni overlay indipendenti dalle ViewPropertyAnimator.
+    // Ogni View ha il proprio Runnable per evitare race tra
+    // vignetta semplice e vignetta diagnosi.
+    private final android.os.Handler overlayRemovalHandler =
+            new android.os.Handler(
+                    android.os.Looper.getMainLooper()
+            );
+
+    private final java.util.IdentityHashMap<
+            android.view.View,
+            Runnable
+            > overlayRemovalRunnables =
+            new java.util.IdentityHashMap<>();
+
     public static void resetDiagnosi() {
         LisaAccessibilityService s = instance;
         if (s == null) return;
@@ -138,6 +152,19 @@ public class LisaAccessibilityService extends AccessibilityService {
         new android.os.Handler(
                 android.os.Looper.getMainLooper()
         ).post(() -> {
+
+            if (!s.getSharedPreferences(
+                    "lisa_ui",
+                    android.content.Context.MODE_PRIVATE
+            ).getBoolean(
+                    "telemetria_diagnosi_attiva",
+                    false
+            )) return;
+
+            s.ripristinaAnimazioneOverlay(
+                    s.indicatoreTelemetria
+            );
+
             if (s.diagnosiLayout == null) {
                 s.mostraTelemetria(
                         null,
@@ -190,6 +217,132 @@ public class LisaAccessibilityService extends AccessibilityService {
                     "DIAGNOSI LISA: " + fase + " " + dettaglio
             );
         });
+    }
+
+    private void ripristinaAnimazioneOverlay(
+            android.view.View view) {
+
+        if (view == null) return;
+
+        // Annulla soltanto la chiusura pendente
+        // appartenente a questa stessa View.
+        Runnable pendente =
+                overlayRemovalRunnables.remove(view);
+
+        if (pendente != null) {
+            overlayRemovalHandler.removeCallbacks(
+                    pendente
+            );
+        }
+
+        view.animate().cancel();
+
+        view.setLayerType(
+                android.view.View.LAYER_TYPE_NONE,
+                null
+        );
+
+        view.setAlpha(1f);
+        view.setScaleX(1f);
+        view.setScaleY(1f);
+        view.setTranslationY(0f);
+
+        // Nessun nuovo addView:
+        // la View è ancora attached alla WindowManager.
+        view.setVisibility(
+                android.view.View.VISIBLE
+        );
+    }
+
+    private void animaERimuoviOverlay(
+            android.view.View view,
+            android.view.WindowManager windowManager,
+            Runnable alTermine) {
+
+        if (view == null) {
+            if (alTermine != null) {
+                alTermine.run();
+            }
+            return;
+        }
+
+        Runnable precedente =
+                overlayRemovalRunnables.remove(view);
+
+        if (precedente != null) {
+            overlayRemovalHandler.removeCallbacks(
+                    precedente
+            );
+        }
+
+        view.animate().cancel();
+
+        view.setVisibility(
+                android.view.View.VISIBLE
+        );
+        view.setLayerType(
+                android.view.View.LAYER_TYPE_NONE,
+                null
+        );
+        view.setAlpha(1f);
+        view.setScaleX(1f);
+        view.setScaleY(1f);
+        view.setTranslationY(0f);
+
+        final android.view.View vistaFinale = view;
+
+        Runnable nascondi = () -> {
+
+            overlayRemovalRunnables.remove(
+                    vistaFinale
+            );
+
+            vistaFinale.animate().cancel();
+
+            vistaFinale.setLayerType(
+                    android.view.View.LAYER_TYPE_NONE,
+                    null
+            );
+
+            // FONDAMENTALE:
+            // durante l'uso normale MAI removeView.
+            vistaFinale.setVisibility(
+                    android.view.View.GONE
+            );
+
+            // Stato grafico pronto per la prossima apertura.
+            vistaFinale.setAlpha(1f);
+            vistaFinale.setScaleX(1f);
+            vistaFinale.setScaleY(1f);
+            vistaFinale.setTranslationY(0f);
+
+            if (alTermine != null) {
+                alTermine.run();
+            }
+        };
+
+        overlayRemovalRunnables.put(
+                vistaFinale,
+                nascondi
+        );
+
+        // Shrink proporzionale: nessuno schiacciamento a linea.
+        vistaFinale.animate()
+                .withLayer()
+                .alpha(0f)
+                .scaleX(0.15f)
+                .scaleY(0.15f)
+                .setDuration(220L)
+                .setInterpolator(
+                        new android.view.animation.AccelerateInterpolator()
+                )
+                .start();
+
+        // Lifecycle indipendente da ViewPropertyAnimator.
+        overlayRemovalHandler.postDelayed(
+                nascondi,
+                260L
+        );
     }
 
     private int dp(int valore) {
@@ -248,10 +401,7 @@ public class LisaAccessibilityService extends AccessibilityService {
 
         bg.setColor(0xDD202020);
         bg.setCornerRadius(dp(12));
-        bg.setStroke(
-                dp(1),
-                0xAAFFFFFF
-        );
+        // Bordo bianco rimosso: test artefatto riga residua.
 
         return bg;
     }
@@ -396,6 +546,10 @@ public class LisaAccessibilityService extends AccessibilityService {
 
 
 
+        ripristinaAnimazioneOverlay(
+                indicatoreTelemetria
+        );
+
         if (ascoltato != null) {
             aggiungiRigaDiagnosi(
                     "🎤",
@@ -460,7 +614,7 @@ public class LisaAccessibilityService extends AccessibilityService {
                         new android.graphics.drawable.GradientDrawable();
                 bg.setColor(0xCC202020);
                 bg.setCornerRadius(dp(20));
-                bg.setStroke(dp(1), 0xAAFFFFFF);
+                // Bordo bianco rimosso: test artefatto riga residua.
                 indicatoreSemplice.setBackground(bg);
 
                 indicatoreSempliceLp =
@@ -504,6 +658,10 @@ public class LisaAccessibilityService extends AccessibilityService {
                 );
             }
 
+            ripristinaAnimazioneOverlay(
+                    indicatoreSemplice
+            );
+
             if (testo != null) {
                 indicatoreSemplice.setText(testo);
             }
@@ -514,26 +672,8 @@ public class LisaAccessibilityService extends AccessibilityService {
                 ).removeCallbacks(sempliceAutohideRunnable);
             }
 
-            sempliceAutohideRunnable = () -> {
-                try {
-                    if (sempliceWindowManager != null
-                            && indicatoreSemplice != null) {
-                        sempliceWindowManager.removeView(
-                                indicatoreSemplice
-                        );
-                    }
-                } catch (Exception ignored) {
-                }
-
-                indicatoreSemplice = null;
-                indicatoreSempliceLp = null;
-                sempliceAutohideRunnable = null;
-
-                android.util.Log.i(
-                        TAG,
-                        "VIGNETTA SEMPLICE RIMOSSA (autohide)"
-                );
-            };
+            sempliceAutohideRunnable =
+                    this::rimuoviVignettaSemplice;
 
             new android.os.Handler(
                     android.os.Looper.getMainLooper()
@@ -552,66 +692,52 @@ public class LisaAccessibilityService extends AccessibilityService {
     }
 
     private void rimuoviVignettaSemplice() {
+
         if (sempliceAutohideRunnable != null) {
             new android.os.Handler(
                     android.os.Looper.getMainLooper()
-            ).removeCallbacks(sempliceAutohideRunnable);
+            ).removeCallbacks(
+                    sempliceAutohideRunnable
+            );
             sempliceAutohideRunnable = null;
         }
 
-        if (sempliceWindowManager != null
-                && indicatoreSemplice != null) {
-            try {
-                sempliceWindowManager.removeView(
-                        indicatoreSemplice
-                );
-            } catch (Exception ignored) {
-            }
+        if (indicatoreSemplice == null) {
+            return;
         }
 
-        indicatoreSemplice = null;
-        indicatoreSempliceLp = null;
-        sempliceWindowManager = null;
-
-        android.util.Log.i(
-                TAG,
-                "VIGNETTA SEMPLICE RIMOSSA"
+        animaERimuoviOverlay(
+                indicatoreSemplice,
+                sempliceWindowManager,
+                () -> android.util.Log.i(
+                        TAG,
+                        "VIGNETTA SEMPLICE NASCOSTA"
+                )
         );
     }
 
-        private void rimuoviIndicatoreTelemetria() {
-        boolean rimossa = false;
+    private void rimuoviIndicatoreTelemetria() {
 
-        if (telemetriaWindowManager != null
-                && indicatoreTelemetria != null) {
-
-            try {
-                telemetriaWindowManager.removeView(
-                        indicatoreTelemetria
-                );
-                rimossa = true;
-            } catch (Exception e) {
-                android.util.Log.e(
-                        TAG,
-                        "TELEMETRIA removeView fallita",
-                        e
-                );
-            }
+        if (indicatoreTelemetria == null) {
+            return;
         }
 
-        if (rimossa) {
-            indicatoreTelemetria = null;
-            indicatoreTelemetriaLp = null;
-            diagnosiLayout = null;
-            telemetriaAscoltato = null;
-            telemetriaInterpretato = null;
-            telemetriaAzione = null;
-            telemetriaRisultato = null;
-        }
+        animaERimuoviOverlay(
+                indicatoreTelemetria,
+                telemetriaWindowManager,
+                () -> {
 
-        android.util.Log.i(
-                TAG,
-                "TELEMETRIA LISA RIMOSSA (rimossa=" + rimossa + ")"
+                    // Manteniamo il LinearLayout attached,
+                    // ma svuotiamo le vecchie righe.
+                    if (diagnosiLayout != null) {
+                        diagnosiLayout.removeAllViews();
+                    }
+
+                    android.util.Log.i(
+                            TAG,
+                            "TELEMETRIA LISA NASCOSTA"
+                    );
+                }
         );
     }
 
@@ -1053,6 +1179,69 @@ public class LisaAccessibilityService extends AccessibilityService {
 
     private void spegniLisaCompletamente() {
         rimuoviIndicatoreLisa();
+
+        // Cancella tutte le chiusure pendenti delle due vignette.
+        for (Runnable r :
+                new java.util.ArrayList<>(
+                        overlayRemovalRunnables.values()
+                )) {
+
+            overlayRemovalHandler.removeCallbacks(r);
+        }
+
+        overlayRemovalRunnables.clear();
+
+        // Cleanup definitivo vignetta semplice.
+        if (indicatoreSemplice != null
+                && sempliceWindowManager != null) {
+
+            try {
+                indicatoreSemplice.animate().cancel();
+
+                indicatoreSemplice.setVisibility(
+                        android.view.View.GONE
+                );
+
+                sempliceWindowManager.removeViewImmediate(
+                        indicatoreSemplice
+                );
+
+            } catch (Exception ignored) {
+            }
+        }
+
+        // Cleanup definitivo vignetta diagnosi.
+        if (indicatoreTelemetria != null
+                && telemetriaWindowManager != null) {
+
+            try {
+                indicatoreTelemetria.animate().cancel();
+
+                indicatoreTelemetria.setVisibility(
+                        android.view.View.GONE
+                );
+
+                telemetriaWindowManager.removeViewImmediate(
+                        indicatoreTelemetria
+                );
+
+            } catch (Exception ignored) {
+            }
+        }
+
+        indicatoreSemplice = null;
+        indicatoreSempliceLp = null;
+        sempliceWindowManager = null;
+
+        indicatoreTelemetria = null;
+        indicatoreTelemetriaLp = null;
+        diagnosiLayout = null;
+
+        telemetriaAscoltato = null;
+        telemetriaInterpretato = null;
+        telemetriaAzione = null;
+        telemetriaRisultato = null;
+
         instance = null;
 
         LisaSpeaker.spegni();
