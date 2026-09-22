@@ -114,4 +114,3 @@ echo
 echo "PROMEMORIA MANUALE:"
 echo "👉 Spegni Wireless Debug"
 echo "👉 Disattiva Accessibility Lisa"
-echo "👉 Chiudi/disattiva EVA Facial Mouse"
