@@ -538,6 +538,8 @@ public final class LocalWhisperAsrProbeManager {
                     false
             );
 
+            LisaSpeaker.interrompi();
+
             if (deveRispondereStop) {
                 LisaSpeaker.parla(
                         context,

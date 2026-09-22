@@ -760,6 +760,7 @@ if (servizio.recognizer != null) {
                 android.os.Looper.getMainLooper()
         ).post(() -> {
 
+            LisaSpeaker.interrompi();
             whisperLocaleAttivo = false;
             sessioneAttiva = false;
             servizio.rilasciaAudioFocus();
@@ -2756,6 +2757,7 @@ if (inAttesaVuoiFareAltro) {
     private void terminaSessione(
             boolean silenzioso) {
 
+        LisaSpeaker.interrompi();
         sessioneAttiva = false;
         voiceController.stopSession();
 
