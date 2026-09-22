@@ -138,6 +138,8 @@ public class MainActivity extends Activity {
         btnVoceLisa.setMinHeight(Math.round(64 * density));
         btnVoceLisa.setOnClickListener(v -> {
 
+            // Se Whisper è già attivo, il pulsante deve sempre fermarlo,
+            // anche se nel frattempo è stata cambiata la preferenza ASR.
             if (localWhisperAsrProbe != null
                     && localWhisperAsrProbe.isRunning()) {
 
@@ -145,38 +147,57 @@ public class MainActivity extends Activity {
                 return;
             }
 
-            // Il pulsante principale usa ora il nuovo motore
-            // Whisper Small + Silero VAD continuo.
-            if (btnAsrPipeTest != null) {
-                btnAsrPipeTest.performClick();
-                return;
-            }
-
-            // Fallback di sicurezza: vecchio motore.
-            Intent intent = new Intent(this, LisaVoiceService.class);
-
+            // Se è attiva una sessione Google/SpeechRecognizer, fermala.
             if (LisaVoiceService.isSessioneAttiva()) {
                 LisaVoiceService.fermaLisaDaPulsante();
                 btnVoceLisa.setText("🎤 Attiva Lisa");
-            } else {
-                if (LisaAccessibilityService.getInstance() == null) {
-                    android.widget.Toast.makeText(
-                            this,
-                            "Attiva prima Accessibilità Lisa",
-                            android.widget.Toast.LENGTH_SHORT
-                    ).show();
-
-                    btnVoceLisa.setText("🎤 Attiva Lisa");
-                    return;
-                }
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(intent);
-                } else {
-                    startService(intent);
-                }
-                btnVoceLisa.setText("⏹ Ferma Lisa");
+                return;
             }
+
+            if (LisaAccessibilityService.getInstance() == null) {
+                android.widget.Toast.makeText(
+                        this,
+                        "Attiva prima Accessibilità Lisa",
+                        android.widget.Toast.LENGTH_SHORT
+                ).show();
+
+                btnVoceLisa.setText("🎤 Attiva Lisa");
+                return;
+            }
+
+            String motore =
+                    getSharedPreferences(
+                            "lisa_ui",
+                            MODE_PRIVATE
+                    ).getString(
+                            "motore_asr",
+                            "google"
+                    );
+
+            // === WHISPER SMALL LOCALE ===
+            if ("whisper".equals(motore)) {
+
+                if (btnAsrPipeTest != null) {
+                    btnAsrPipeTest.performClick();
+                }
+
+                return;
+            }
+
+            // === GOOGLE / ANDROID SPEECHRECOGNIZER ===
+            Intent intent =
+                    new Intent(
+                            this,
+                            LisaVoiceService.class
+                    );
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent);
+            } else {
+                startService(intent);
+            }
+
+            btnVoceLisa.setText("⏹ Ferma Lisa");
         });
         layout.addView(btnVoceLisa);
 
