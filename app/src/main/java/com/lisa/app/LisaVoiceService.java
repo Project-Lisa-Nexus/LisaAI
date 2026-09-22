@@ -61,6 +61,10 @@ public class LisaVoiceService extends Service {
     private boolean inAttesaVuoiFareAltro = false;
     private Runnable ascoltoProgrammato;
 
+    // Risposta reale prodotta dai comandi deterministici locali.
+    // Viene consumata subito dal chiamante Whisper.
+    private String rispostaComandoLocale = null;
+
     public static boolean isSessioneAttiva() {
         return sessioneAttiva;
     }
@@ -300,6 +304,8 @@ if (servizio.recognizer != null) {
                     comando
             );
 
+        servizio.rispostaComandoLocale = null;
+
         boolean eseguito =
                     servizio.eseguiLocaleRapido(comando);
 
@@ -326,6 +332,20 @@ if (servizio.recognizer != null) {
                 }
             }
 
+            final String rispostaLocaleFinale =
+                    servizio.rispostaComandoLocale;
+
+            // Consumata qui: nessuna risposta può finire
+            // accidentalmente sul comando successivo.
+            servizio.rispostaComandoLocale = null;
+
+            final String azioneFinale =
+                    eseguito
+                            ? (rispostaLocaleFinale != null
+                                    ? rispostaLocaleFinale
+                                    : fraseInPrimaPersona(comandoUsato))
+                            : null;
+
             LisaAccessibilityService.aggiungiRigaDiagnosi(
                     "🧠",
                     "Interpretato: " + comandoUsato
@@ -334,7 +354,7 @@ if (servizio.recognizer != null) {
             if (eseguito) {
                 LisaAccessibilityService.aggiungiRigaDiagnosi(
                         "⚙️",
-                        "Azione: " + fraseInPrimaPersona(comandoUsato)
+                        "Azione: " + azioneFinale
                 );
             }
 
@@ -386,7 +406,7 @@ if (servizio.recognizer != null) {
             if (eseguito) {
 
                 final String rispostaSemplice =
-                        fraseInPrimaPersona(comandoUsato);
+                        azioneFinale;
 
                 new android.os.Handler(
                         android.os.Looper.getMainLooper()
@@ -2039,6 +2059,270 @@ if (inAttesaVuoiFareAltro) {
                         "apri ")
                 .replaceAll("\\baprire\\s+",
                         "apri ");
+
+        // ====================================================
+        // COMANDI DETERMINISTICI LOCALI — NO LisaOS
+        // ====================================================
+
+        // ORA
+        if (testo.equals("che ore sono")
+                || testo.equals("che ora e")
+                || testo.equals("che ora è")
+                || testo.equals("che ora sono")
+                || testo.equals("che orizzono")
+                || testo.equals("orizzono")
+                || testo.equals("ore sono")) {
+
+            java.util.Calendar c =
+                    java.util.Calendar.getInstance();
+
+            int h = c.get(
+                    java.util.Calendar.HOUR_OF_DAY
+            );
+
+            int m = c.get(
+                    java.util.Calendar.MINUTE
+            );
+
+            String risposta;
+
+            if (h == 1) {
+                risposta = m == 0
+                        ? "È l'una"
+                        : "È l'una e " + m;
+            } else {
+                risposta = m == 0
+                        ? "Sono le " + h
+                        : "Sono le " + h + " e " + m;
+            }
+
+            rispostaComandoLocale = risposta;
+
+            LisaSpeaker.parla(
+                    this,
+                    risposta,
+                    null
+            );
+
+            return true;
+        }
+
+        // GIORNO DELLA SETTIMANA
+        if (testo.equals("che giorno e")
+                || testo.equals("che giorno è")
+                || testo.equals("che giorno siamo")
+                || testo.equals("che giorno e oggi")
+                || testo.equals("che giorno è oggi")
+                || testo.equals("giorno e")
+                || testo.equals("giorno è")
+                || testo.equals("giorno e oggi")
+                || testo.equals("giorno è oggi")
+                || testo.equals("e giorno e")
+                || testo.equals("e giorno è")) {
+
+            String giorno =
+                    new java.text.SimpleDateFormat(
+                            "EEEE",
+                            java.util.Locale.ITALIAN
+                    ).format(
+                            new java.util.Date()
+                    );
+
+            String risposta =
+                    "Oggi è " + giorno;
+
+            rispostaComandoLocale = risposta;
+
+            LisaSpeaker.parla(
+                    this,
+                    risposta,
+                    null
+            );
+
+            return true;
+        }
+
+        // DATA
+        if (testo.equals("che data e")
+                || testo.equals("che data è")
+                || testo.equals("che data abbiamo")
+                || testo.equals("quanti ne abbiamo")
+                || testo.equals("che giorno del mese e")
+                || testo.equals("che giorno del mese è")
+                || testo.equals("data e")
+                || testo.equals("data è")) {
+
+            String data =
+                    new java.text.SimpleDateFormat(
+                            "d MMMM yyyy",
+                            java.util.Locale.ITALIAN
+                    ).format(
+                            new java.util.Date()
+                    );
+
+            String risposta =
+                    "Oggi è il " + data;
+
+            rispostaComandoLocale = risposta;
+
+            LisaSpeaker.parla(
+                    this,
+                    risposta,
+                    null
+            );
+
+            return true;
+        }
+
+        // BATTERIA
+        if (testo.equals("batteria")
+                || testo.equals("che batteria ho")
+                || testo.equals("quanto e carica la batteria")
+                || testo.equals("quanto è carica la batteria")
+                || testo.equals("carica batteria")) {
+
+            android.os.BatteryManager bm =
+                    (android.os.BatteryManager)
+                            getSystemService(
+                                    android.content.Context.BATTERY_SERVICE
+                            );
+
+            int percentualeBatteria =
+                    bm != null
+                            ? bm.getIntProperty(
+                                    android.os.BatteryManager
+                                            .BATTERY_PROPERTY_CAPACITY
+                            )
+                            : -1;
+
+            String risposta =
+                    percentualeBatteria >= 0
+                            ? "La batteria è al "
+                                    + percentualeBatteria
+                                    + " per cento"
+                            : "Batteria non disponibile";
+
+            rispostaComandoLocale = risposta;
+
+            LisaSpeaker.parla(
+                    this,
+                    risposta,
+                    null
+            );
+
+            return true;
+        }
+
+        // WI-FI
+        // Nota: nel percorso Whisper "wi-fi" viene normalizzato in "wi fi".
+        if (testo.equals("stato wifi")
+                || testo.equals("stato wi fi")
+                || testo.equals("wifi attivo")
+                || testo.equals("wi fi attivo")
+                || testo.equals("sono connesso al wifi")
+                || testo.equals("sono connesso al wi fi")) {
+
+            android.net.ConnectivityManager cm =
+                    (android.net.ConnectivityManager)
+                            getSystemService(
+                                    android.content.Context.CONNECTIVITY_SERVICE
+                            );
+
+            android.net.Network rete =
+                    cm != null
+                            ? cm.getActiveNetwork()
+                            : null;
+
+            android.net.NetworkCapabilities caps =
+                    cm != null && rete != null
+                            ? cm.getNetworkCapabilities(rete)
+                            : null;
+
+            boolean connessoWifi =
+                    caps != null
+                            && caps.hasTransport(
+                                    android.net.NetworkCapabilities
+                                            .TRANSPORT_WIFI
+                            );
+
+            String risposta =
+                    connessoWifi
+                            ? "Wi-Fi connesso"
+                            : "Wi-Fi non connesso";
+
+            rispostaComandoLocale = risposta;
+
+            LisaSpeaker.parla(
+                    this,
+                    risposta,
+                    null
+            );
+
+            return true;
+        }
+
+        // BLUETOOTH
+        if (testo.equals("stato bluetooth")
+                || testo.equals("bluetooth attivo")
+                || testo.equals("bluetooth acceso")
+                || testo.equals("bluetooth spento")
+                || testo.equals("bluetooth")) {
+
+            String risposta;
+
+            boolean permessoBluetooth =
+                    android.os.Build.VERSION.SDK_INT
+                            < android.os.Build.VERSION_CODES.S
+                    || checkSelfPermission(
+                            android.Manifest.permission.BLUETOOTH_CONNECT
+                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+
+            if (!permessoBluetooth) {
+
+                risposta =
+                        "Non posso leggere lo stato Bluetooth senza autorizzazione";
+
+            } else {
+
+                android.bluetooth.BluetoothManager manager =
+                        (android.bluetooth.BluetoothManager)
+                                getSystemService(
+                                        android.content.Context.BLUETOOTH_SERVICE
+                                );
+
+                android.bluetooth.BluetoothAdapter adapter =
+                        manager != null
+                                ? manager.getAdapter()
+                                : null;
+
+                if (adapter == null) {
+
+                    risposta =
+                            "Bluetooth non disponibile";
+
+                } else {
+
+                    risposta =
+                            adapter.isEnabled()
+                                    ? "Bluetooth attivo"
+                                    : "Bluetooth spento";
+                }
+            }
+
+            rispostaComandoLocale = risposta;
+
+            LisaSpeaker.parla(
+                    this,
+                    risposta,
+                    null
+            );
+
+            return true;
+        }
+
+        // ====================================================
+        // FINE COMANDI DETERMINISTICI LOCALI
+        // ====================================================
 
         // PERCENTUALI / MASSIMO / MINIMO -> esecuzione locale, senza cervello.
         java.util.regex.Matcher percentuale =
