@@ -459,14 +459,11 @@ public final class LocalWhisperAsrProbeManager {
                                     .trim();
 
                     boolean stopVocale =
-                            normale.equals("basta")
-                            || normale.equals("stop")
+                            LisaVoiceService.richiestaStopWhisper(testo)
                             || normale.equals("masta")
                             || normale.equals("master")
                             || normale.equals("pasta")
-                            || normale.equals("bassa")
-                            || normale.contains("smetti di ascoltare")
-                            || normale.contains("smettere di ascoltare");
+                            || normale.equals("bassa");
 
                     if (stopVocale) {
 

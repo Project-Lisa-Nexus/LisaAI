@@ -358,7 +358,7 @@ if (servizio.recognizer != null) {
             // Blocca il rumore ASR evidente prima di programmare
             // la risposta semplice e prima di inviare a LisaOS.
             if (!eseguito
-                    && java.util.Arrays.asList("a","e","i","o","u","ah","eh","ih","oh","uh","mm","mh","hmm","hm","mmm","ehm","boh","mah").contains(comandoUsato.trim().toLowerCase())) {
+                    && java.util.Arrays.asList("a","e","i","o","u","ah","eh","ih","oh","uh","mm","mh","hmm","hm","mmm","ehm","boh","mah","niente","nulla").contains(comandoUsato.trim().toLowerCase())) {
 
                 LisaAccessibilityService.aggiungiRigaDiagnosi(
                         "⚠️",
@@ -576,6 +576,13 @@ if (servizio.recognizer != null) {
         );
 
         if (!testo.equals(testoPrimaCorrezioneHome)) {
+
+            if (testo.startsWith("niente ")) {
+                testo = testo.substring("niente ".length()).trim();
+            } else if (testo.startsWith("nulla ")) {
+                testo = testo.substring("nulla ".length()).trim();
+            }
+
             Log.i(
                     TAG,
                     "NORMALIZZAZIONE HOME WHISPER: "
@@ -594,7 +601,9 @@ if (servizio.recognizer != null) {
                 "ok ",
                 "certo ",
                 "sì ",
-                "si "
+                "si ",
+                "niente ",
+                "nulla "
         };
 
         for (String prefisso : prefissiConversazione) {
@@ -1717,6 +1726,14 @@ if (inAttesaVuoiFareAltro) {
         inviaALisaOS(comando);
     }
 
+    public static boolean richiestaStopWhisper(String frase) {
+
+        LisaVoiceService servizio = instance;
+
+        return servizio != null
+                && servizio.richiestaStop(frase);
+    }
+
     private boolean richiestaStop(String frase) {
 
         if (frase == null) return false;
@@ -1742,10 +1759,29 @@ if (inAttesaVuoiFareAltro) {
                         .trim()
                         .replaceAll("\\s+", " ");
 
+        // Strip prefissi conversazione:
+        // "ok basta" -> "basta", "va bene chiudi" -> "chiudi".
+        for (String prefisso : new String[]{
+                "ok ", "va bene ", "certo ", "sì ", "si "
+        }) {
+            if (testo.startsWith(prefisso)
+                    && testo.length() > prefisso.length()) {
+                testo = testo.substring(prefisso.length()).trim();
+                break;
+            }
+        }
+
         // Solo il richiamo ("Lisa", "Ehi Lisa", ecc.) non è uno STOP.
         if (testo.isEmpty()) return false;
 
         return testo.equals("basta")
+                || testo.equals("basta così")
+                || testo.equals("basta cosi")
+                || testo.equals("chiudi")
+                || testo.equals("chiudi tutto")
+                || testo.equals("chiuditi")
+                || testo.equals("chiudi lisa")
+                || testo.equals("esci da lisa")
                 || testo.equals("esci")
                 || testo.equals("stop")
                 || testo.equals("fermati")
