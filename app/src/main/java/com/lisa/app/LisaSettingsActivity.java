@@ -70,6 +70,7 @@ public class LisaSettingsActivity extends Activity {
         );
 
         aggiungiSezioneBolle(layout);
+        aggiungiSezioneMotoreAsr(layout);
 
         aggiungiSezione(
                 layout,
@@ -122,6 +123,73 @@ public class LisaSettingsActivity extends Activity {
 
         scrollView.addView(layout);
         setContentView(scrollView);
+    }
+
+    private void aggiungiSezioneMotoreAsr(LinearLayout layout) {
+        TextView titolo = new TextView(this);
+        titolo.setText("Motore ASR");
+        titolo.setTextSize(18);
+        titolo.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+
+        LinearLayout.LayoutParams titoloLp =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+        titoloLp.topMargin = dp(8);
+        titoloLp.bottomMargin = dp(4);
+        layout.addView(titolo, titoloLp);
+
+        TextView descrizione = new TextView(this);
+        descrizione.setText(
+                "Scegli il motore di riconoscimento vocale di Lisa"
+        );
+        descrizione.setTextSize(14);
+        layout.addView(descrizione);
+
+        android.content.SharedPreferences prefs =
+                getSharedPreferences("lisa_ui", MODE_PRIVATE);
+
+        android.widget.RadioGroup gruppo =
+                new android.widget.RadioGroup(this);
+        gruppo.setOrientation(android.widget.RadioGroup.VERTICAL);
+
+        android.widget.RadioButton google =
+                new android.widget.RadioButton(this);
+        google.setId(android.view.View.generateViewId());
+        google.setText("Google / Android on-device (consigliato)");
+
+        android.widget.RadioButton whisper =
+                new android.widget.RadioButton(this);
+        whisper.setId(android.view.View.generateViewId());
+        whisper.setText("Whisper Small locale");
+
+        gruppo.addView(google);
+        gruppo.addView(whisper);
+
+        String motore =
+                prefs.getString("motore_asr", "google");
+
+        if ("whisper".equals(motore)) {
+            whisper.setChecked(true);
+        } else {
+            google.setChecked(true);
+        }
+
+        gruppo.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    String valore =
+                            checkedId == whisper.getId()
+                                    ? "whisper"
+                                    : "google";
+
+                    prefs.edit()
+                            .putString("motore_asr", valore)
+                            .apply();
+                }
+        );
+
+        layout.addView(gruppo);
     }
 
     private void aggiungiSezioneBolle(LinearLayout layout) {
