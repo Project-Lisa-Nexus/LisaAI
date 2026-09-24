@@ -14,6 +14,45 @@ public static final String ACTION_LISA_COMMAND = "com.lisa.app.COMMAND";
 
     private static final String TAG = "LisaCommandReceiver";
 
+    private static boolean bloccoAdbCanaleCritico(
+            String verbo,
+            String target) {
+
+        if (verbo == null || target == null) {
+            return false;
+        }
+
+        String v =
+                java.text.Normalizer.normalize(
+                        verbo,
+                        java.text.Normalizer.Form.NFD
+                )
+                .replaceAll("\\p{M}+", "")
+                .toLowerCase(java.util.Locale.ITALIAN)
+                .replaceAll("[^\\p{L}\\p{N}]+", "");
+
+        String t =
+                java.text.Normalizer.normalize(
+                        target,
+                        java.text.Normalizer.Form.NFD
+                )
+                .replaceAll("\\p{M}+", "")
+                .toLowerCase(java.util.Locale.ITALIAN)
+                .replaceAll("[^\\p{L}\\p{N}]+", "");
+
+        boolean spegne =
+                v.equals("spegni")
+                || v.equals("disattiva")
+                || v.equals("disabilita")
+                || v.equals("chiudi");
+
+        boolean critico =
+                t.equals("bluetooth")
+                || t.equals("wifi");
+
+        return spegne && critico;
+    }
+
     @Override
     public void onReceive(Context context, Intent intent) {
         if (!ACTION_LISA_COMMAND.equals(intent.getAction())) return;
@@ -271,6 +310,26 @@ public static final String ACTION_LISA_COMMAND = "com.lisa.app.COMMAND";
                 return;
             }
 
+            if (bloccoAdbCanaleCritico(
+                    verbo,
+                    target)) {
+
+                Log.w(
+                        TAG,
+                        "SAFETY ADB: spegnimento bloccato: "
+                                + target
+                );
+
+                if (isOrderedBroadcast()) {
+                    setResultCode(1);
+                    setResultData(
+                            "safety_guard_bloccato|stato=nessuno"
+                    );
+                }
+
+                return;
+            }
+
             final boolean ordinato =
                     isOrderedBroadcast();
 
@@ -357,6 +416,27 @@ public static final String ACTION_LISA_COMMAND = "com.lisa.app.COMMAND";
                 if (isOrderedBroadcast()) {
                     setResultCode(1);
                     setResultData("stato_toggle_non_valido");
+                }
+
+                return;
+            }
+
+            if (!desiderato
+                    && bloccoAdbCanaleCritico(
+                            "spegni",
+                            etichetta)) {
+
+                Log.w(
+                        TAG,
+                        "SAFETY ADB toggle: spegnimento bloccato: "
+                                + etichetta
+                );
+
+                if (isOrderedBroadcast()) {
+                    setResultCode(1);
+                    setResultData(
+                            "safety_guard_bloccato|stato=nessuno"
+                    );
                 }
 
                 return;
