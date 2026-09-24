@@ -65,6 +65,10 @@ public class LisaVoiceService extends Service {
     // Viene consumata subito dal chiamante Whisper.
     private String rispostaComandoLocale = null;
 
+    // P4.2B: l'ultima esecuzione locale e' stata demandata
+    // al Generic UI Resolver asincrono.
+    private boolean ultimaAzioneUiGenerica = false;
+
     public static boolean isSessioneAttiva() {
         return sessioneAttiva;
     }
@@ -330,6 +334,22 @@ if (servizio.recognizer != null) {
                                     comandoCorretto
                             );
                 }
+            }
+
+            // Un comando UI generico produce risultato/feedback
+            // nella propria callback, anche se il click e' asincrono.
+            // Non generare qui un secondo feedback locale.
+            if (eseguito
+                    && servizio.ultimaAzioneUiGenerica) {
+
+                servizio.rispostaComandoLocale = null;
+
+                Log.i(
+                        TAG,
+                        "WHISPER -> P4 UI GENERICA: feedback delegato alla callback"
+                );
+
+                return;
             }
 
             final String rispostaLocaleFinale =
@@ -2045,7 +2065,221 @@ if (inAttesaVuoiFareAltro) {
         return originale;
     }
 
+    // ============================================================
+    // P4.2B - PARSER VOCALE GENERICO UI
+    // Nessun nome di pulsante/toggle e' hardcoded.
+    // ============================================================
+
+    private boolean avviaAzioneUIGenericaDaVoce(
+            String testo,
+            LisaAccessibilityService servizio) {
+
+        if (testo == null || servizio == null) {
+            return false;
+        }
+
+        String[][] regole = {
+                {"disattiva ", "spegni"},
+                {"disabilita ", "spegni"},
+                {"spegni ", "spegni"},
+                {"chiudi ", "spegni"},
+
+                {"attiva ", "attiva"},
+                {"accendi ", "attiva"},
+                {"abilita ", "attiva"},
+
+                {"premi ", "premi"},
+                {"tocca ", "premi"},
+                {"clicca ", "premi"},
+                {"seleziona ", "premi"},
+                {"scegli ", "premi"},
+
+                {"apri ", "apri"}
+        };
+
+        String verbo = null;
+        String target = null;
+
+        for (String[] regola : regole) {
+
+            String prefisso = regola[0];
+
+            if (testo.startsWith(prefisso)
+                    && testo.length() > prefisso.length()) {
+
+                verbo = regola[1];
+                target =
+                        testo.substring(
+                                prefisso.length()
+                        ).trim();
+
+                break;
+            }
+        }
+
+        if (verbo == null
+                || target == null
+                || target.isEmpty()) {
+
+            return false;
+        }
+
+        // ----------------------------------------------------
+        // CONTROL CONTINUITY GUARD V1
+        //
+        // Non e' routing hardcoded:
+        // e' una policy di sicurezza separata.
+        // ----------------------------------------------------
+
+        String targetGuard =
+                java.text.Normalizer.normalize(
+                        target,
+                        java.text.Normalizer.Form.NFD
+                )
+                .replaceAll("\\p{M}+", "")
+                .toLowerCase(
+                        java.util.Locale.ITALIAN
+                )
+                .replaceAll(
+                        "[^\\p{L}\\p{N}]+",
+                        ""
+                );
+
+        if ("spegni".equals(verbo)
+                && (
+                    "bluetooth".equals(targetGuard)
+                    || "wifi".equals(targetGuard)
+                )) {
+
+            ultimaAzioneUiGenerica = true;
+
+            String risposta =
+                    "bluetooth".equals(targetGuard)
+                            ? "Non spengo Bluetooth da voce perché potrebbe interrompere il controllo R-Net."
+                            : "Non spengo il Wi-Fi da voce perché potrebbe interrompere la connessione e il debug wireless.";
+
+            LisaAccessibilityService.aggiungiRigaDiagnosi(
+                    "⚠️",
+                    "Control Continuity Guard: " + target
+            );
+
+            LisaAccessibilityService.aggiornaVignettaSemplice(
+                    risposta
+            );
+
+            LisaSpeaker.parla(
+                    this,
+                    risposta,
+                    null
+            );
+
+            return true;
+        }
+
+        ultimaAzioneUiGenerica = true;
+
+        final String verboFinale = verbo;
+        final String targetFinale = target;
+
+        Log.i(
+                TAG,
+                "P4 VOCE UI: "
+                        + verboFinale
+                        + " -> "
+                        + targetFinale
+        );
+
+        servizio.eseguiAzioneUIGenerica(
+                verboFinale,
+                targetFinale,
+                (ok, statoFinale, dettaglio) -> {
+
+                    String risposta;
+
+                    if (!ok) {
+
+                        if ("target_non_trovato".equals(dettaglio)) {
+                            risposta =
+                                    "Non trovo "
+                                            + targetFinale
+                                            + " nella schermata corrente.";
+                        } else {
+                            risposta =
+                                    "Non sono riuscita a eseguire l'azione su "
+                                            + targetFinale
+                                            + ".";
+                        }
+
+                    } else if (
+                            "gia_nello_stato_richiesto"
+                                    .equals(dettaglio)) {
+
+                        risposta =
+                                "Lo stato di "
+                                        + targetFinale
+                                        + " è già quello richiesto.";
+
+                    } else if ("attiva".equals(verboFinale)) {
+
+                        risposta =
+                                "Ho attivato "
+                                        + targetFinale
+                                        + ".";
+
+                    } else if ("spegni".equals(verboFinale)) {
+
+                        risposta =
+                                "Ho disattivato "
+                                        + targetFinale
+                                        + ".";
+
+                    } else if ("apri".equals(verboFinale)) {
+
+                        risposta =
+                                "Ho aperto "
+                                        + targetFinale
+                                        + ".";
+
+                    } else {
+
+                        risposta =
+                                "Ho premuto "
+                                        + targetFinale
+                                        + ".";
+                    }
+
+                    LisaAccessibilityService.aggiungiRigaDiagnosi(
+                            "⚙️",
+                            "UI: "
+                                    + verboFinale
+                                    + " "
+                                    + targetFinale
+                    );
+
+                    LisaAccessibilityService.aggiungiRigaDiagnosi(
+                            ok ? "✅" : "⚠️",
+                            "Risultato: " + dettaglio
+                    );
+
+                    LisaAccessibilityService.aggiornaVignettaSemplice(
+                            risposta
+                    );
+
+                    LisaSpeaker.parla(
+                            LisaVoiceService.this,
+                            risposta,
+                            null
+                    );
+                }
+        );
+
+        return true;
+    }
+
+
     private boolean eseguiLocaleRapido(String frase) {
+
+        ultimaAzioneUiGenerica = false;
 
         String testo =
                 frase.toLowerCase(Locale.ITALIAN).trim();
@@ -2567,6 +2801,15 @@ if (inAttesaVuoiFareAltro) {
 
         if (servizio == null) {
             return false;
+        }
+
+        // P4.2B: prima il nuovo resolver UI universale.
+        // I vecchi click naturali restano sotto come fallback.
+        if (avviaAzioneUIGenericaDaVoce(
+                testo,
+                servizio)) {
+
+            return true;
         }
 
         // FAST INTENT ACCESSIBILITY:
