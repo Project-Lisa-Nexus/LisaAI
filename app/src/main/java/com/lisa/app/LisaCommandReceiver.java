@@ -223,6 +223,7 @@ public static final String ACTION_LISA_COMMAND = "com.lisa.app.COMMAND";
         }
 
         boolean azioneInterattiva =
+            "imposta_toggle".equals(azione) ||
             "clicca".equals(azione) ||
             "scrivi_testo".equals(azione) ||
             "scorri_giu".equals(azione) ||
@@ -243,6 +244,89 @@ public static final String ACTION_LISA_COMMAND = "com.lisa.app.COMMAND";
             Log.w(TAG, "Azione bloccata su app di accessibilità");
             if (isOrderedBroadcast()) setResultCode(2);
             setResultData("schermata_protetta");
+            return;
+        }
+
+        if ("imposta_toggle".equals(azione)) {
+
+            String etichetta =
+                    intent.getStringExtra("etichetta");
+
+            String stato =
+                    intent.getStringExtra("stato");
+
+            if (etichetta == null
+                    || etichetta.trim().isEmpty()
+                    || stato == null
+                    || stato.trim().isEmpty()) {
+
+                if (isOrderedBroadcast()) {
+                    setResultCode(1);
+                    setResultData("parametri_toggle_mancanti");
+                }
+
+                return;
+            }
+
+            String valore =
+                    stato.trim()
+                            .toLowerCase(java.util.Locale.ITALIAN);
+
+            final boolean desiderato;
+
+            if ("on".equals(valore)
+                    || "true".equals(valore)
+                    || "1".equals(valore)
+                    || "acceso".equals(valore)
+                    || "attivo".equals(valore)) {
+
+                desiderato = true;
+
+            } else if ("off".equals(valore)
+                    || "false".equals(valore)
+                    || "0".equals(valore)
+                    || "spento".equals(valore)
+                    || "disattivato".equals(valore)) {
+
+                desiderato = false;
+
+            } else {
+
+                if (isOrderedBroadcast()) {
+                    setResultCode(1);
+                    setResultData("stato_toggle_non_valido");
+                }
+
+                return;
+            }
+
+            final boolean ordinato = isOrderedBroadcast();
+
+            BroadcastReceiver.PendingResult pending = goAsync();
+
+            servizio.impostaTogglePerEtichetta(
+                    etichetta.trim(),
+                    desiderato,
+                    (ok, statoFinale, dettaglio) -> {
+
+                        if (ordinato) {
+
+                            pending.setResultCode(ok ? 0 : 1);
+
+                            String risultato = dettaglio;
+
+                            if (statoFinale != null) {
+                                risultato += "|stato="
+                                        + (statoFinale ? "on" : "off");
+                            }
+
+                            pending.setResultData(risultato);
+                        }
+
+                        pending.finish();
+                    }
+            );
+
             return;
         }
 
