@@ -1317,6 +1317,446 @@ public class LisaAccessibilityService extends AccessibilityService {
         return risultato;
     }
 
+    // ============================================================
+    // P4.1 VOICE ACCESS CORE - TOGGLE GENERICO
+    // ============================================================
+
+    public interface ToggleResultCallback {
+        void onResult(
+                boolean riuscito,
+                Boolean statoFinale,
+                String dettaglio
+        );
+    }
+
+    public void impostaTogglePerEtichetta(
+            String etichetta,
+            boolean statoDesiderato,
+            ToggleResultCallback callback) {
+
+        if (callback == null) return;
+
+        AccessibilityNodeInfo root =
+                getRootInActiveWindow();
+
+        if (root == null) {
+            callback.onResult(
+                    false,
+                    null,
+                    "root_non_disponibile"
+            );
+            return;
+        }
+
+        AccessibilityNodeInfo label =
+                trovaEtichettaToggle(
+                        root,
+                        etichetta
+                );
+
+        if (label == null) {
+            callback.onResult(
+                    false,
+                    null,
+                    "etichetta_non_trovata"
+            );
+            return;
+        }
+
+        AccessibilityNodeInfo toggle =
+                trovaToggleAssociato(label);
+
+        if (toggle == null) {
+            callback.onResult(
+                    false,
+                    null,
+                    "toggle_non_trovato"
+            );
+            return;
+        }
+
+        Boolean statoPrima =
+                leggiStatoToggle(toggle);
+
+        Log.i(
+                TAG,
+                "P4 TOGGLE "
+                        + etichetta
+                        + " prima="
+                        + statoPrima
+                        + " desiderato="
+                        + statoDesiderato
+        );
+
+        if (statoPrima != null
+                && statoPrima.booleanValue()
+                == statoDesiderato) {
+
+            callback.onResult(
+                    true,
+                    statoPrima,
+                    "gia_nello_stato_richiesto"
+            );
+            return;
+        }
+
+        boolean cliccato =
+                AccessibilityUtils.click(toggle);
+
+        if (!cliccato) {
+            cliccato =
+                    AccessibilityUtils.click(label);
+        }
+
+        if (!cliccato) {
+            callback.onResult(
+                    false,
+                    statoPrima,
+                    "parent_cliccabile_non_trovato"
+            );
+            return;
+        }
+
+        new android.os.Handler(
+                android.os.Looper.getMainLooper()
+        ).postDelayed(
+                () -> verificaToggle(
+                        etichetta,
+                        statoDesiderato,
+                        callback
+                ),
+                700L
+        );
+    }
+
+    private void verificaToggle(
+            String etichetta,
+            boolean statoDesiderato,
+            ToggleResultCallback callback) {
+
+        AccessibilityNodeInfo root =
+                getRootInActiveWindow();
+
+        if (root == null) {
+            callback.onResult(
+                    false,
+                    null,
+                    "root_post_click_non_disponibile"
+            );
+            return;
+        }
+
+        AccessibilityNodeInfo label =
+                trovaEtichettaToggle(
+                        root,
+                        etichetta
+                );
+
+        if (label == null) {
+            callback.onResult(
+                    false,
+                    null,
+                    "etichetta_post_click_non_trovata"
+            );
+            return;
+        }
+
+        AccessibilityNodeInfo toggle =
+                trovaToggleAssociato(label);
+
+        if (toggle == null) {
+            callback.onResult(
+                    false,
+                    null,
+                    "toggle_post_click_non_trovato"
+            );
+            return;
+        }
+
+        Boolean statoDopo =
+                leggiStatoToggle(toggle);
+
+        boolean ok =
+                statoDopo != null
+                        && statoDopo.booleanValue()
+                        == statoDesiderato;
+
+        Log.i(
+                TAG,
+                "P4 TOGGLE verifica "
+                        + etichetta
+                        + " dopo="
+                        + statoDopo
+                        + " ok="
+                        + ok
+        );
+
+        callback.onResult(
+                ok,
+                statoDopo,
+                ok
+                        ? "stato_verificato"
+                        : "stato_non_confermato"
+        );
+    }
+
+    private AccessibilityNodeInfo trovaEtichettaToggle(
+            AccessibilityNodeInfo nodo,
+            String etichetta) {
+
+        if (nodo == null
+                || etichetta == null) {
+            return null;
+        }
+
+        if (nodo.isVisibleToUser()
+                && nodo.isEnabled()) {
+
+            String target =
+                    normalizzaEtichettaToggle(
+                            etichetta
+                    );
+
+            String testo =
+                    normalizzaEtichettaToggle(
+                            nodo.getText() == null
+                                    ? ""
+                                    : nodo.getText().toString()
+                    );
+
+            String descrizione =
+                    normalizzaEtichettaToggle(
+                            nodo.getContentDescription() == null
+                                    ? ""
+                                    : nodo.getContentDescription()
+                                            .toString()
+                    );
+
+            if ((!target.isEmpty())
+                    && (target.equals(testo)
+                    || target.equals(descrizione))
+                    && trovaToggleAssociato(nodo) != null) {
+
+                return nodo;
+            }
+        }
+
+        for (int i = 0;
+                i < nodo.getChildCount();
+                i++) {
+
+            AccessibilityNodeInfo trovato =
+                    trovaEtichettaToggle(
+                            nodo.getChild(i),
+                            etichetta
+                    );
+
+            if (trovato != null) {
+                return trovato;
+            }
+        }
+
+        return null;
+    }
+
+    private AccessibilityNodeInfo trovaToggleAssociato(
+            AccessibilityNodeInfo etichetta) {
+
+        if (etichetta == null) return null;
+
+        android.graphics.Rect rEtichetta =
+                new android.graphics.Rect();
+
+        etichetta.getBoundsInScreen(
+                rEtichetta
+        );
+
+        AccessibilityNodeInfo contenitore =
+                etichetta.getParent();
+
+        for (int livello = 0;
+                livello < 4
+                        && contenitore != null;
+                livello++) {
+
+            AccessibilityNodeInfo trovato =
+                    cercaToggleVerticale(
+                            contenitore,
+                            rEtichetta,
+                            etichetta
+                    );
+
+            if (trovato != null) {
+                return trovato;
+            }
+
+            contenitore =
+                    contenitore.getParent();
+        }
+
+        return null;
+    }
+
+    private AccessibilityNodeInfo cercaToggleVerticale(
+            AccessibilityNodeInfo nodo,
+            android.graphics.Rect rEtichetta,
+            AccessibilityNodeInfo originale) {
+
+        if (nodo == null) return null;
+
+        if (nodo != originale
+                && nodo.isVisibleToUser()
+                && nodo.isEnabled()
+                && nodoEToggle(nodo)) {
+
+            android.graphics.Rect rToggle =
+                    new android.graphics.Rect();
+
+            nodo.getBoundsInScreen(
+                    rToggle
+            );
+
+            int overlap =
+                    Math.min(
+                            rEtichetta.bottom,
+                            rToggle.bottom
+                    )
+                    - Math.max(
+                            rEtichetta.top,
+                            rToggle.top
+                    );
+
+            int altezzaMin =
+                    Math.min(
+                            rEtichetta.height(),
+                            rToggle.height()
+                    );
+
+            if (overlap > 0
+                    && altezzaMin > 0
+                    && overlap * 2 >= altezzaMin) {
+
+                return nodo;
+            }
+        }
+
+        for (int i = 0;
+                i < nodo.getChildCount();
+                i++) {
+
+            AccessibilityNodeInfo trovato =
+                    cercaToggleVerticale(
+                            nodo.getChild(i),
+                            rEtichetta,
+                            originale
+                    );
+
+            if (trovato != null) {
+                return trovato;
+            }
+        }
+
+        return null;
+    }
+
+    private boolean nodoEToggle(
+            AccessibilityNodeInfo nodo) {
+
+        if (nodo == null) return false;
+
+        if (nodo.isCheckable()) {
+            return true;
+        }
+
+        String classe =
+                nodo.getClassName() == null
+                        ? ""
+                        : nodo.getClassName()
+                                .toString()
+                                .toLowerCase(
+                                        java.util.Locale.ITALIAN
+                                );
+
+        return classe.contains("switch")
+                || classe.contains("togglebutton");
+    }
+
+    private Boolean leggiStatoToggle(
+            AccessibilityNodeInfo nodo) {
+
+        if (nodo == null) return null;
+
+        if (nodo.isCheckable()) {
+            return nodo.isChecked();
+        }
+
+        String stateDescription = "";
+
+        if (android.os.Build.VERSION.SDK_INT >= 30
+                && nodo.getStateDescription() != null) {
+
+            stateDescription =
+                    nodo.getStateDescription()
+                            .toString();
+        }
+
+        String stato =
+                normalizzaEtichettaToggle(
+                        (nodo.getText() == null
+                                ? ""
+                                : nodo.getText().toString())
+                                + " "
+                                + (nodo.getContentDescription() == null
+                                        ? ""
+                                        : nodo.getContentDescription()
+                                                .toString())
+                                + " "
+                                + stateDescription
+                );
+
+        if (stato.contains("spento")
+                || stato.contains("disattivato")
+                || stato.equals("off")
+                || stato.contains("nonattivo")) {
+
+            return false;
+        }
+
+        if (stato.contains("acceso")
+                || stato.contains("attivo")
+                || stato.equals("on")
+                || stato.contains("abilitato")) {
+
+            return true;
+        }
+
+        return null;
+    }
+
+    private String normalizzaEtichettaToggle(
+            String valore) {
+
+        if (valore == null) return "";
+
+        String s =
+                java.text.Normalizer.normalize(
+                        valore,
+                        java.text.Normalizer.Form.NFD
+                ).replaceAll(
+                        "\\p{M}+",
+                        ""
+                );
+
+        return s.toLowerCase(
+                        java.util.Locale.ITALIAN
+                )
+                .replaceAll(
+                        "[^\\p{L}\\p{N}]+",
+                        ""
+                )
+                .trim();
+    }
+
     public static void apriAppStatic(Context context, String packageName) {
         if (instance != null) {
             instance.apriApp(packageName);
