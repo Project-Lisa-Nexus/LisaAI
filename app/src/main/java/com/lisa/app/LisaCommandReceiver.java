@@ -223,6 +223,7 @@ public static final String ACTION_LISA_COMMAND = "com.lisa.app.COMMAND";
         }
 
         boolean azioneInterattiva =
+            "esegui_ui_generica".equals(azione) ||
             "imposta_toggle".equals(azione) ||
             "clicca".equals(azione) ||
             "scrivi_testo".equals(azione) ||
@@ -244,6 +245,67 @@ public static final String ACTION_LISA_COMMAND = "com.lisa.app.COMMAND";
             Log.w(TAG, "Azione bloccata su app di accessibilità");
             if (isOrderedBroadcast()) setResultCode(2);
             setResultData("schermata_protetta");
+            return;
+        }
+
+        if ("esegui_ui_generica".equals(azione)) {
+
+            String verbo =
+                    intent.getStringExtra("verbo");
+
+            String target =
+                    intent.getStringExtra("target");
+
+            if (verbo == null
+                    || verbo.trim().isEmpty()
+                    || target == null
+                    || target.trim().isEmpty()) {
+
+                if (isOrderedBroadcast()) {
+                    setResultCode(1);
+                    setResultData(
+                            "parametri_ui_mancanti"
+                    );
+                }
+
+                return;
+            }
+
+            final boolean ordinato =
+                    isOrderedBroadcast();
+
+            BroadcastReceiver.PendingResult pending =
+                    goAsync();
+
+            servizio.eseguiAzioneUIGenerica(
+                    verbo.trim(),
+                    target.trim(),
+                    (ok, statoFinale, dettaglio) -> {
+
+                        if (ordinato) {
+
+                            pending.setResultCode(
+                                    ok ? 0 : 1
+                            );
+
+                            String stato =
+                                    statoFinale == null
+                                            ? "nessuno"
+                                            : statoFinale
+                                                    ? "on"
+                                                    : "off";
+
+                            pending.setResultData(
+                                    dettaglio
+                                            + "|stato="
+                                            + stato
+                            );
+                        }
+
+                        pending.finish();
+                    }
+            );
+
             return;
         }
 
