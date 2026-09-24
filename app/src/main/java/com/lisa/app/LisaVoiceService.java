@@ -2320,6 +2320,119 @@ if (inAttesaVuoiFareAltro) {
             return true;
         }
 
+        // TORCIA
+        if (testo.equals("torcia")
+                || testo.equals("apri torcia")
+                || testo.equals("accendi torcia")
+                || testo.equals("attiva torcia")
+                || testo.equals("torcia accesa")
+                || testo.equals("spegni torcia")
+                || testo.equals("disattiva torcia")
+                || testo.equals("torcia spenta")) {
+
+            boolean accendi =
+                    testo.equals("torcia")
+                            || testo.equals("apri torcia")
+                            || testo.equals("accendi torcia")
+                            || testo.equals("attiva torcia")
+                            || testo.equals("torcia accesa");
+
+            String risposta;
+
+            try {
+                android.hardware.camera2.CameraManager cameraManager =
+                        (android.hardware.camera2.CameraManager)
+                                getSystemService(
+                                        android.content.Context.CAMERA_SERVICE
+                                );
+
+                String cameraTorcia = null;
+
+                if (cameraManager != null) {
+
+                    for (String cameraId :
+                            cameraManager.getCameraIdList()) {
+
+                        android.hardware.camera2.CameraCharacteristics caratteristiche =
+                                cameraManager.getCameraCharacteristics(
+                                        cameraId
+                                );
+
+                        Boolean flashDisponibile =
+                                caratteristiche.get(
+                                        android.hardware.camera2.CameraCharacteristics
+                                                .FLASH_INFO_AVAILABLE
+                                );
+
+                        Integer posizione =
+                                caratteristiche.get(
+                                        android.hardware.camera2.CameraCharacteristics
+                                                .LENS_FACING
+                                );
+
+                        if (Boolean.TRUE.equals(flashDisponibile)
+                                && posizione != null
+                                && posizione ==
+                                android.hardware.camera2.CameraCharacteristics
+                                        .LENS_FACING_BACK) {
+
+                            cameraTorcia = cameraId;
+                            break;
+                        }
+                    }
+                }
+
+                if (cameraTorcia == null) {
+
+                    risposta = "Torcia non disponibile";
+
+                } else {
+
+                    cameraManager.setTorchMode(
+                            cameraTorcia,
+                            accendi
+                    );
+
+                    risposta =
+                            accendi
+                                    ? "Torcia accesa"
+                                    : "Torcia spenta";
+                }
+
+            } catch (SecurityException e) {
+
+                Log.w(
+                        TAG,
+                        "Permesso fotocamera non disponibile per la torcia",
+                        e
+                );
+
+                risposta =
+                        "Non posso usare la torcia senza autorizzazione fotocamera";
+
+            } catch (Exception e) {
+
+                Log.w(
+                        TAG,
+                        "Torcia non disponibile",
+                        e
+                );
+
+                risposta =
+                        "Torcia non disponibile";
+            }
+
+            rispostaComandoLocale = risposta;
+
+            LisaSpeaker.parla(
+                    this,
+                    risposta,
+                    null
+            );
+
+            return true;
+        }
+
         // ====================================================
         // FINE COMANDI DETERMINISTICI LOCALI
         // ====================================================
