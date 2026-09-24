@@ -1757,6 +1757,452 @@ public class LisaAccessibilityService extends AccessibilityService {
                 .trim();
     }
 
+    // ============================================================
+    // P4.2A - GENERIC UI ACTION RESOLVER
+    // Nessun target specifico hardcoded.
+    // ============================================================
+
+    public interface UiActionResultCallback {
+        void onResult(
+                boolean riuscito,
+                Boolean statoFinale,
+                String dettaglio
+        );
+    }
+
+    private static class UiCandidate {
+        AccessibilityNodeInfo nodo;
+        int score;
+
+        UiCandidate(
+                AccessibilityNodeInfo nodo,
+                int score) {
+            this.nodo = nodo;
+            this.score = score;
+        }
+    }
+
+    public void eseguiAzioneUIGenerica(
+            String verbo,
+            String target,
+            UiActionResultCallback callback) {
+
+        if (callback == null) return;
+
+        String v =
+                normalizzaEtichettaToggle(verbo);
+
+        String t =
+                normalizzaEtichettaToggle(target);
+
+        if (t.isEmpty()) {
+            callback.onResult(
+                    false,
+                    null,
+                    "target_mancante"
+            );
+            return;
+        }
+
+        boolean setOn =
+                v.equals("attiva")
+                || v.equals("accendi")
+                || v.equals("abilita");
+
+        boolean setOff =
+                v.equals("spegni")
+                || v.equals("disattiva")
+                || v.equals("disabilita")
+                || v.equals("chiudi");
+
+        boolean press =
+                v.equals("premi")
+                || v.equals("tocca")
+                || v.equals("seleziona")
+                || v.equals("apri");
+
+        if (!setOn && !setOff && !press) {
+            callback.onResult(
+                    false,
+                    null,
+                    "verbo_non_supportato"
+            );
+            return;
+        }
+
+        final Boolean desiderato =
+                setOn
+                        ? Boolean.TRUE
+                        : setOff
+                                ? Boolean.FALSE
+                                : null;
+
+        AccessibilityNodeInfo root =
+                getRootInActiveWindow();
+
+        if (root == null) {
+            callback.onResult(
+                    false,
+                    null,
+                    "root_non_disponibile"
+            );
+            return;
+        }
+
+        UiCandidate candidato =
+                trovaMigliorCandidatoUI(
+                        root,
+                        t,
+                        desiderato
+                );
+
+        if (candidato == null) {
+            callback.onResult(
+                    false,
+                    null,
+                    "target_non_trovato"
+            );
+            return;
+        }
+
+        AccessibilityNodeInfo nodoAzione =
+                risolviNodoAzioneUI(
+                        candidato.nodo,
+                        desiderato
+                );
+
+        if (nodoAzione == null) {
+            callback.onResult(
+                    false,
+                    null,
+                    "nodo_azione_non_trovato"
+            );
+            return;
+        }
+
+        Boolean statoPrima =
+                desiderato != null
+                        ? leggiStatoToggle(nodoAzione)
+                        : null;
+
+        Log.i(
+                TAG,
+                "P4 UI target="
+                        + target
+                        + " score="
+                        + candidato.score
+                        + " statoPrima="
+                        + statoPrima
+                        + " desiderato="
+                        + desiderato
+        );
+
+        if (desiderato != null
+                && statoPrima != null
+                && statoPrima.booleanValue()
+                == desiderato.booleanValue()) {
+
+            callback.onResult(
+                    true,
+                    statoPrima,
+                    "gia_nello_stato_richiesto"
+            );
+            return;
+        }
+
+        final String snapshotPrima =
+                ScreenSnapshot.acquisisci(root);
+
+        boolean cliccato =
+                AccessibilityUtils.click(
+                        nodoAzione
+                );
+
+        if (!cliccato
+                && nodoAzione != candidato.nodo) {
+
+            cliccato =
+                    AccessibilityUtils.click(
+                            candidato.nodo
+                    );
+        }
+
+        if (!cliccato) {
+            callback.onResult(
+                    false,
+                    statoPrima,
+                    "click_fallito"
+            );
+            return;
+        }
+
+        new android.os.Handler(
+                android.os.Looper.getMainLooper()
+        ).postDelayed(
+                () -> verificaAzioneUIGenerica(
+                        t,
+                        desiderato,
+                        snapshotPrima,
+                        callback
+                ),
+                700L
+        );
+    }
+
+    private void verificaAzioneUIGenerica(
+            String target,
+            Boolean desiderato,
+            String snapshotPrima,
+            UiActionResultCallback callback) {
+
+        AccessibilityNodeInfo root =
+                getRootInActiveWindow();
+
+        if (root == null) {
+            callback.onResult(
+                    false,
+                    null,
+                    "root_post_click_non_disponibile"
+            );
+            return;
+        }
+
+        if (desiderato != null) {
+
+            UiCandidate candidato =
+                    trovaMigliorCandidatoUI(
+                            root,
+                            target,
+                            desiderato
+                    );
+
+            if (candidato == null) {
+                callback.onResult(
+                        false,
+                        null,
+                        "target_post_click_non_trovato"
+                );
+                return;
+            }
+
+            AccessibilityNodeInfo nodo =
+                    risolviNodoAzioneUI(
+                            candidato.nodo,
+                            desiderato
+                    );
+
+            Boolean statoDopo =
+                    leggiStatoToggle(nodo);
+
+            boolean ok =
+                    statoDopo != null
+                    && statoDopo.booleanValue()
+                    == desiderato.booleanValue();
+
+            callback.onResult(
+                    ok,
+                    statoDopo,
+                    ok
+                            ? "stato_verificato"
+                            : "stato_non_confermato"
+            );
+
+            return;
+        }
+
+        String snapshotDopo =
+                ScreenSnapshot.acquisisci(root);
+
+        boolean cambiata =
+                !snapshotPrima.equals(
+                        snapshotDopo
+                );
+
+        callback.onResult(
+                true,
+                null,
+                cambiata
+                        ? "ui_cambiata"
+                        : "click_accettato_non_verificato"
+        );
+    }
+
+    private UiCandidate trovaMigliorCandidatoUI(
+            AccessibilityNodeInfo root,
+            String target,
+            Boolean desiderato) {
+
+        UiCandidate migliore =
+                new UiCandidate(
+                        null,
+                        0
+                );
+
+        cercaCandidatoUI(
+                root,
+                target,
+                desiderato,
+                migliore
+        );
+
+        return migliore.nodo == null
+                ? null
+                : migliore;
+    }
+
+    private void cercaCandidatoUI(
+            AccessibilityNodeInfo nodo,
+            String target,
+            Boolean desiderato,
+            UiCandidate migliore) {
+
+        if (nodo == null) return;
+
+        if (nodo.isVisibleToUser()
+                && nodo.isEnabled()) {
+
+            int score =
+                    scoreNodoUI(
+                            nodo,
+                            target
+                    );
+
+            if (score > 0) {
+
+                if (nodo.isClickable()) {
+                    score += 10;
+                }
+
+                if (desiderato != null) {
+
+                    if (nodoEToggle(nodo)) {
+                        score += 40;
+
+                    } else if (
+                            trovaToggleAssociato(
+                                    nodo
+                            ) != null) {
+
+                        score += 30;
+                    }
+                }
+
+                if (score > migliore.score) {
+                    migliore.nodo = nodo;
+                    migliore.score = score;
+                }
+            }
+        }
+
+        for (int i = 0;
+                i < nodo.getChildCount();
+                i++) {
+
+            cercaCandidatoUI(
+                    nodo.getChild(i),
+                    target,
+                    desiderato,
+                    migliore
+            );
+        }
+    }
+
+    private int scoreNodoUI(
+            AccessibilityNodeInfo nodo,
+            String target) {
+
+        int score = 0;
+
+        score = Math.max(
+                score,
+                scoreCampoUI(
+                        nodo.getText(),
+                        target
+                )
+        );
+
+        score = Math.max(
+                score,
+                scoreCampoUI(
+                        nodo.getContentDescription(),
+                        target
+                )
+        );
+
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            score = Math.max(
+                    score,
+                    scoreCampoUI(
+                            nodo.getHintText(),
+                            target
+                    )
+            );
+        }
+
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            score = Math.max(
+                    score,
+                    scoreCampoUI(
+                            nodo.getStateDescription(),
+                            target
+                    )
+            );
+        }
+
+        return score;
+    }
+
+    private int scoreCampoUI(
+            CharSequence valore,
+            String target) {
+
+        if (valore == null) return 0;
+
+        String campo =
+                normalizzaEtichettaToggle(
+                        valore.toString()
+                );
+
+        if (campo.isEmpty()) return 0;
+
+        if (campo.equals(target)) {
+            return 100;
+        }
+
+        if (campo.contains(target)) {
+            return 50;
+        }
+
+        return 0;
+    }
+
+    private AccessibilityNodeInfo risolviNodoAzioneUI(
+            AccessibilityNodeInfo candidato,
+            Boolean desiderato) {
+
+        if (candidato == null) {
+            return null;
+        }
+
+        if (desiderato != null) {
+
+            if (nodoEToggle(candidato)) {
+                return candidato;
+            }
+
+            AccessibilityNodeInfo toggle =
+                    trovaToggleAssociato(
+                            candidato
+                    );
+
+            if (toggle != null) {
+                return toggle;
+            }
+        }
+
+        return candidato;
+    }
+
     public static void apriAppStatic(Context context, String packageName) {
         if (instance != null) {
             instance.apriApp(packageName);
