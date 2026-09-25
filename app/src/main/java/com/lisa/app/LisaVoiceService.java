@@ -1907,6 +1907,7 @@ if (inAttesaVuoiFareAltro) {
                 || testo.equals("esci da lisa")
                 || testo.equals("esci")
                 || testo.equals("stop")
+                || testo.equals("ferma")
                 || testo.equals("fermati")
                 || testo.equals("smetti")
                 || testo.equals("smetti di ascoltare")
