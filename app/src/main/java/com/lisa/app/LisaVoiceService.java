@@ -69,6 +69,10 @@ public class LisaVoiceService extends Service {
     // al Generic UI Resolver asincrono.
     private boolean ultimaAzioneUiGenerica = false;
 
+    // SAFETY VOCE: richiesta critica in attesa di conferma.
+    private String pendingCriticalTarget = null;
+    private long pendingCriticalTimestamp = 0L;
+
     public static boolean isSessioneAttiva() {
         return sessioneAttiva;
     }
@@ -96,9 +100,9 @@ if (servizio.recognizer != null) {
 
             servizio.ascoltoInCorso = false;
 
-            if (!whisperLocaleAttivo) {
-                servizio.chiediAudioFocus();
-            }
+            servizio.chiediAudioFocus(
+                    android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE
+            );
 
             Log.d(TAG,
                     "ASR sospeso: Lisa sta parlando");
@@ -113,7 +117,9 @@ if (servizio.recognizer != null) {
 
         servizio.handler.postDelayed(() -> {
 
-            if (!whisperLocaleAttivo) {
+            if (whisperLocaleAttivo) {
+                servizio.applicaAudioFocusAscolto();
+            } else {
                 servizio.rilasciaAudioFocus();
             }
 
@@ -129,29 +135,58 @@ if (servizio.recognizer != null) {
     private android.media.AudioManager audioManager;
     private android.media.AudioFocusRequest focusRequest;
 
-    private void chiediAudioFocus() {
-        if (audioManager == null) {
-            audioManager = (android.media.AudioManager) getSystemService(android.content.Context.AUDIO_SERVICE);
-        }
+    private void chiediAudioFocus(int gain) {
+        if (audioManager == null)
+            audioManager = (android.media.AudioManager)
+                    getSystemService(android.content.Context.AUDIO_SERVICE);
+        if (audioManager == null) return;
+
+        rilasciaAudioFocus();
+
         if (android.os.Build.VERSION.SDK_INT >= 26) {
-            android.media.AudioAttributes attrs = new android.media.AudioAttributes.Builder()
-                .setUsage(android.media.AudioAttributes.USAGE_ASSISTANT)
-                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
-                .build();
-            focusRequest = new android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
-                .setAudioAttributes(attrs)
-                .build();
+            android.media.AudioAttributes attrs =
+                    new android.media.AudioAttributes.Builder()
+                            .setUsage(android.media.AudioAttributes.USAGE_ASSISTANT)
+                            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                            .build();
+            focusRequest = new android.media.AudioFocusRequest.Builder(gain)
+                    .setAudioAttributes(attrs).build();
             audioManager.requestAudioFocus(focusRequest);
         } else {
-            audioManager.requestAudioFocus(null, android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE);
+            audioManager.requestAudioFocus(
+                    null, android.media.AudioManager.STREAM_MUSIC, gain);
         }
+    }
+
+    private void applicaAudioFocusAscolto() {
+        String modo = getSharedPreferences("lisa_ui", MODE_PRIVATE)
+                .getString("audio_focus_mode", "none");
+
+        if ("none".equals(modo)) {
+            rilasciaAudioFocus();
+            return;
+        }
+
+        int gain = "duck".equals(modo)
+                ? android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+                : "pause".equals(modo)
+                ? android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT : 0;
+
+        if (gain == 0) {
+            rilasciaAudioFocus();
+            return;
+        }
+
+        chiediAudioFocus(gain);
     }
 
     private void rilasciaAudioFocus() {
         if (audioManager == null) return;
+
         if (android.os.Build.VERSION.SDK_INT >= 26 && focusRequest != null) {
             audioManager.abandonAudioFocusRequest(focusRequest);
-        } else {
+            focusRequest = null;
+        } else if (android.os.Build.VERSION.SDK_INT < 26) {
             audioManager.abandonAudioFocus(null);
         }
     }
@@ -198,6 +233,10 @@ if (servizio.recognizer != null) {
         if (!accessibilitaLisaAttiva()) {
             Log.i(TAG, "Avvio voce rifiutato: Accessibility Lisa OFF");
             sessioneAttiva = false;
+
+            LisaAccessibilityService.aggiornaIndicatoreAscolto(false);
+            MainActivity.aggiornaStatoPulsante();
+
             voiceController.reset();
 
             try {
@@ -215,10 +254,14 @@ if (servizio.recognizer != null) {
             // Il Service resta foreground per mantenere viva
             // la sessione anche quando viene aperta un'altra app.
             sessioneAttiva = true;
+
+            LisaAccessibilityService.aggiornaIndicatoreAscolto(true);
+            MainActivity.aggiornaStatoPulsante();
+
             fermaRecognizer();
 
             whisperLocaleAttivo = true;
-            chiediAudioFocus();
+            applicaAudioFocusAscolto();
             voiceController.startSession();
 
             LisaAccessibilityService.aggiornaVignettaSemplice(
@@ -266,6 +309,9 @@ if (servizio.recognizer != null) {
         // da eventuale STOPPING rimasto dalla sessione precedente.
         voiceController.startSession();
         sessioneAttiva = true;
+
+        LisaAccessibilityService.aggiornaIndicatoreAscolto(true);
+        MainActivity.aggiornaStatoPulsante();
 
         aggiornaNotifica(
                 "Lisa pronta ad ascoltare"
@@ -812,6 +858,10 @@ if (servizio.recognizer != null) {
             LisaSpeaker.interrompi();
             whisperLocaleAttivo = false;
             sessioneAttiva = false;
+
+            LisaAccessibilityService.aggiornaIndicatoreAscolto(false);
+            MainActivity.aggiornaStatoPulsante();
+
             servizio.rilasciaAudioFocus();
             servizio.voiceController.reset();
 
@@ -839,6 +889,10 @@ if (servizio.recognizer != null) {
     private void avviaAndroidAsrPipeProbe() {
 
         sessioneAttiva = false;
+
+        LisaAccessibilityService.aggiornaIndicatoreAscolto(false);
+        MainActivity.aggiornaStatoPulsante();
+
         fermaRecognizer();
         voiceController.reset();
 
@@ -883,6 +937,9 @@ if (servizio.recognizer != null) {
         }
 
         sessioneAttiva = false;
+
+        LisaAccessibilityService.aggiornaIndicatoreAscolto(false);
+        MainActivity.aggiornaStatoPulsante();
 
         fermaRecognizer();
         voiceController.reset();
@@ -959,6 +1016,7 @@ if (servizio.recognizer != null) {
                                     voiceController.startSession();
                                     sessioneAttiva = true;
 
+                                    LisaAccessibilityService.aggiornaIndicatoreAscolto(true);
                                     MainActivity.aggiornaStatoPulsante();
 
                                     aggiornaNotifica(
@@ -1001,6 +1059,9 @@ if (servizio.recognizer != null) {
         }
 
         sessioneAttiva = false;
+
+        LisaAccessibilityService.aggiornaIndicatoreAscolto(false);
+        MainActivity.aggiornaStatoPulsante();
 
         fermaRecognizer();
 
@@ -1212,7 +1273,12 @@ if (servizio.recognizer != null) {
 
             @Override
             public void onReadyForSpeech(Bundle params) {
-                aggiornaNotifica("Lisa sta ascoltando…");
+
+                LisaAccessibilityService.resetDiagnosi();
+
+                aggiornaNotifica(
+                        "Lisa sta ascoltando…"
+                );
             }
 
             @Override
@@ -1229,12 +1295,17 @@ if (servizio.recognizer != null) {
 
             @Override
             public void onEndOfSpeech() {
+
                 voiceController.listeningFinished();
-                aggiornaNotifica("Lisa sta elaborando…");
+
+                aggiornaNotifica(
+                        "Lisa sta elaborando…"
+                );
             }
 
             @Override
             public void onError(int error) {
+
                 ascoltoInCorso = false;
                 voiceController.reset();
 
@@ -1296,6 +1367,7 @@ if (servizio.recognizer != null) {
 
             @Override
             public void onResults(Bundle results) {
+
                 ascoltoInCorso = false;
                 errorSilenzioConsecutivi = 0;
                 voiceController.processingStarted();
@@ -1340,6 +1412,15 @@ if (servizio.recognizer != null) {
 
                 Log.i(TAG, "Hai detto: " + frase);
 
+                LisaAccessibilityService.aggiungiRigaDiagnosi(
+                        "\uD83D\uDCDD",
+                        "Sentito: " + frase
+                );
+
+                LisaAccessibilityService.aggiornaVignettaSemplice(
+                        frase
+                );
+
                 gestisciFrase(frase);
             }
 
@@ -1368,6 +1449,8 @@ if (servizio.recognizer != null) {
             sessioneAttiva = false;
             inAttesaVuoiFareAltro = false;
             voiceController.stopSession();
+
+            LisaAccessibilityService.aggiornaIndicatoreAscolto(false);
 
             LisaAccessibilityService servizioStop =
                     LisaAccessibilityService.getInstance();
@@ -2070,6 +2153,73 @@ if (inAttesaVuoiFareAltro) {
     // Nessun nome di pulsante/toggle e' hardcoded.
     // ============================================================
 
+    private boolean esisteInputEsterno() {
+
+        int[] ids =
+                android.view.InputDevice.getDeviceIds();
+
+        for (int id : ids) {
+
+            android.view.InputDevice d =
+                    android.view.InputDevice.getDevice(id);
+
+            if (d == null
+                    || !d.isExternal()
+                    || d.isVirtual()) {
+                continue;
+            }
+
+            int src = d.getSources();
+
+            if ((src & android.view.InputDevice.SOURCE_MOUSE)
+                        == android.view.InputDevice.SOURCE_MOUSE
+                    || (src & android.view.InputDevice.SOURCE_MOUSE_RELATIVE)
+                        == android.view.InputDevice.SOURCE_MOUSE_RELATIVE
+                    || (src & android.view.InputDevice.SOURCE_JOYSTICK)
+                        == android.view.InputDevice.SOURCE_JOYSTICK
+                    || (src & android.view.InputDevice.SOURCE_GAMEPAD)
+                        == android.view.InputDevice.SOURCE_GAMEPAD
+                    || (src & android.view.InputDevice.SOURCE_DPAD)
+                        == android.view.InputDevice.SOURCE_DPAD
+                    || (src & android.view.InputDevice.SOURCE_KEYBOARD)
+                        == android.view.InputDevice.SOURCE_KEYBOARD) {
+
+                Log.i(
+                        TAG,
+                        "SAFETY VOCE: input esterno rilevato"
+                );
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private String normalizzaTargetCritico(
+            String target) {
+
+        if (target == null) return "";
+
+        return java.text.Normalizer.normalize(
+                        target,
+                        java.text.Normalizer.Form.NFD
+                )
+                .replaceAll("\\p{M}+", "")
+                .toLowerCase(java.util.Locale.ITALIAN)
+                .replaceAll("[^\\p{L}\\p{N}]+", "");
+    }
+
+    private boolean targetCriticoVoce(
+            String target) {
+
+        String t =
+                normalizzaTargetCritico(target);
+
+        return t.equals("bluetooth")
+                || t.equals("wifi");
+    }
+
     private boolean avviaAzioneUIGenericaDaVoce(
             String testo,
             LisaAccessibilityService servizio) {
@@ -2124,54 +2274,87 @@ if (inAttesaVuoiFareAltro) {
             return false;
         }
 
-        // ----------------------------------------------------
-        // CONTROL CONTINUITY GUARD V1
-        //
-        // Non e' routing hardcoded:
-        // e' una policy di sicurezza separata.
-        // ----------------------------------------------------
-
-        String targetGuard =
-                java.text.Normalizer.normalize(
-                        target,
-                        java.text.Normalizer.Form.NFD
-                )
-                .replaceAll("\\p{M}+", "")
-                .toLowerCase(
-                        java.util.Locale.ITALIAN
-                )
-                .replaceAll(
-                        "[^\\p{L}\\p{N}]+",
-                        ""
-                );
-
         if ("spegni".equals(verbo)
-                && (
-                    "bluetooth".equals(targetGuard)
-                    || "wifi".equals(targetGuard)
-                )) {
+                && targetCriticoVoce(target)) {
+
+            pendingCriticalTarget = target;
+            pendingCriticalTimestamp =
+                    System.currentTimeMillis();
+
+            final long richiesta =
+                    pendingCriticalTimestamp;
+
+            String targetNorm =
+                    normalizzaTargetCritico(target);
+
+            String avviso;
+
+            if ("bluetooth".equals(targetNorm)
+                    && esisteInputEsterno()) {
+
+                avviso =
+                        "Attenzione, sto per spegnere "
+                                + target
+                                + " e potrei interrompere un dispositivo di controllo. Confermi?";
+
+            } else if ("wifi".equals(targetNorm)) {
+
+                avviso =
+                        "Sto per spegnere "
+                                + target
+                                + " e potrei interrompere la connessione di rete. Confermi?";
+
+            } else {
+
+                avviso =
+                        "Sto per spegnere "
+                                + target
+                                + ". Confermi?";
+            }
 
             ultimaAzioneUiGenerica = true;
 
-            String risposta =
-                    "bluetooth".equals(targetGuard)
-                            ? "Non spengo Bluetooth da voce perché potrebbe interrompere il controllo R-Net."
-                            : "Non spengo il Wi-Fi da voce perché potrebbe interrompere la connessione e il debug wireless.";
-
             LisaAccessibilityService.aggiungiRigaDiagnosi(
                     "⚠️",
-                    "Control Continuity Guard: " + target
+                    "Conferma richiesta: spegni " + target
             );
 
             LisaAccessibilityService.aggiornaVignettaSemplice(
-                    risposta
+                    avviso
             );
 
             LisaSpeaker.parla(
                     this,
-                    risposta,
+                    avviso,
                     null
             );
+
+            // Timeout reale: annulla anche in assenza di risposta.
+            handler.postDelayed(() -> {
+
+                if (pendingCriticalTarget != null
+                        && pendingCriticalTimestamp == richiesta) {
+
+                    pendingCriticalTarget = null;
+                    pendingCriticalTimestamp = 0L;
+
+                    LisaAccessibilityService.aggiungiRigaDiagnosi(
+                            "ℹ️",
+                            "Conferma scaduta"
+                    );
+
+                    LisaAccessibilityService.aggiornaVignettaSemplice(
+                            "Richiesta scaduta."
+                    );
+
+                    LisaSpeaker.parla(
+                            LisaVoiceService.this,
+                            "Richiesta scaduta.",
+                            null
+                    );
+                }
+
+            }, 15000L);
 
             return true;
         }
@@ -2283,6 +2466,135 @@ if (inAttesaVuoiFareAltro) {
 
         String testo =
                 frase.toLowerCase(Locale.ITALIAN).trim();
+
+        // SAFETY VOCE - secondo turno della conferma.
+        if (pendingCriticalTarget != null) {
+
+            long elapsed =
+                    System.currentTimeMillis()
+                            - pendingCriticalTimestamp;
+
+            if (elapsed > 15000L) {
+
+                pendingCriticalTarget = null;
+                pendingCriticalTimestamp = 0L;
+                ultimaAzioneUiGenerica = true;
+
+                LisaSpeaker.parla(
+                        this,
+                        "Richiesta scaduta.",
+                        null
+                );
+
+                return true;
+            }
+
+            // STOP resta prioritario e non viene inghiottito
+            // dalla conferma critica.
+            if (richiestaStop(testo)) {
+
+                pendingCriticalTarget = null;
+                pendingCriticalTimestamp = 0L;
+
+                return false;
+            }
+
+            String risposta =
+                    java.text.Normalizer.normalize(
+                            testo,
+                            java.text.Normalizer.Form.NFD
+                    )
+                    .replaceAll("\\p{M}+", "")
+                    .toLowerCase(java.util.Locale.ITALIAN)
+                    .replaceAll("[^\\p{L}\\p{N}\\s]+", " ")
+                    .replaceAll("\\s+", " ")
+                    .trim();
+
+            String targetSalvato =
+                    pendingCriticalTarget;
+
+            pendingCriticalTarget = null;
+            pendingCriticalTimestamp = 0L;
+
+            boolean conferma =
+                    risposta.equals("si")
+                    || risposta.equals("confermo")
+                    || risposta.equals("ok")
+                    || risposta.equals("vai")
+                    || risposta.equals("procedi")
+                    || risposta.equals("certo");
+
+            ultimaAzioneUiGenerica = true;
+
+            if (!conferma) {
+
+                LisaAccessibilityService.aggiungiRigaDiagnosi(
+                        "ℹ️",
+                        "Spegnimento annullato: "
+                                + targetSalvato
+                );
+
+                LisaAccessibilityService.aggiornaVignettaSemplice(
+                        "Annullato."
+                );
+
+                LisaSpeaker.parla(
+                        this,
+                        "Annullato.",
+                        null
+                );
+
+                return true;
+            }
+
+            LisaAccessibilityService servizioCritico =
+                    LisaAccessibilityService.getInstance();
+
+            if (servizioCritico == null) {
+
+                LisaSpeaker.parla(
+                        this,
+                        "Servizio di accessibilità non disponibile.",
+                        null
+                );
+
+                return true;
+            }
+
+            servizioCritico.eseguiAzioneUIGenerica(
+                    "spegni",
+                    targetSalvato,
+                    (ok, statoFinale, dettaglio) -> {
+
+                        String r =
+                                ok
+                                        ? "Ho disattivato "
+                                                + targetSalvato
+                                                + "."
+                                        : "Non sono riuscita a spegnere "
+                                                + targetSalvato
+                                                + ".";
+
+                        LisaAccessibilityService.aggiungiRigaDiagnosi(
+                                ok ? "✅" : "⚠️",
+                                "Conferma critica: "
+                                        + dettaglio
+                        );
+
+                        LisaAccessibilityService.aggiornaVignettaSemplice(
+                                r
+                        );
+
+                        LisaSpeaker.parla(
+                                LisaVoiceService.this,
+                                r,
+                                null
+                        );
+                    }
+            );
+
+            return true;
+        }
 
         // NORMALIZZAZIONE MIRATA WHISPER:
         // corregge alcune forme ricorrenti prima dei match locali.
@@ -3437,6 +3749,8 @@ if (inAttesaVuoiFareAltro) {
         sessioneAttiva = false;
         voiceController.stopSession();
 
+        LisaAccessibilityService.aggiornaIndicatoreAscolto(false);
+
         // Aggiorna subito la MainActivity:
         // da "Ferma Lisa" a "Attiva Lisa".
         MainActivity.aggiornaStatoPulsante();
@@ -3536,6 +3850,8 @@ if (inAttesaVuoiFareAltro) {
 
 
         sessioneAttiva = false;
+
+        LisaAccessibilityService.aggiornaIndicatoreAscolto(false);
 
         // Ultima sincronizzazione UI quando il Service muore.
         MainActivity.aggiornaStatoPulsante();
