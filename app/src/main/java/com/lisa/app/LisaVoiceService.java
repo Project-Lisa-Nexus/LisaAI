@@ -101,7 +101,7 @@ if (servizio.recognizer != null) {
             servizio.ascoltoInCorso = false;
 
             servizio.chiediAudioFocus(
-                    android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE
+                    android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
             );
 
             Log.d(TAG,
@@ -117,11 +117,7 @@ if (servizio.recognizer != null) {
 
         servizio.handler.postDelayed(() -> {
 
-            if (whisperLocaleAttivo) {
-                servizio.applicaAudioFocusAscolto();
-            } else {
-                servizio.rilasciaAudioFocus();
-            }
+            servizio.rilasciaAudioFocus();
 
             servizio.sospesoPerTts = false;
 
@@ -156,28 +152,6 @@ if (servizio.recognizer != null) {
             audioManager.requestAudioFocus(
                     null, android.media.AudioManager.STREAM_MUSIC, gain);
         }
-    }
-
-    private void applicaAudioFocusAscolto() {
-        String modo = getSharedPreferences("lisa_ui", MODE_PRIVATE)
-                .getString("audio_focus_mode", "none");
-
-        if ("none".equals(modo)) {
-            rilasciaAudioFocus();
-            return;
-        }
-
-        int gain = "duck".equals(modo)
-                ? android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
-                : "pause".equals(modo)
-                ? android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT : 0;
-
-        if (gain == 0) {
-            rilasciaAudioFocus();
-            return;
-        }
-
-        chiediAudioFocus(gain);
     }
 
     private void rilasciaAudioFocus() {
@@ -261,7 +235,6 @@ if (servizio.recognizer != null) {
             fermaRecognizer();
 
             whisperLocaleAttivo = true;
-            applicaAudioFocusAscolto();
             voiceController.startSession();
 
             LisaAccessibilityService.aggiornaVignettaSemplice(

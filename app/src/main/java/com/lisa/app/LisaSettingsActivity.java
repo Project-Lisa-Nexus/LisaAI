@@ -71,7 +71,6 @@ public class LisaSettingsActivity extends Activity {
 
         aggiungiSezioneBolle(layout);
         aggiungiSezioneMotoreAsr(layout);
-        aggiungiSezioneAudio(layout);
 
         aggiungiSezione(
                 layout,
@@ -191,45 +190,6 @@ public class LisaSettingsActivity extends Activity {
         );
 
         layout.addView(gruppo);
-    }
-
-    private void aggiungiSezioneAudio(LinearLayout layout) {
-        TextView titolo = new TextView(this);
-        titolo.setText("🎵 Audio");
-        titolo.setTextSize(18);
-        titolo.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        layout.addView(titolo);
-
-        android.content.SharedPreferences prefs =
-                getSharedPreferences("lisa_ui", MODE_PRIVATE);
-
-        android.widget.RadioGroup g = new android.widget.RadioGroup(this);
-        android.widget.RadioButton none = new android.widget.RadioButton(this);
-        android.widget.RadioButton duck = new android.widget.RadioButton(this);
-        android.widget.RadioButton pause = new android.widget.RadioButton(this);
-
-        none.setId(android.view.View.generateViewId());
-        duck.setId(android.view.View.generateViewId());
-        pause.setId(android.view.View.generateViewId());
-
-        none.setText("Nessun focus — audio invariato");
-        duck.setText("Attenua — abbassa l'audio quando possibile");
-        pause.setText("Pausa — ferma temporaneamente l'audio");
-
-        g.addView(none); g.addView(duck); g.addView(pause);
-
-        String modo = prefs.getString("audio_focus_mode", "none");
-        if ("duck".equals(modo)) duck.setChecked(true);
-        else if ("pause".equals(modo)) pause.setChecked(true);
-        else none.setChecked(true);
-
-        g.setOnCheckedChangeListener((group, id) -> {
-            String valore = id == duck.getId() ? "duck"
-                    : id == pause.getId() ? "pause" : "none";
-            prefs.edit().putString("audio_focus_mode", valore).apply();
-        });
-
-        layout.addView(g);
     }
 
     private void aggiungiSezioneBolle(LinearLayout layout) {
