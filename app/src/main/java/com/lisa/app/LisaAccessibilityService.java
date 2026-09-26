@@ -201,7 +201,7 @@ public class LisaAccessibilityService extends AccessibilityService {
                             MODE_PRIVATE
                     ).getInt(
                             "diagnosi_autohide_ms",
-                            20000
+                            30000
                     );
 
             s.diagnosiAutohideRunnable =
@@ -546,6 +546,12 @@ public class LisaAccessibilityService extends AccessibilityService {
 
 
 
+        if (diagnosiLayout != null) {
+            diagnosiLayout.setBackground(
+                    creaSfondoTelemetria()
+            );
+        }
+
         ripristinaAnimazioneOverlay(
                 indicatoreTelemetria
         );
@@ -731,6 +737,7 @@ public class LisaAccessibilityService extends AccessibilityService {
                     // ma svuotiamo le vecchie righe.
                     if (diagnosiLayout != null) {
                         diagnosiLayout.removeAllViews();
+                        diagnosiLayout.setBackground(null);
                     }
 
                     android.util.Log.i(
