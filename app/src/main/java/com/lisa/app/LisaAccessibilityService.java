@@ -201,7 +201,7 @@ public class LisaAccessibilityService extends AccessibilityService {
                             MODE_PRIVATE
                     ).getInt(
                             "diagnosi_autohide_ms",
-                            30000
+                            5000
                     );
 
             s.diagnosiAutohideRunnable =

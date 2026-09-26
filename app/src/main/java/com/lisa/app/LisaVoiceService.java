@@ -1855,6 +1855,9 @@ if (inAttesaVuoiFareAltro) {
                         .trim()
                         .replaceAll("\\s+", " ");
 
+        boolean salutoStopEsplicito =
+                testo.equals("ok ciao");
+
         // Strip prefissi conversazione:
         // "ok basta" -> "basta", "va bene chiudi" -> "chiudi".
         for (String prefisso : new String[]{
@@ -1889,7 +1892,7 @@ if (inAttesaVuoiFareAltro) {
                 || testo.equals("smetti di ascoltarmi")
                 || testo.equals("non ascoltare più")
                 || testo.equals("non ascoltare piu")
-                || testo.equals("ciao")
+                || salutoStopEsplicito
                 || testo.equals("a dopo")
                 || testo.equals("ok a dopo")
                 || testo.equals("va bene a dopo")
