@@ -23,8 +23,13 @@ public final class AndroidAsrPipeProbeManager {
     private static final int SAMPLE_RATE = 16000;
     private static final long DURATA_MS = 12000;
 
+    public interface SegmentCallback {
+        void onSegment(String frase);
+    }
+
     private final Context context;
     private final Runnable alTermine;
+    private final SegmentCallback segmentCallback;
 
     private SpeechRecognizer recognizer;
     private AudioRecord audioRecord;
@@ -40,8 +45,21 @@ public final class AndroidAsrPipeProbeManager {
             Context context,
             Runnable alTermine) {
 
+        this(
+                context,
+                alTermine,
+                null
+        );
+    }
+
+    public AndroidAsrPipeProbeManager(
+            Context context,
+            Runnable alTermine,
+            SegmentCallback segmentCallback) {
+
         this.context = context.getApplicationContext();
         this.alTermine = alTermine;
+        this.segmentCallback = segmentCallback;
     }
 
     public void start() {
@@ -339,6 +357,21 @@ public final class AndroidAsrPipeProbeManager {
                         TAG,
                         "SEGMENT=" + testi
                 );
+
+                if (segmentCallback != null
+                        && testi != null
+                        && !testi.isEmpty()) {
+
+                    String primaFrase = testi.get(0);
+
+                    if (primaFrase != null
+                            && !primaFrase.trim().isEmpty()) {
+
+                        segmentCallback.onSegment(
+                                primaFrase.trim()
+                        );
+                    }
+                }
             }
 
             @Override
