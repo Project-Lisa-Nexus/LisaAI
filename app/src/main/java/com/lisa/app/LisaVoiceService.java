@@ -1247,8 +1247,6 @@ if (servizio.recognizer != null) {
             @Override
             public void onReadyForSpeech(Bundle params) {
 
-                LisaAccessibilityService.resetDiagnosi();
-
                 aggiornaNotifica(
                         "Lisa sta ascoltando…"
                 );
@@ -1256,6 +1254,8 @@ if (servizio.recognizer != null) {
 
             @Override
             public void onBeginningOfSpeech() {
+
+                LisaAccessibilityService.resetDiagnosi();
             }
 
             @Override
