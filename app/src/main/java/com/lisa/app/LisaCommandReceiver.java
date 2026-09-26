@@ -125,6 +125,46 @@ public static final String ACTION_LISA_COMMAND = "com.lisa.app.COMMAND";
             return;
         }
 
+        if ("android_asr_pipe_probe".equals(azione)) {
+
+            Intent servizio =
+                    new Intent(
+                            context,
+                            LisaVoiceService.class
+                    );
+
+            servizio.setAction(
+                    "com.lisa.nexus.ACTION_ANDROID_ASR_PIPE_PROBE"
+            );
+
+            try {
+                context.startForegroundService(servizio);
+
+                Log.i(
+                        TAG,
+                        "Android ASR Pipe probe richiesto via ADB"
+                );
+
+                if (isOrderedBroadcast()) {
+                    setResultCode(0);
+                }
+
+            } catch (Exception errore) {
+
+                Log.e(
+                        TAG,
+                        "Errore avvio Android ASR Pipe probe",
+                        errore
+                );
+
+                if (isOrderedBroadcast()) {
+                    setResultCode(1);
+                }
+            }
+
+            return;
+        }
+
         if ("wake_status".equals(azione)) {
 
             if (isOrderedBroadcast()) setResultCode(0);

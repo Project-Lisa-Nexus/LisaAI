@@ -21,7 +21,7 @@ public final class AndroidAsrPipeProbeManager {
 
     private static final String TAG = "LisaAsrPipe";
     private static final int SAMPLE_RATE = 16000;
-    private static final long DURATA_MS = 12000;
+    private static final long SILENZIO_TIMEOUT_MS = 120000;
 
     public interface SegmentCallback {
         void onSegment(String frase);
@@ -38,8 +38,13 @@ public final class AndroidAsrPipeProbeManager {
     private OutputStream output;
 
     private volatile boolean running = false;
+    private volatile long ultimoSegmentoMs = 0L;
     private Thread audioThread;
     private final AtomicBoolean finito = new AtomicBoolean(false);
+
+    public boolean isRunning() {
+        return running;
+    }
 
     public AndroidAsrPipeProbeManager(
             Context context,
@@ -208,6 +213,8 @@ public final class AndroidAsrPipeProbeManager {
         }
 
         running = true;
+        ultimoSegmentoMs =
+                android.os.SystemClock.elapsedRealtime();
 
         Log.i(TAG, "AudioRecord attivo: parla ora");
 
@@ -225,13 +232,20 @@ public final class AndroidAsrPipeProbeManager {
         short[] pcm = new short[1600];
         byte[] bytes = new byte[pcm.length * 2];
 
-        long fine =
-                android.os.SystemClock.elapsedRealtime()
-                        + DURATA_MS;
+        boolean timeoutSilenzio = false;
 
         try {
-            while (running
-                    && android.os.SystemClock.elapsedRealtime() < fine) {
+            while (running) {
+
+                long adesso =
+                        android.os.SystemClock.elapsedRealtime();
+
+                if (adesso - ultimoSegmentoMs
+                        >= SILENZIO_TIMEOUT_MS) {
+
+                    timeoutSilenzio = true;
+                    break;
+                }
 
                 AudioRecord audio = audioRecord;
                 if (audio == null) break;
@@ -276,7 +290,9 @@ public final class AndroidAsrPipeProbeManager {
 
             Log.i(
                     TAG,
-                    "Flusso PCM chiuso dopo 12 secondi"
+                    timeoutSilenzio
+                            ? "Flusso PCM chiuso per timeout silenzio"
+                            : "Flusso PCM chiuso"
             );
         }
     }
@@ -308,6 +324,7 @@ public final class AndroidAsrPipeProbeManager {
 
             @Override
             public void onError(int error) {
+                running = false;
                 Log.e(TAG, "onError=" + error);
                 termina();
             }
@@ -366,6 +383,9 @@ public final class AndroidAsrPipeProbeManager {
 
                     if (primaFrase != null
                             && !primaFrase.trim().isEmpty()) {
+
+                        ultimoSegmentoMs =
+                                android.os.SystemClock.elapsedRealtime();
 
                         segmentCallback.onSegment(
                                 primaFrase.trim()

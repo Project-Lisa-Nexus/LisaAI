@@ -1084,6 +1084,16 @@ if (servizio.recognizer != null) {
             return;
         }
 
+        if (androidAsrPipeProbeManager != null
+                && androidAsrPipeProbeManager.isRunning()) {
+
+            Log.i(
+                    TAG,
+                    "Pipe già attivo, nessun riavvio"
+            );
+            return;
+        }
+
         if (androidAsrPipeProbeManager != null) {
             androidAsrPipeProbeManager.release();
         }
@@ -1098,9 +1108,29 @@ if (servizio.recognizer != null) {
                             );
                         }),
                         frase -> handler.post(() -> {
+
+                            if (!sessioneAttiva
+                                    || whisperLocaleAttivo) {
+
+                                Log.i(
+                                        TAG,
+                                        "PIPE segmento ignorato: sessione inattiva"
+                                );
+                                return;
+                            }
+
                             Log.i(
                                     TAG,
-                                    "PIPE SEGMENT: " + frase
+                                    "PIPE SEGMENT NORMALE: " + frase
+                            );
+
+                            LisaAccessibilityService.aggiornaVignettaSemplice(
+                                    frase
+                            );
+
+                            LisaAccessibilityService.aggiungiRigaDiagnosi(
+                                    "\uD83D\uDCDD",
+                                    "Sentito: " + frase
                             );
 
                             gestisciFrase(frase);
@@ -1473,6 +1503,8 @@ if (servizio.recognizer != null) {
             }
 
             fermaRecognizer();
+            fermaPipeAttivo();
+
             try {
                 stopForeground(true);
             } catch (Exception ignored) {
@@ -1745,6 +1777,13 @@ if (inAttesaVuoiFareAltro) {
                 aggiornaNotifica("Lisa pronta");
                 return;
             }
+        }
+
+        // Stato termico telefono: comando locale, prima dei comandi Android.
+        if (gestisciRichiestaStatoTermico(testo)) {
+            aggiornaNotifica("Lisa pronta");
+            programmaAscolto(250);
+            return;
         }
 
         // I COMANDI ANDROID HANNO SEMPRE PRIORITÀ SUL TESTO DA SCRIVERE.
@@ -2472,6 +2511,108 @@ if (inAttesaVuoiFareAltro) {
                     );
                 }
         );
+
+        return true;
+    }
+
+
+    private boolean gestisciRichiestaStatoTermico(
+            String testo) {
+
+        if (testo == null) {
+            return false;
+        }
+
+        String comando =
+                java.text.Normalizer.normalize(
+                        testo,
+                        java.text.Normalizer.Form.NFD
+                )
+                .replaceAll("\\p{M}+", "")
+                .toLowerCase(java.util.Locale.ITALIAN)
+                .replaceAll("[^\\p{L}\\p{N}\\s]+", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+
+        boolean richiesta =
+                comando.equals("che temperatura c e")
+                || comando.equals("che temperatura")
+                || comando.equals("temperatura")
+                || comando.equals("quanto e caldo")
+                || comando.equals("quanto e calda la batteria")
+                || comando.equals("stato batteria")
+                || comando.equals("stato temperatura")
+                || comando.equals("come sta il telefono")
+                || comando.equals("info sistema");
+
+        if (!richiesta) {
+            return false;
+        }
+
+        ThermalSafetyMonitor monitor =
+                LisaAccessibilityService
+                        .getThermalSafetyMonitor();
+
+        String stato;
+
+        if (monitor == null) {
+
+            stato =
+                    "🌡️ Monitor temperatura non disponibile";
+
+            Log.w(
+                    TAG,
+                    "Richiesta stato termico: monitor nullo"
+            );
+
+        } else {
+
+            stato =
+                    monitor.getStatoDettagliato();
+
+            Log.i(
+                    TAG,
+                    "STATO TERMICO RICHIESTO"
+            );
+        }
+
+        LisaAccessibilityService
+                .aggiungiRigaDiagnosi(
+                        "🌡️",
+                        stato,
+                        6000
+                );
+
+        boolean pipeAttivo =
+                androidAsrPipeProbeManager != null
+                && androidAsrPipeProbeManager.isRunning();
+
+        if (!sessioneAttiva || !pipeAttivo) {
+
+            String testoVoce =
+                    stato
+                            .replace("\n", ". ")
+                            .replace("🔋", "")
+                            .replace("🌡️", "")
+                            .replace("💾", "")
+                            .replace("✅", "")
+                            .replace("🟠", "")
+                            .replace("🔴", "")
+                            .trim();
+
+            LisaSpeaker.parla(
+                    this,
+                    testoVoce,
+                    null
+            );
+
+        } else {
+
+            Log.i(
+                    TAG,
+                    "Stato termico senza TTS: Pipe attivo"
+            );
+        }
 
         return true;
     }
@@ -3759,6 +3900,23 @@ if (inAttesaVuoiFareAltro) {
         }
     }
 
+    private void fermaPipeAttivo() {
+
+        AndroidAsrPipeProbeManager pipe =
+                androidAsrPipeProbeManager;
+
+        androidAsrPipeProbeManager = null;
+
+        if (pipe != null) {
+            pipe.release();
+
+            Log.i(
+                    TAG,
+                    "Pipe ASR rilasciato"
+            );
+        }
+    }
+
     private void terminaSessione(
             boolean silenzioso) {
 
@@ -3773,6 +3931,7 @@ if (inAttesaVuoiFareAltro) {
         MainActivity.aggiornaStatoPulsante();
 
         fermaRecognizer();
+        fermaPipeAttivo();
 
         try {
             stopForeground(true);
@@ -3874,6 +4033,7 @@ if (inAttesaVuoiFareAltro) {
         MainActivity.aggiornaStatoPulsante();
 
         fermaRecognizer();
+        fermaPipeAttivo();
 
         if (wakeWordManager != null) {
             wakeWordManager.release();

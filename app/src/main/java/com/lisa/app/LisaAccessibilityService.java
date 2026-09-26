@@ -37,6 +37,8 @@ public class LisaAccessibilityService extends AccessibilityService {
     private volatile boolean contestoEditabile = false;
     private volatile long contestoTimestamp = 0L;
 
+    private ThermalSafetyMonitor thermalSafetyMonitor;
+
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
@@ -44,6 +46,13 @@ public class LisaAccessibilityService extends AccessibilityService {
         Log.d(TAG, "Servizio accessibilita connesso");
 
         mostraStatoLisa(false);
+
+        if (thermalSafetyMonitor == null) {
+            thermalSafetyMonitor =
+                    new ThermalSafetyMonitor(this);
+        }
+
+        thermalSafetyMonitor.start();
     }
 
     public static void aggiornaIndicatoreAscolto(
@@ -146,6 +155,18 @@ public class LisaAccessibilityService extends AccessibilityService {
     }
 
     public static void aggiungiRigaDiagnosi(String fase, String dettaglio) {
+        aggiungiRigaDiagnosi(
+                fase,
+                dettaglio,
+                -1
+        );
+    }
+
+    public static void aggiungiRigaDiagnosi(
+            String fase,
+            String dettaglio,
+            int timeoutMs) {
+
         LisaAccessibilityService s = instance;
         if (s == null) return;
 
@@ -196,13 +217,15 @@ public class LisaAccessibilityService extends AccessibilityService {
             }
 
             int delayMs =
-                    s.getSharedPreferences(
-                            "lisa_ui",
-                            MODE_PRIVATE
-                    ).getInt(
-                            "diagnosi_autohide_ms",
-                            5000
-                    );
+                    timeoutMs > 0
+                            ? timeoutMs
+                            : s.getSharedPreferences(
+                                    "lisa_ui",
+                                    MODE_PRIVATE
+                            ).getInt(
+                                    "diagnosi_autohide_ms",
+                                    5000
+                            );
 
             s.diagnosiAutohideRunnable =
                     LisaAccessibilityService::nascondiTelemetria;
@@ -1284,6 +1307,12 @@ public class LisaAccessibilityService extends AccessibilityService {
 
     @Override
     public void onDestroy() {
+
+        if (thermalSafetyMonitor != null) {
+            thermalSafetyMonitor.stop();
+            thermalSafetyMonitor = null;
+        }
+
         spegniLisaCompletamente();
         super.onDestroy();
     }
@@ -3210,6 +3239,15 @@ public class LisaAccessibilityService extends AccessibilityService {
     }
 
 public static LisaAccessibilityService getInstance() { return instance; }
+
+    public static ThermalSafetyMonitor getThermalSafetyMonitor() {
+
+        LisaAccessibilityService servizio = instance;
+
+        return servizio != null
+                ? servizio.thermalSafetyMonitor
+                : null;
+    }
 
     public void apriAppPerNome(String nomeApp) { AppFinder.apriAppPerNome(this, nomeApp); }
 
