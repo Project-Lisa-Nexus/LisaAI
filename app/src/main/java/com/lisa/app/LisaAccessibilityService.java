@@ -733,16 +733,28 @@ public class LisaAccessibilityService extends AccessibilityService {
                 telemetriaWindowManager,
                 () -> {
 
-                    // Manteniamo il LinearLayout attached,
-                    // ma svuotiamo le vecchie righe.
                     if (diagnosiLayout != null) {
                         diagnosiLayout.removeAllViews();
                         diagnosiLayout.setBackground(null);
                     }
 
+                    // TEST: detach reale solo della vignetta diagnosi.
+                    if (indicatoreTelemetria != null
+                            && telemetriaWindowManager != null) {
+                        try {
+                            telemetriaWindowManager.removeView(
+                                    indicatoreTelemetria
+                            );
+                        } catch (Exception ignored) {
+                        }
+                    }
+
+                    indicatoreTelemetria = null;
+                    diagnosiLayout = null;
+
                     android.util.Log.i(
                             TAG,
-                            "TELEMETRIA LISA NASCOSTA"
+                            "TELEMETRIA LISA NASCOSTA (detach)"
                     );
                 }
         );
