@@ -290,7 +290,7 @@ if (servizio.recognizer != null) {
                 "Lisa pronta ad ascoltare"
         );
 
-        programmaAscolto(250);
+        avviaPipeNormale();
 
         return START_NOT_STICKY;
     }
@@ -1078,6 +1078,38 @@ if (servizio.recognizer != null) {
         return LisaAccessibilityService.getInstance() != null;
     }
 
+    private void avviaPipeNormale() {
+
+        if (!sessioneAttiva || whisperLocaleAttivo) {
+            return;
+        }
+
+        if (androidAsrPipeProbeManager != null) {
+            androidAsrPipeProbeManager.release();
+        }
+
+        androidAsrPipeProbeManager =
+                new AndroidAsrPipeProbeManager(
+                        this,
+                        () -> handler.post(() -> {
+                            Log.i(
+                                    TAG,
+                                    "Pipe normale terminato"
+                            );
+                        }),
+                        frase -> handler.post(() -> {
+                            Log.i(
+                                    TAG,
+                                    "PIPE SEGMENT: " + frase
+                            );
+
+                            gestisciFrase(frase);
+                        })
+                );
+
+        androidAsrPipeProbeManager.start();
+    }
+
     private void programmaAscolto(long ritardoMs) {
 
         // Whisper + VAD possiedono già il microfono.
@@ -1122,7 +1154,7 @@ if (servizio.recognizer != null) {
             }
 
             if (!ascoltoInCorso) {
-                avviaAscolto();
+                avviaPipeNormale();
             }
         };
 
