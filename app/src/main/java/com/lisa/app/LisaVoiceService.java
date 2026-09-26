@@ -895,6 +895,14 @@ if (servizio.recognizer != null) {
                             } catch (Exception ignored) {}
 
                             stopSelf();
+                        }),
+                        frase -> handler.post(() -> {
+                            Log.i(
+                                    TAG,
+                                    "PIPE SEGMENT: " + frase
+                            );
+
+                            gestisciFrase(frase);
                         })
                 );
 
