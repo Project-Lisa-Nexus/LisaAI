@@ -38,12 +38,30 @@ public final class AndroidAsrPipeProbeManager {
     private OutputStream output;
 
     private volatile boolean running = false;
+    private volatile boolean pcmMuted = false;
     private volatile long ultimoSegmentoMs = 0L;
     private Thread audioThread;
     private final AtomicBoolean finito = new AtomicBoolean(false);
 
     public boolean isRunning() {
         return running;
+    }
+
+    public void setPcmMuted(boolean muted) {
+
+        pcmMuted = muted;
+
+        if (!muted) {
+            ultimoSegmentoMs =
+                    android.os.SystemClock.elapsedRealtime();
+        }
+
+        Log.i(
+                TAG,
+                muted
+                        ? "PCM ASR silenziato per TTS"
+                        : "PCM ASR microfono ripristinato"
+        );
     }
 
     public AndroidAsrPipeProbeManager(
@@ -259,14 +277,26 @@ public final class AndroidAsrPipeProbeManager {
 
                 if (letti <= 0) continue;
 
-                for (int i = 0; i < letti; i++) {
-                    short v = pcm[i];
+                if (pcmMuted) {
 
-                    bytes[i * 2] =
-                            (byte) (v & 0xff);
+                    java.util.Arrays.fill(
+                            bytes,
+                            0,
+                            letti * 2,
+                            (byte) 0
+                    );
 
-                    bytes[i * 2 + 1] =
-                            (byte) ((v >> 8) & 0xff);
+                } else {
+
+                    for (int i = 0; i < letti; i++) {
+                        short v = pcm[i];
+
+                        bytes[i * 2] =
+                                (byte) (v & 0xff);
+
+                        bytes[i * 2 + 1] =
+                                (byte) ((v >> 8) & 0xff);
+                    }
                 }
 
                 OutputStream out = output;

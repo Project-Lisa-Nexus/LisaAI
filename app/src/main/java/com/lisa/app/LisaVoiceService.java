@@ -90,6 +90,14 @@ public class LisaVoiceService extends Service {
         servizio.handler.post(() -> {
 
             servizio.sospesoPerTts = true;
+
+            if (servizio.androidAsrPipeProbeManager != null
+                    && servizio.androidAsrPipeProbeManager.isRunning()) {
+
+                servizio.androidAsrPipeProbeManager
+                        .setPcmMuted(true);
+            }
+
 if (servizio.recognizer != null) {
 
                 try {
@@ -101,7 +109,7 @@ if (servizio.recognizer != null) {
             servizio.ascoltoInCorso = false;
 
             servizio.chiediAudioFocus(
-                    android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+                    android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
             );
 
             Log.d(TAG,
@@ -118,6 +126,13 @@ if (servizio.recognizer != null) {
         servizio.handler.postDelayed(() -> {
 
             servizio.rilasciaAudioFocus();
+
+            if (servizio.androidAsrPipeProbeManager != null
+                    && servizio.androidAsrPipeProbeManager.isRunning()) {
+
+                servizio.androidAsrPipeProbeManager
+                        .setPcmMuted(false);
+            }
 
             servizio.sospesoPerTts = false;
 
@@ -1110,11 +1125,14 @@ if (servizio.recognizer != null) {
                         frase -> handler.post(() -> {
 
                             if (!sessioneAttiva
-                                    || whisperLocaleAttivo) {
+                                    || whisperLocaleAttivo
+                                    || sospesoPerTts
+                                    || LisaSpeaker.isParlando()) {
 
                                 Log.i(
                                         TAG,
-                                        "PIPE segmento ignorato: sessione inattiva"
+                                        "PIPE segmento ignorato: "
+                                        + "sessione inattiva o TTS"
                                 );
                                 return;
                             }
@@ -2580,25 +2598,24 @@ if (inAttesaVuoiFareAltro) {
                 .aggiungiRigaDiagnosi(
                         "🌡️",
                         stato,
-                        6000
+                        7000
                 );
 
-        boolean pipeAttivo =
-                androidAsrPipeProbeManager != null
-                && androidAsrPipeProbeManager.isRunning();
+        boolean avvisoVocaleAttivo =
+                getSharedPreferences(
+                        "lisa_ui",
+                        MODE_PRIVATE
+                ).getBoolean(
+                        "avviso_vocale_attivo",
+                        true
+                );
 
-        if (!sessioneAttiva || !pipeAttivo) {
+        if (avvisoVocaleAttivo) {
 
             String testoVoce =
-                    stato
-                            .replace("\n", ". ")
-                            .replace("🔋", "")
-                            .replace("🌡️", "")
-                            .replace("💾", "")
-                            .replace("✅", "")
-                            .replace("🟠", "")
-                            .replace("🔴", "")
-                            .trim();
+                    monitor != null
+                            ? monitor.getStatoVocale()
+                            : "Monitor temperatura non disponibile.";
 
             LisaSpeaker.parla(
                     this,
@@ -2610,7 +2627,8 @@ if (inAttesaVuoiFareAltro) {
 
             Log.i(
                     TAG,
-                    "Stato termico senza TTS: Pipe attivo"
+                    "Stato termico senza TTS: "
+                    + "Avviso vocale disattivato"
             );
         }
 

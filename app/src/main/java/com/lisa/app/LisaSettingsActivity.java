@@ -96,11 +96,7 @@ public class LisaSettingsActivity extends Activity {
                 "Interfaccia, dimensioni e tema"
         );
 
-        aggiungiSezione(
-                layout,
-                "🛡 Affidabilità",
-                "Batteria, esecuzione in background e autorizzazioni"
-        );
+        aggiungiSezioneAffidabilita(layout);
 
         aggiungiSezione(
                 layout,
@@ -244,6 +240,214 @@ public class LisaSettingsActivity extends Activity {
         );
         layout.addView(vignettaDiagnosi);
     }
+
+    private void aggiungiSezioneAffidabilita(
+            LinearLayout layout) {
+
+        TextView titolo = new TextView(this);
+        titolo.setText("🛡 Affidabilità");
+        titolo.setTextSize(18);
+        titolo.setTypeface(
+                Typeface.DEFAULT,
+                Typeface.BOLD
+        );
+
+        LinearLayout.LayoutParams titoloLp =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+
+        titoloLp.topMargin = dp(8);
+        titoloLp.bottomMargin = dp(6);
+
+        layout.addView(
+                titolo,
+                titoloLp
+        );
+
+        TextView descrizione = new TextView(this);
+        descrizione.setText(
+                "Temperatura, batteria e sicurezza del telefono"
+        );
+        descrizione.setTextSize(14);
+        layout.addView(descrizione);
+
+        android.content.SharedPreferences prefs =
+                getSharedPreferences(
+                        "lisa_ui",
+                        MODE_PRIVATE
+                );
+
+        Button statoTelefono = new Button(this);
+        statoTelefono.setText("📊 Stato telefono");
+
+        statoTelefono.setOnClickListener(v -> {
+
+            ThermalSafetyMonitor monitor =
+                    LisaAccessibilityService
+                            .getThermalSafetyMonitor();
+
+            String stato;
+            String statoVoce;
+
+            if (monitor != null) {
+
+                stato =
+                        monitor.getStatoDettagliato();
+
+                statoVoce =
+                        monitor.getStatoVocale();
+
+            } else {
+
+                stato =
+                        "Monitor temperatura non disponibile";
+
+                statoVoce =
+                        "Monitor temperatura non disponibile.";
+            }
+
+            LisaAccessibilityService
+                    .aggiungiRigaDiagnosi(
+                            "🌡️",
+                            stato,
+                            7000
+                    );
+
+            boolean avvisoVocaleAttivo =
+                    prefs.getBoolean(
+                            "avviso_vocale_attivo",
+                            true
+                    );
+
+            if (avvisoVocaleAttivo) {
+
+                LisaSpeaker.parla(
+                        LisaSettingsActivity.this,
+                        statoVoce,
+                        null
+                );
+            }
+        });
+
+        LinearLayout.LayoutParams statoLp =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+
+        statoLp.topMargin = dp(8);
+        statoLp.bottomMargin = dp(6);
+
+        layout.addView(
+                statoTelefono,
+                statoLp
+        );
+
+        Switch monitorTemperatura =
+                new Switch(this);
+
+        monitorTemperatura.setText(
+                "Monitor temperatura"
+        );
+
+        monitorTemperatura.setChecked(
+                prefs.getBoolean(
+                        "monitor_temperatura_attivo",
+                        true
+                )
+        );
+
+        monitorTemperatura
+                .setOnCheckedChangeListener(
+                        (buttonView, isChecked) -> {
+
+                            prefs.edit()
+                                    .putBoolean(
+                                            "monitor_temperatura_attivo",
+                                            isChecked
+                                    )
+                                    .apply();
+
+                            ThermalSafetyMonitor monitor =
+                                    LisaAccessibilityService
+                                            .getThermalSafetyMonitor();
+
+                            if (monitor != null) {
+
+                                if (isChecked) {
+                                    monitor.start();
+                                } else {
+                                    monitor.stop();
+                                }
+                            }
+                        }
+                );
+
+        layout.addView(
+                monitorTemperatura
+        );
+
+        Switch avvisoVocale =
+                new Switch(this);
+
+        avvisoVocale.setText(
+                "Avviso vocale"
+        );
+
+        avvisoVocale.setChecked(
+                prefs.getBoolean(
+                        "avviso_vocale_attivo",
+                        true
+                )
+        );
+
+        avvisoVocale
+                .setOnCheckedChangeListener(
+                        (buttonView, isChecked) ->
+                                prefs.edit()
+                                        .putBoolean(
+                                                "avviso_vocale_attivo",
+                                                isChecked
+                                        )
+                                        .apply()
+                );
+
+        layout.addView(
+                avvisoVocale
+        );
+
+        Switch notificaAndroid =
+                new Switch(this);
+
+        notificaAndroid.setText(
+                "Notifica Android"
+        );
+
+        notificaAndroid.setChecked(
+                prefs.getBoolean(
+                        "notifica_android_attiva",
+                        true
+                )
+        );
+
+        notificaAndroid
+                .setOnCheckedChangeListener(
+                        (buttonView, isChecked) ->
+                                prefs.edit()
+                                        .putBoolean(
+                                                "notifica_android_attiva",
+                                                isChecked
+                                        )
+                                        .apply()
+                );
+
+        layout.addView(
+                notificaAndroid
+        );
+    }
+
 
     private void aggiungiSezione(
             LinearLayout layout,

@@ -77,6 +77,25 @@ final class ThermalSafetyMonitor {
 
     void start() {
 
+        boolean monitorAttivo =
+                context.getSharedPreferences(
+                        "lisa_ui",
+                        Context.MODE_PRIVATE
+                ).getBoolean(
+                        "monitor_temperatura_attivo",
+                        true
+                );
+
+        if (!monitorAttivo) {
+
+            Log.i(
+                    TAG,
+                    "Monitor disattivato da impostazioni"
+            );
+
+            return;
+        }
+
         if (started) {
             return;
         }
@@ -338,6 +357,10 @@ final class ThermalSafetyMonitor {
 
     public String getStatoDettagliato() {
 
+        if (!started) {
+            return "🌡️ Monitor temperatura disattivato da impostazioni";
+        }
+
         int statoAttuale = thermalStatus;
 
         if (Build.VERSION.SDK_INT
@@ -431,6 +454,100 @@ final class ThermalSafetyMonitor {
                 + " Stato: "
                 + statoItaliano;
     }
+
+    public String getStatoVocale() {
+
+        if (!started) {
+            return "Monitor temperatura disattivato da impostazioni.";
+        }
+
+        int statoAttuale = thermalStatus;
+
+        if (Build.VERSION.SDK_INT
+                >= Build.VERSION_CODES.Q
+                && powerManager != null) {
+
+            try {
+                statoAttuale =
+                        powerManager
+                                .getCurrentThermalStatus();
+
+                thermalStatus =
+                        statoAttuale;
+
+            } catch (Exception ignored) {
+            }
+        }
+
+        String batteriaVoce;
+
+        if (Float.isNaN(batteryTempC)) {
+
+            batteriaVoce =
+                    "non disponibile";
+
+        } else {
+
+            batteriaVoce =
+                    String.format(
+                            Locale.ITALIAN,
+                            "%.1f gradi",
+                            batteryTempC
+                    );
+        }
+
+        ActivityManager activityManager =
+                (ActivityManager)
+                        context.getSystemService(
+                                Context.ACTIVITY_SERVICE
+                        );
+
+        String ramVoce =
+                "non disponibile";
+
+        if (activityManager != null) {
+
+            ActivityManager.MemoryInfo memoryInfo =
+                    new ActivityManager.MemoryInfo();
+
+            activityManager.getMemoryInfo(
+                    memoryInfo
+            );
+
+            double totaleGb =
+                    memoryInfo.totalMem
+                            / 1073741824.0;
+
+            double usataGb =
+                    (memoryInfo.totalMem
+                            - memoryInfo.availMem)
+                            / 1073741824.0;
+
+            ramVoce =
+                    String.format(
+                            Locale.ITALIAN,
+                            "%.1f su %.1f gigabyte",
+                            usataGb,
+                            totaleGb
+                    );
+        }
+
+        String statoItaliano =
+                descrizioneStatoTermico(
+                        statoAttuale
+                );
+
+        return "Temperatura batteria: "
+                + batteriaVoce
+                + ". Stato termico del sistema: "
+                + statoItaliano
+                + ". Memoria RAM utilizzata: "
+                + ramVoce
+                + ". Stato generale del telefono: "
+                + statoItaliano
+                + ".";
+    }
+
 
     private String nomeStatoTermico(
             int stato) {
@@ -559,7 +676,16 @@ final class ThermalSafetyMonitor {
          *
          * A Voice Engine spento l'avviso vocale funziona.
          */
-        if (!LisaVoiceService.isSessioneAttiva()) {
+        boolean avvisoVocaleAttivo =
+                context.getSharedPreferences(
+                        "lisa_ui",
+                        Context.MODE_PRIVATE
+                ).getBoolean(
+                        "avviso_vocale_attivo",
+                        true
+                );
+
+        if (avvisoVocaleAttivo) {
 
             LisaSpeaker.parla(
                     context,
@@ -570,10 +696,27 @@ final class ThermalSafetyMonitor {
 
         } else {
 
-            Log.w(
+            Log.i(
                     TAG,
-                    "TTS termico non eseguito: "
-                    + "Voice Engine attivo"
+                    "Avviso vocale termico disattivato"
+            );
+        }
+
+        boolean notificaAndroidAttiva =
+                context.getSharedPreferences(
+                        "lisa_ui",
+                        Context.MODE_PRIVATE
+                ).getBoolean(
+                        "notifica_android_attiva",
+                        true
+                );
+
+        if (notificaAndroidAttiva) {
+
+            Log.d(
+                    TAG,
+                    "Notifica Android termica abilitata "
+                    + "(implementazione futura)"
             );
         }
 
@@ -596,7 +739,16 @@ final class ThermalSafetyMonitor {
                         "✅ Temperatura rientrata nella norma"
                 );
 
-        if (!LisaVoiceService.isSessioneAttiva()) {
+        boolean avvisoVocaleAttivo =
+                context.getSharedPreferences(
+                        "lisa_ui",
+                        Context.MODE_PRIVATE
+                ).getBoolean(
+                        "avviso_vocale_attivo",
+                        true
+                );
+
+        if (avvisoVocaleAttivo) {
 
             LisaSpeaker.parla(
                     context,
