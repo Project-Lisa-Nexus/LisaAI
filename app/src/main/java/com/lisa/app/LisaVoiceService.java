@@ -2935,6 +2935,45 @@ if (inAttesaVuoiFareAltro) {
             return true;
         }
 
+        // SYSTEM CAPABILITY REGISTRY V1 — READ ONLY
+        String capabilityStato =
+                SystemCapabilityRegistry.resolveVoiceStateQuery(testo);
+
+        if (capabilityStato != null) {
+
+            SystemCapabilityRegistry.Result risultatoStato =
+                    SystemCapabilityRegistry.get(
+                            getApplicationContext(),
+                            capabilityStato
+                    );
+
+            String risposta =
+                    SystemCapabilityRegistry.toSpeech(
+                            risultatoStato
+                    );
+
+            rispostaComandoLocale = risposta;
+
+            LisaAccessibilityService.aggiungiRigaDiagnosi(
+                    "📊",
+                    "Stato sistema: "
+                            + capabilityStato
+                            + " -> "
+                            + risultatoStato.status
+                            + " ["
+                            + risultatoStato.source
+                            + "]"
+            );
+
+            LisaSpeaker.parla(
+                    this,
+                    risposta,
+                    null
+            );
+
+            return true;
+        }
+
         // WI-FI
         // Nota: nel percorso Whisper "wi-fi" viene normalizzato in "wi fi".
         if (testo.equals("stato wifi")
