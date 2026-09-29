@@ -2636,6 +2636,39 @@ if (inAttesaVuoiFareAltro) {
     }
 
 
+    // V2-B-1: nome parlato delle capability di sistema.
+    private String nomeItalianoCapability(String capability) {
+
+        if (capability == null) {
+            return "questa funzione";
+        }
+
+        switch (capability) {
+            case "bluetooth":
+                return "il Bluetooth";
+            case "wifi":
+                return "il Wi-Fi";
+            case "location":
+                return "la posizione";
+            case "airplane_mode":
+                return "la modalità aereo";
+            case "nfc":
+                return "NFC";
+            case "auto_rotate":
+                return "la rotazione automatica";
+            case "battery_saver":
+                return "il risparmio energetico";
+            case "do_not_disturb":
+                return "la modalità Non disturbare";
+            case "mobile_data":
+                return "i dati mobili";
+            case "hotspot":
+                return "l'hotspot";
+            default:
+                return "questa funzione";
+        }
+    }
+
     private boolean eseguiLocaleRapido(String frase) {
 
         ultimaAzioneUiGenerica = false;
@@ -2972,6 +3005,147 @@ if (inAttesaVuoiFareAltro) {
             );
 
             return true;
+        }
+
+        // V2-B-1: SystemActionRouter.
+        // Solo routing + stato. Nessun toggle in questa fase.
+        SystemActionRouter.ActionPlan plan =
+                SystemActionRouter.parse(testo);
+
+        if (plan != null) {
+
+            boolean targetCritico =
+                    "bluetooth".equals(plan.capability)
+                    || "wifi".equals(plan.capability);
+
+            if (plan.action == SystemActionRouter.Action.OPEN) {
+
+                Intent intentSettings =
+                        new Intent(plan.settingsAction);
+
+                intentSettings.addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK
+                );
+
+                if (intentSettings.resolveActivity(
+                        getPackageManager()) == null
+                        && plan.fallbackSettingsAction != null) {
+
+                    intentSettings =
+                            new Intent(plan.fallbackSettingsAction);
+
+                    intentSettings.addFlags(
+                            Intent.FLAG_ACTIVITY_NEW_TASK
+                    );
+                }
+
+                if (intentSettings.resolveActivity(
+                        getPackageManager()) != null) {
+
+                    startActivity(intentSettings);
+
+                    LisaSpeaker.parla(
+                            this,
+                            "Apro "
+                                    + nomeItalianoCapability(
+                                            plan.capability),
+                            null
+                    );
+
+                    return true;
+                }
+
+                return false;
+            }
+
+            if (plan.action == SystemActionRouter.Action.ENABLE) {
+
+                SystemCapabilityRegistry.Result stato =
+                        SystemCapabilityRegistry.get(
+                                getApplicationContext(),
+                                plan.capability
+                        );
+
+                if (stato.enabled == null) {
+
+                    LisaSpeaker.parla(
+                            this,
+                            "Non posso determinare lo stato di "
+                                    + nomeItalianoCapability(
+                                            plan.capability)
+                                    + ".",
+                            null
+                    );
+
+                    return true;
+                }
+
+                if (Boolean.TRUE.equals(stato.enabled)) {
+
+                    LisaSpeaker.parla(
+                            this,
+                            SystemCapabilityRegistry.toSpeech(stato),
+                            null
+                    );
+
+                    return true;
+                }
+
+                LisaSpeaker.parla(
+                        this,
+                        nomeItalianoCapability(plan.capability)
+                                + " è spento. Non lo attivo ancora da qui.",
+                        null
+                );
+
+                return true;
+            }
+
+            // BT/WiFi DISABLE NON vengono intercettati:
+            // il flusso continua verso la Safety esistente.
+            if (plan.action == SystemActionRouter.Action.DISABLE
+                    && !targetCritico) {
+
+                SystemCapabilityRegistry.Result stato =
+                        SystemCapabilityRegistry.get(
+                                getApplicationContext(),
+                                plan.capability
+                        );
+
+                if (stato.enabled == null) {
+
+                    LisaSpeaker.parla(
+                            this,
+                            "Non posso determinare lo stato di "
+                                    + nomeItalianoCapability(
+                                            plan.capability)
+                                    + ".",
+                            null
+                    );
+
+                    return true;
+                }
+
+                if (Boolean.FALSE.equals(stato.enabled)) {
+
+                    LisaSpeaker.parla(
+                            this,
+                            SystemCapabilityRegistry.toSpeech(stato),
+                            null
+                    );
+
+                    return true;
+                }
+
+                LisaSpeaker.parla(
+                        this,
+                        nomeItalianoCapability(plan.capability)
+                                + " è attivo. Non lo disattivo ancora da qui.",
+                        null
+                );
+
+                return true;
+            }
         }
 
         // WI-FI
