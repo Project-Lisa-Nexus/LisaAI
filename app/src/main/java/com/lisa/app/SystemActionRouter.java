@@ -7,6 +7,69 @@ import java.util.Locale;
 
 public final class SystemActionRouter {
 
+    public static final java.util.Map<String, String[]>
+            TOGGLE_LABELS;
+
+    static {
+        java.util.Map<String, String[]> labels =
+                new java.util.HashMap<>();
+
+        labels.put("location", new String[] {
+                "Usa posizione",
+                "Posizione",
+                "Utilizza posizione",
+                "Localizzazione"
+        });
+
+        labels.put("bluetooth", new String[] {
+                "Bluetooth", "Utilizza Bluetooth"
+        });
+
+        labels.put("wifi", new String[] {
+                "Wi-Fi", "Utilizza Wi-Fi"
+        });
+
+        labels.put("airplane_mode", new String[] {
+                "Modalità aereo", "Aereo"
+        });
+
+        labels.put("nfc", new String[] {
+                "NFC", "Consenti NFC"
+        });
+
+        labels.put("auto_rotate", new String[] {
+                "Rotazione automatica",
+                "Rotazione schermo automatica"
+        });
+
+        labels.put("battery_saver", new String[] {
+                "Risparmio batteria",
+                "Risparmio energetico"
+        });
+
+        labels.put("do_not_disturb", new String[] {
+                "Non disturbare"
+        });
+
+        labels.put("mobile_data", new String[] {
+                "Dati mobili", "Utilizza dati mobili"
+        });
+
+        TOGGLE_LABELS =
+                java.util.Collections.unmodifiableMap(labels);
+    }
+
+    public static String[] toggleLabelsFor(
+            String capability) {
+
+        String[] labels = TOGGLE_LABELS.get(capability);
+
+        return labels == null
+                ? new String[0]
+                : labels.clone();
+    }
+
+
     public enum Action {
         OPEN,
         ENABLE,

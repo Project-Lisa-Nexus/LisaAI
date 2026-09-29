@@ -37,6 +37,39 @@ public class LisaAccessibilityService extends AccessibilityService {
     private volatile boolean contestoEditabile = false;
     private volatile long contestoTimestamp = 0L;
 
+    private volatile String[] toggleSettingsEtichette = null;
+    private volatile Boolean toggleSettingsStato = null;
+    private volatile ToggleResultCallback toggleSettingsCallback = null;
+    private volatile boolean toggleSettingsTentativoProgrammato = false;
+    private volatile boolean toggleSettingsRetryInCorso = false;
+    private int toggleSettingsGiro = 0;
+
+    private final android.os.Handler toggleSettingsHandler =
+            new android.os.Handler(
+                    android.os.Looper.getMainLooper()
+            );
+
+    private final Runnable toggleSettingsTimeout = () -> {
+        ToggleResultCallback callback =
+                toggleSettingsCallback;
+
+        if (callback == null) return;
+
+        pulisciToggleSettingsPendente();
+
+        callback.onResult(
+                false,
+                null,
+                "settings_timeout"
+        );
+    };
+
+    private final Runnable toggleSettingsEsegui =
+            this::eseguiToggleSettingsPendente;
+
+    private final Runnable toggleSettingsRetry =
+            this::eseguiRetryToggleSettings;
+
     private ThermalSafetyMonitor thermalSafetyMonitor;
 
     @Override
@@ -1052,15 +1085,37 @@ public class LisaAccessibilityService extends AccessibilityService {
 
         int tipo = event.getEventType();
 
-        if (tipo != android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
-            tipo != android.view.accessibility.AccessibilityEvent.TYPE_VIEW_FOCUSED) {
-            return;
-        }
-
         String eventPkg =
                 event.getPackageName() == null
                         ? ""
                         : event.getPackageName().toString();
+
+        boolean eventoSettingsToggle =
+                toggleSettingsCallback != null
+                && "com.android.settings".equals(eventPkg)
+                && tipo == android.view.accessibility.AccessibilityEvent
+                        .TYPE_WINDOW_CONTENT_CHANGED;
+
+        if (toggleSettingsCallback != null) {
+            Log.i(
+                    TAG,
+                    "V2B2_EVENT type="
+                            + tipo
+                            + " pkg="
+                            + eventPkg
+            );
+        }
+
+        boolean tipoAccettato =
+                tipo == android.view.accessibility.AccessibilityEvent
+                        .TYPE_WINDOW_STATE_CHANGED
+                || tipo == android.view.accessibility.AccessibilityEvent
+                        .TYPE_VIEW_FOCUSED
+                || eventoSettingsToggle;
+
+        if (!tipoAccettato) {
+            return;
+        }
 
         String eventClass =
                 event.getClassName() == null
@@ -1155,6 +1210,8 @@ public class LisaAccessibilityService extends AccessibilityService {
                 + " window=" + contestoWindowId
                 + " focus=" + contestoFocusInput
                 + " editable=" + contestoEditabile);
+
+        provaToggleSettingsPendente();
     }
 
     public String getCurrentPackageName() {
@@ -1302,11 +1359,14 @@ public class LisaAccessibilityService extends AccessibilityService {
     @Override
     public boolean onUnbind(Intent intent) {
         Log.d(TAG, "AccessibilityService unbound: VoiceService NON viene arrestata");
+        pulisciToggleSettingsPendente();
         return super.onUnbind(intent);
     }
 
     @Override
     public void onDestroy() {
+
+        pulisciToggleSettingsPendente();
 
         if (thermalSafetyMonitor != null) {
             thermalSafetyMonitor.stop();
@@ -1369,6 +1429,377 @@ public class LisaAccessibilityService extends AccessibilityService {
     // P4.1 VOICE ACCESS CORE - TOGGLE GENERICO
     // ============================================================
 
+    public void attendiSettingsEImpostaToggle(
+            String[] etichette,
+            boolean statoDesiderato,
+            ToggleResultCallback callback) {
+
+        if (callback == null
+                || etichette == null
+                || etichette.length == 0) {
+
+            if (callback != null) {
+                callback.onResult(
+                        false,
+                        null,
+                        "nessuna_etichetta_toggle"
+                );
+            }
+            return;
+        }
+
+        pulisciToggleSettingsPendente();
+
+        toggleSettingsEtichette = etichette.clone();
+        toggleSettingsStato = statoDesiderato;
+        toggleSettingsCallback = callback;
+
+        toggleSettingsHandler.postDelayed(
+                toggleSettingsTimeout,
+                4000L
+        );
+    }
+
+    private void provaToggleSettingsPendente() {
+
+        if (toggleSettingsCallback == null
+                || !"com.android.settings".equals(
+                        contestoPacchetto)) {
+            return;
+        }
+
+        if (toggleSettingsRetryInCorso) {
+            return;
+        }
+
+        toggleSettingsHandler.removeCallbacks(
+                toggleSettingsTimeout
+        );
+
+        toggleSettingsHandler.postDelayed(
+                toggleSettingsTimeout,
+                4000L
+        );
+
+        if (toggleSettingsTentativoProgrammato) {
+            return;
+        }
+
+        toggleSettingsTentativoProgrammato = true;
+
+        toggleSettingsHandler.postDelayed(
+                toggleSettingsEsegui,
+                450L
+        );
+    }
+
+    private void eseguiToggleSettingsPendente() {
+
+        toggleSettingsTentativoProgrammato = false;
+
+        if (toggleSettingsCallback == null) {
+            return;
+        }
+
+        if (!"com.android.settings".equals(
+                contestoPacchetto)) {
+            return;
+        }
+
+        if (toggleSettingsRetryInCorso) {
+            return;
+        }
+
+        toggleSettingsRetryInCorso = true;
+        toggleSettingsGiro = 1;
+
+        eseguiGiroToggleSettings();
+    }
+
+    private void eseguiRetryToggleSettings() {
+
+        if (!toggleSettingsRetryInCorso
+                || toggleSettingsCallback == null) {
+            return;
+        }
+
+        if (!"com.android.settings".equals(
+                contestoPacchetto)) {
+            return;
+        }
+
+        toggleSettingsGiro++;
+
+        eseguiGiroToggleSettings();
+    }
+
+    private void eseguiGiroToggleSettings() {
+
+        if (!toggleSettingsRetryInCorso
+                || toggleSettingsCallback == null) {
+            return;
+        }
+
+        final String[] etichette =
+                toggleSettingsEtichette;
+
+        final boolean stato =
+                Boolean.TRUE.equals(
+                        toggleSettingsStato);
+
+        final ToggleResultCallback callback =
+                toggleSettingsCallback;
+
+        final int giro =
+                toggleSettingsGiro;
+
+        Log.i(
+                TAG,
+                "V2B2_GIRO numero=" + giro
+        );
+
+        provaEtichettaToggle(
+                etichette,
+                0,
+                stato,
+                true,
+                (riuscito, statoFinale, dettaglio) -> {
+
+                    if (toggleSettingsCallback
+                            != callback) {
+                        return;
+                    }
+
+                    if (riuscito) {
+                        pulisciToggleSettingsPendente();
+
+                        callback.onResult(
+                                true,
+                                statoFinale,
+                                dettaglio
+                        );
+                        return;
+                    }
+
+                    boolean tutteAssenti =
+                            "tutte_etichette_non_trovate"
+                                    .equals(dettaglio);
+
+                    if (tutteAssenti
+                            && giro < 3) {
+
+                        Log.i(
+                                TAG,
+                                "V2B2_RETRY prossimo_giro="
+                                        + (giro + 1)
+                        );
+
+                        toggleSettingsHandler.removeCallbacks(
+                                toggleSettingsRetry
+                        );
+
+                        toggleSettingsHandler.postDelayed(
+                                toggleSettingsRetry,
+                                600L
+                        );
+                        return;
+                    }
+
+                    pulisciToggleSettingsPendente();
+
+                    callback.onResult(
+                            false,
+                            statoFinale,
+                            dettaglio
+                    );
+                }
+        );
+    }
+
+    private void provaEtichettaToggle(
+            String[] etichette,
+            int indice,
+            boolean statoDesiderato,
+            boolean tutteEtichetteNonTrovate,
+            ToggleResultCallback callback) {
+
+        if (etichette == null
+                || indice >= etichette.length) {
+
+            callback.onResult(
+                    false,
+                    null,
+                    tutteEtichetteNonTrovate
+                            ? "tutte_etichette_non_trovate"
+                            : "nessuna_etichetta_compatibile"
+            );
+            return;
+        }
+
+        final String etichetta =
+                etichette[indice];
+
+        Log.i(
+                TAG,
+                "V2B2_PROVA indice="
+                        + indice
+                        + " etichetta="
+                        + etichetta
+        );
+
+        impostaTogglePerEtichetta(
+                etichetta,
+                statoDesiderato,
+                (riuscito, statoFinale, dettaglio) -> {
+
+                    if (riuscito) {
+                        callback.onResult(
+                                true,
+                                statoFinale,
+                                "etichetta="
+                                        + etichetta
+                                        + ";"
+                                        + dettaglio
+                        );
+                        return;
+                    }
+
+                    boolean nessunClick =
+                            "root_non_disponibile".equals(dettaglio)
+                            || "etichetta_non_trovata".equals(dettaglio)
+                            || "toggle_non_trovato".equals(dettaglio)
+                            || "parent_cliccabile_non_trovato".equals(dettaglio);
+
+                    if (nessunClick) {
+
+                        boolean ancoraTutteAssenti =
+                                tutteEtichetteNonTrovate
+                                && "etichetta_non_trovata"
+                                        .equals(dettaglio);
+
+                        provaEtichettaToggle(
+                                etichette,
+                                indice + 1,
+                                statoDesiderato,
+                                ancoraTutteAssenti,
+                                callback
+                        );
+                        return;
+                    }
+
+                    callback.onResult(
+                            false,
+                            statoFinale,
+                            "etichetta="
+                                    + etichetta
+                                    + ";"
+                                    + dettaglio
+                    );
+                }
+        );
+    }
+
+    private void pulisciToggleSettingsPendente() {
+
+        toggleSettingsHandler.removeCallbacks(
+                toggleSettingsTimeout
+        );
+
+        toggleSettingsHandler.removeCallbacks(
+                toggleSettingsEsegui
+        );
+
+        toggleSettingsHandler.removeCallbacks(
+                toggleSettingsRetry
+        );
+
+        toggleSettingsEtichette = null;
+        toggleSettingsStato = null;
+        toggleSettingsCallback = null;
+        toggleSettingsTentativoProgrammato = false;
+        toggleSettingsRetryInCorso = false;
+        toggleSettingsGiro = 0;
+    }
+
+    private void dumpNodiRilevanti() {
+
+        AccessibilityNodeInfo root =
+                getRootInActiveWindow();
+
+        if (root == null) {
+            Log.i(TAG, "DUMP root=null");
+            return;
+        }
+
+        Log.i(TAG, "DUMP BEGIN");
+
+        dumpNodoRicorsivo(root, 0);
+
+        Log.i(TAG, "DUMP END");
+    }
+
+    private void dumpNodoRicorsivo(
+            AccessibilityNodeInfo nodo,
+            int livello) {
+
+        if (nodo == null || livello > 12) {
+            return;
+        }
+
+        String testo =
+                nodo.getText() == null
+                        ? ""
+                        : nodo.getText().toString();
+
+        String descrizione =
+                nodo.getContentDescription() == null
+                        ? ""
+                        : nodo.getContentDescription().toString();
+
+        String classe =
+                nodo.getClassName() == null
+                        ? ""
+                        : nodo.getClassName().toString();
+
+        String testoLower =
+                testo.toLowerCase(java.util.Locale.ROOT);
+        String descrizioneLower =
+                descrizione.toLowerCase(java.util.Locale.ROOT);
+        String classeLower =
+                classe.toLowerCase(java.util.Locale.ROOT);
+
+        boolean rilevante =
+                testoLower.contains("posizione")
+                || descrizioneLower.contains("posizione")
+                || classeLower.contains("switch")
+                || classeLower.contains("toggle")
+                || nodo.isCheckable();
+
+        if (rilevante) {
+            android.graphics.Rect bounds =
+                    new android.graphics.Rect();
+
+            nodo.getBoundsInScreen(bounds);
+
+            Log.i(
+                    TAG,
+                    "DUMP lvl=" + livello
+                            + " cls=" + classe
+                            + " txt=" + testo
+                            + " desc=" + descrizione
+                            + " bounds=" + bounds.toShortString()
+                            + " checkable=" + nodo.isCheckable()
+                            + " checked=" + nodo.isChecked()
+                            + " clickable=" + nodo.isClickable()
+                            + " children=" + nodo.getChildCount()
+            );
+        }
+
+        for (int i = 0; i < nodo.getChildCount(); i++) {
+            dumpNodoRicorsivo(nodo.getChild(i), livello + 1);
+        }
+    }
+
     public interface ToggleResultCallback {
         void onResult(
                 boolean riuscito,
@@ -1388,6 +1819,11 @@ public class LisaAccessibilityService extends AccessibilityService {
                 getRootInActiveWindow();
 
         if (root == null) {
+            Log.i(
+                    TAG,
+                    "V2B2_CORE root_non_disponibile etichetta="
+                            + etichetta
+            );
             callback.onResult(
                     false,
                     null,
@@ -1403,6 +1839,14 @@ public class LisaAccessibilityService extends AccessibilityService {
                 );
 
         if (label == null) {
+            Log.i(
+                    TAG,
+                    "V2B2_CORE etichetta_non_trovata etichetta="
+                            + etichetta
+            );
+
+            dumpNodiRilevanti();
+
             callback.onResult(
                     false,
                     null,
@@ -1415,6 +1859,11 @@ public class LisaAccessibilityService extends AccessibilityService {
                 trovaToggleAssociato(label);
 
         if (toggle == null) {
+            Log.i(
+                    TAG,
+                    "V2B2_CORE toggle_non_trovato etichetta="
+                            + etichetta
+            );
             callback.onResult(
                     false,
                     null,

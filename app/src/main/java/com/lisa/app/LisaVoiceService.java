@@ -3091,6 +3091,90 @@ if (inAttesaVuoiFareAltro) {
                     return true;
                 }
 
+                if ("location".equals(plan.capability)) {
+
+                    LisaAccessibilityService servizioToggle =
+                            LisaAccessibilityService.getInstance();
+
+                    if (servizioToggle == null) {
+                        LisaSpeaker.parla(
+                                this,
+                                "Servizio di accessibilità non disponibile.",
+                                null
+                        );
+                        return true;
+                    }
+
+                    String[] etichetteToggle =
+                            SystemActionRouter.toggleLabelsFor(
+                                    plan.capability
+                            );
+
+                    Intent intentSettings =
+                            new Intent(plan.settingsAction);
+
+                    intentSettings.addFlags(
+                            Intent.FLAG_ACTIVITY_NEW_TASK
+                    );
+
+                    if (intentSettings.resolveActivity(
+                            getPackageManager()) == null
+                            && plan.fallbackSettingsAction != null) {
+
+                        intentSettings =
+                                new Intent(
+                                        plan.fallbackSettingsAction);
+
+                        intentSettings.addFlags(
+                                Intent.FLAG_ACTIVITY_NEW_TASK
+                        );
+                    }
+
+                    if (intentSettings.resolveActivity(
+                            getPackageManager()) == null) {
+                        return false;
+                    }
+
+                    servizioToggle.attendiSettingsEImpostaToggle(
+                            etichetteToggle,
+                            true,
+                            (riuscito, statoFinale, dettaglio) -> {
+
+                                if (riuscito
+                                        && Boolean.TRUE.equals(
+                                                statoFinale)) {
+
+                                    servizioToggle.performGlobalAction(
+                                            android.accessibilityservice
+                                                    .AccessibilityService
+                                                    .GLOBAL_ACTION_BACK
+                                    );
+
+                                    LisaSpeaker.parla(
+                                            this,
+                                            "Posizione attivata.",
+                                            null
+                                    );
+
+                                } else {
+
+                                    LisaSpeaker.parla(
+                                            this,
+                                            "Ho aperto le impostazioni, "
+                                                    + "ma non sono riuscita "
+                                                    + "a confermare il cambio "
+                                                    + "della posizione. "
+                                                    + "Prova di nuovo.",
+                                            null
+                                    );
+                                }
+                            }
+                    );
+
+                    startActivity(intentSettings);
+                    return true;
+                }
+
                 LisaSpeaker.parla(
                         this,
                         nomeItalianoCapability(plan.capability)
@@ -3134,6 +3218,90 @@ if (inAttesaVuoiFareAltro) {
                             null
                     );
 
+                    return true;
+                }
+
+                if ("location".equals(plan.capability)) {
+
+                    LisaAccessibilityService servizioToggle =
+                            LisaAccessibilityService.getInstance();
+
+                    if (servizioToggle == null) {
+                        LisaSpeaker.parla(
+                                this,
+                                "Servizio di accessibilità non disponibile.",
+                                null
+                        );
+                        return true;
+                    }
+
+                    String[] etichetteToggle =
+                            SystemActionRouter.toggleLabelsFor(
+                                    plan.capability
+                            );
+
+                    Intent intentSettings =
+                            new Intent(plan.settingsAction);
+
+                    intentSettings.addFlags(
+                            Intent.FLAG_ACTIVITY_NEW_TASK
+                    );
+
+                    if (intentSettings.resolveActivity(
+                            getPackageManager()) == null
+                            && plan.fallbackSettingsAction != null) {
+
+                        intentSettings =
+                                new Intent(
+                                        plan.fallbackSettingsAction);
+
+                        intentSettings.addFlags(
+                                Intent.FLAG_ACTIVITY_NEW_TASK
+                        );
+                    }
+
+                    if (intentSettings.resolveActivity(
+                            getPackageManager()) == null) {
+                        return false;
+                    }
+
+                    servizioToggle.attendiSettingsEImpostaToggle(
+                            etichetteToggle,
+                            false,
+                            (riuscito, statoFinale, dettaglio) -> {
+
+                                if (riuscito
+                                        && Boolean.FALSE.equals(
+                                                statoFinale)) {
+
+                                    servizioToggle.performGlobalAction(
+                                            android.accessibilityservice
+                                                    .AccessibilityService
+                                                    .GLOBAL_ACTION_BACK
+                                    );
+
+                                    LisaSpeaker.parla(
+                                            this,
+                                            "Posizione disattivata.",
+                                            null
+                                    );
+
+                                } else {
+
+                                    LisaSpeaker.parla(
+                                            this,
+                                            "Ho aperto le impostazioni, "
+                                                    + "ma non sono riuscita "
+                                                    + "a confermare il cambio "
+                                                    + "della posizione. "
+                                                    + "Prova di nuovo.",
+                                            null
+                                    );
+                                }
+                            }
+                    );
+
+                    startActivity(intentSettings);
                     return true;
                 }
 
