@@ -3066,20 +3066,6 @@ if (inAttesaVuoiFareAltro) {
                                 plan.capability
                         );
 
-                if (stato.enabled == null) {
-
-                    LisaSpeaker.parla(
-                            this,
-                            "Non posso determinare lo stato di "
-                                    + nomeItalianoCapability(
-                                            plan.capability)
-                                    + ".",
-                            null
-                    );
-
-                    return true;
-                }
-
                 if (Boolean.TRUE.equals(stato.enabled)) {
 
                     LisaSpeaker.parla(
@@ -3091,7 +3077,7 @@ if (inAttesaVuoiFareAltro) {
                     return true;
                 }
 
-                if ("location".equals(plan.capability)) {
+                if (plan.settingsAction != null) {
 
                     LisaAccessibilityService servizioToggle =
                             LisaAccessibilityService.getInstance();
@@ -3105,10 +3091,30 @@ if (inAttesaVuoiFareAltro) {
                         return true;
                     }
 
-                    String[] etichetteToggle =
+                    String[] aliasToggle =
                             SystemActionRouter.toggleLabelsFor(
                                     plan.capability
                             );
+
+                    java.util.LinkedHashSet<String> etichetteSet =
+                            new java.util.LinkedHashSet<>();
+
+                    if (plan.originalTarget != null
+                            && !plan.originalTarget.trim().isEmpty()) {
+                        etichetteSet.add(plan.originalTarget.trim());
+                    }
+
+                    if (aliasToggle != null) {
+                        for (String alias : aliasToggle) {
+                            if (alias != null
+                                    && !alias.trim().isEmpty()) {
+                                etichetteSet.add(alias.trim());
+                            }
+                        }
+                    }
+
+                    String[] etichetteToggle =
+                            etichetteSet.toArray(new String[0]);
 
                     Intent intentSettings =
                             new Intent(plan.settingsAction);
@@ -3152,7 +3158,10 @@ if (inAttesaVuoiFareAltro) {
 
                                     LisaSpeaker.parla(
                                             this,
-                                            "Posizione attivata.",
+                                            "Attivazione eseguita: "
+                                                    + nomeItalianoCapability(
+                                                            plan.capability)
+                                                    + ".",
                                             null
                                     );
 
@@ -3162,9 +3171,10 @@ if (inAttesaVuoiFareAltro) {
                                             this,
                                             "Ho aperto le impostazioni, "
                                                     + "ma non sono riuscita "
-                                                    + "a confermare il cambio "
-                                                    + "della posizione. "
-                                                    + "Prova di nuovo.",
+                                                    + "a confermare il cambio di "
+                                                    + nomeItalianoCapability(
+                                                            plan.capability)
+                                                    + ". Prova di nuovo.",
                                             null
                                     );
                                 }
@@ -3196,20 +3206,6 @@ if (inAttesaVuoiFareAltro) {
                                 plan.capability
                         );
 
-                if (stato.enabled == null) {
-
-                    LisaSpeaker.parla(
-                            this,
-                            "Non posso determinare lo stato di "
-                                    + nomeItalianoCapability(
-                                            plan.capability)
-                                    + ".",
-                            null
-                    );
-
-                    return true;
-                }
-
                 if (Boolean.FALSE.equals(stato.enabled)) {
 
                     LisaSpeaker.parla(
@@ -3221,7 +3217,7 @@ if (inAttesaVuoiFareAltro) {
                     return true;
                 }
 
-                if ("location".equals(plan.capability)) {
+                if (plan.settingsAction != null) {
 
                     LisaAccessibilityService servizioToggle =
                             LisaAccessibilityService.getInstance();
@@ -3235,10 +3231,30 @@ if (inAttesaVuoiFareAltro) {
                         return true;
                     }
 
-                    String[] etichetteToggle =
+                    String[] aliasToggle =
                             SystemActionRouter.toggleLabelsFor(
                                     plan.capability
                             );
+
+                    java.util.LinkedHashSet<String> etichetteSet =
+                            new java.util.LinkedHashSet<>();
+
+                    if (plan.originalTarget != null
+                            && !plan.originalTarget.trim().isEmpty()) {
+                        etichetteSet.add(plan.originalTarget.trim());
+                    }
+
+                    if (aliasToggle != null) {
+                        for (String alias : aliasToggle) {
+                            if (alias != null
+                                    && !alias.trim().isEmpty()) {
+                                etichetteSet.add(alias.trim());
+                            }
+                        }
+                    }
+
+                    String[] etichetteToggle =
+                            etichetteSet.toArray(new String[0]);
 
                     Intent intentSettings =
                             new Intent(plan.settingsAction);
@@ -3282,7 +3298,10 @@ if (inAttesaVuoiFareAltro) {
 
                                     LisaSpeaker.parla(
                                             this,
-                                            "Posizione disattivata.",
+                                            "Disattivazione eseguita: "
+                                                    + nomeItalianoCapability(
+                                                            plan.capability)
+                                                    + ".",
                                             null
                                     );
 
@@ -3292,9 +3311,10 @@ if (inAttesaVuoiFareAltro) {
                                             this,
                                             "Ho aperto le impostazioni, "
                                                     + "ma non sono riuscita "
-                                                    + "a confermare il cambio "
-                                                    + "della posizione. "
-                                                    + "Prova di nuovo.",
+                                                    + "a confermare il cambio di "
+                                                    + nomeItalianoCapability(
+                                                            plan.capability)
+                                                    + ". Prova di nuovo.",
                                             null
                                     );
                                 }

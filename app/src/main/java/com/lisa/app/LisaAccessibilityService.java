@@ -2031,8 +2031,7 @@ public class LisaAccessibilityService extends AccessibilityService {
 
             if ((!target.isEmpty())
                     && (target.equals(testo)
-                    || target.equals(descrizione))
-                    && trovaToggleAssociato(nodo) != null) {
+                    || target.equals(descrizione))) {
 
                 return nodo;
             }
@@ -2056,6 +2055,12 @@ public class LisaAccessibilityService extends AccessibilityService {
         return null;
     }
 
+    private static final class ToggleCandidato {
+
+        AccessibilityNodeInfo nodo = null;
+        long distanza = Long.MAX_VALUE;
+    }
+
     private AccessibilityNodeInfo trovaToggleAssociato(
             AccessibilityNodeInfo etichetta) {
 
@@ -2076,15 +2081,27 @@ public class LisaAccessibilityService extends AccessibilityService {
                         && contenitore != null;
                 livello++) {
 
-            AccessibilityNodeInfo trovato =
-                    cercaToggleVerticale(
-                            contenitore,
-                            rEtichetta,
-                            etichetta
-                    );
+            ToggleCandidato candidato =
+                    new ToggleCandidato();
 
-            if (trovato != null) {
-                return trovato;
+            cercaTogglePiuVicino(
+                    contenitore,
+                    rEtichetta,
+                    etichetta,
+                    candidato
+            );
+
+            if (candidato.nodo != null) {
+
+                Log.i(
+                        TAG,
+                        "V2B2_MATCH livello="
+                                + livello
+                                + " distanza2="
+                                + candidato.distanza
+                );
+
+                return candidato.nodo;
             }
 
             contenitore =
@@ -2094,12 +2111,16 @@ public class LisaAccessibilityService extends AccessibilityService {
         return null;
     }
 
-    private AccessibilityNodeInfo cercaToggleVerticale(
+    private void cercaTogglePiuVicino(
             AccessibilityNodeInfo nodo,
             android.graphics.Rect rEtichetta,
-            AccessibilityNodeInfo originale) {
+            AccessibilityNodeInfo originale,
+            ToggleCandidato candidato) {
 
-        if (nodo == null) return null;
+        if (nodo == null
+                || candidato == null) {
+            return;
+        }
 
         if (nodo != originale
                 && nodo.isVisibleToUser()
@@ -2113,27 +2134,20 @@ public class LisaAccessibilityService extends AccessibilityService {
                     rToggle
             );
 
-            int overlap =
-                    Math.min(
-                            rEtichetta.bottom,
-                            rToggle.bottom
-                    )
-                    - Math.max(
-                            rEtichetta.top,
-                            rToggle.top
-                    );
+            long dx =
+                    (long) rToggle.centerX()
+                            - (long) rEtichetta.centerX();
 
-            int altezzaMin =
-                    Math.min(
-                            rEtichetta.height(),
-                            rToggle.height()
-                    );
+            long dy =
+                    (long) rToggle.centerY()
+                            - (long) rEtichetta.centerY();
 
-            if (overlap > 0
-                    && altezzaMin > 0
-                    && overlap * 2 >= altezzaMin) {
+            long distanza =
+                    dx * dx + dy * dy;
 
-                return nodo;
+            if (distanza < candidato.distanza) {
+                candidato.nodo = nodo;
+                candidato.distanza = distanza;
             }
         }
 
@@ -2141,19 +2155,13 @@ public class LisaAccessibilityService extends AccessibilityService {
                 i < nodo.getChildCount();
                 i++) {
 
-            AccessibilityNodeInfo trovato =
-                    cercaToggleVerticale(
-                            nodo.getChild(i),
-                            rEtichetta,
-                            originale
-                    );
-
-            if (trovato != null) {
-                return trovato;
-            }
+            cercaTogglePiuVicino(
+                    nodo.getChild(i),
+                    rEtichetta,
+                    originale,
+                    candidato
+            );
         }
-
-        return null;
     }
 
     private boolean nodoEToggle(
