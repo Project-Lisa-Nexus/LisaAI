@@ -31,6 +31,8 @@ public class LisaAccessibilityService extends AccessibilityService {
 
     // ===== CONTEXT ENGINE V1 =====
     private volatile String contestoPacchetto = "";
+
+    private volatile String toggleSettingsPackage = null;
     private volatile String contestoClasse = "";
     private volatile int contestoWindowId = -1;
     private volatile boolean contestoFocusInput = false;
@@ -1092,7 +1094,9 @@ public class LisaAccessibilityService extends AccessibilityService {
 
         boolean eventoSettingsToggle =
                 toggleSettingsCallback != null
-                && "com.android.settings".equals(eventPkg)
+                && (toggleSettingsPackage != null
+                ? toggleSettingsPackage.equals(eventPkg)
+                : "com.android.settings".equals(eventPkg))
                 && tipo == android.view.accessibility.AccessibilityEvent
                         .TYPE_WINDOW_CONTENT_CHANGED;
 
@@ -1429,6 +1433,32 @@ public class LisaAccessibilityService extends AccessibilityService {
     // P4.1 VOICE ACCESS CORE - TOGGLE GENERICO
     // ============================================================
 
+    private boolean packageSettingsPendenteCoerente() {
+        if (toggleSettingsPackage != null
+                && !toggleSettingsPackage.isEmpty()) {
+            return toggleSettingsPackage.equals(
+                    contestoPacchetto);
+        }
+
+        return "com.android.settings".equals(
+                contestoPacchetto);
+    }
+
+    public void impostaPackageSettingsPendente(
+            String packageName) {
+
+        toggleSettingsPackage =
+                packageName == null
+                        ? null
+                        : packageName.trim();
+
+        Log.i(
+                TAG,
+                "V2C1_SETTINGS_PACKAGE="
+                        + toggleSettingsPackage
+        );
+    }
+
     public void attendiSettingsEImpostaToggle(
             String[] etichette,
             boolean statoDesiderato,
@@ -1463,8 +1493,7 @@ public class LisaAccessibilityService extends AccessibilityService {
     private void provaToggleSettingsPendente() {
 
         if (toggleSettingsCallback == null
-                || !"com.android.settings".equals(
-                        contestoPacchetto)) {
+                || !packageSettingsPendenteCoerente()) {
             return;
         }
 
@@ -1501,8 +1530,7 @@ public class LisaAccessibilityService extends AccessibilityService {
             return;
         }
 
-        if (!"com.android.settings".equals(
-                contestoPacchetto)) {
+        if (!packageSettingsPendenteCoerente()) {
             return;
         }
 
@@ -1523,8 +1551,7 @@ public class LisaAccessibilityService extends AccessibilityService {
             return;
         }
 
-        if (!"com.android.settings".equals(
-                contestoPacchetto)) {
+        if (!packageSettingsPendenteCoerente()) {
             return;
         }
 
@@ -1716,6 +1743,7 @@ public class LisaAccessibilityService extends AccessibilityService {
         toggleSettingsEtichette = null;
         toggleSettingsStato = null;
         toggleSettingsCallback = null;
+        toggleSettingsPackage = null;
         toggleSettingsTentativoProgrammato = false;
         toggleSettingsRetryInCorso = false;
         toggleSettingsGiro = 0;

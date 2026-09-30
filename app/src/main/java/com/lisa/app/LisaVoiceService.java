@@ -3141,6 +3141,10 @@ if (inAttesaVuoiFareAltro) {
                         return false;
                     }
 
+                    android.content.pm.ResolveInfo riSettings =
+                            getPackageManager().resolveActivity(
+                                    intentSettings, 0);
+
                     servizioToggle.attendiSettingsEImpostaToggle(
                             etichetteToggle,
                             true,
@@ -3180,6 +3184,13 @@ if (inAttesaVuoiFareAltro) {
                                 }
                             }
                     );
+
+                    if (riSettings != null
+                            && riSettings.activityInfo != null
+                            && riSettings.activityInfo.packageName != null) {
+                        servizioToggle.impostaPackageSettingsPendente(
+                                riSettings.activityInfo.packageName);
+                    }
 
                     startActivity(intentSettings);
                     return true;
@@ -3281,6 +3292,10 @@ if (inAttesaVuoiFareAltro) {
                         return false;
                     }
 
+                    android.content.pm.ResolveInfo riSettings =
+                            getPackageManager().resolveActivity(
+                                    intentSettings, 0);
+
                     servizioToggle.attendiSettingsEImpostaToggle(
                             etichetteToggle,
                             false,
@@ -3320,6 +3335,13 @@ if (inAttesaVuoiFareAltro) {
                                 }
                             }
                     );
+
+                    if (riSettings != null
+                            && riSettings.activityInfo != null
+                            && riSettings.activityInfo.packageName != null) {
+                        servizioToggle.impostaPackageSettingsPendente(
+                                riSettings.activityInfo.packageName);
+                    }
 
                     startActivity(intentSettings);
                     return true;
