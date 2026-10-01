@@ -190,7 +190,7 @@ public final class SystemActionRouter {
                 {"attivare ", "ENABLE"},
                 {"metti su ", "ENABLE"},
 
-                {"apri ", "OPEN"}
+                {"apri ", "ENABLE"}
         };
 
         for (String[] regola : regole) {

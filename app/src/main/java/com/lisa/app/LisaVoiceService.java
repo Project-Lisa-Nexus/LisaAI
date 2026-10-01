@@ -3147,6 +3147,7 @@ if (inAttesaVuoiFareAltro) {
 
                     servizioToggle.attendiSettingsEImpostaToggle(
                             etichetteToggle,
+                            plan.capability,
                             true,
                             (riuscito, statoFinale, dettaglio) -> {
 
@@ -3298,6 +3299,7 @@ if (inAttesaVuoiFareAltro) {
 
                     servizioToggle.attendiSettingsEImpostaToggle(
                             etichetteToggle,
+                            plan.capability,
                             false,
                             (riuscito, statoFinale, dettaglio) -> {
 

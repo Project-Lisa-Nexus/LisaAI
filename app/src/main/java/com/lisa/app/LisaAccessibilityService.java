@@ -1459,8 +1459,11 @@ public class LisaAccessibilityService extends AccessibilityService {
         );
     }
 
+    private volatile String toggleSettingsCapability = null;
+
     public void attendiSettingsEImpostaToggle(
             String[] etichette,
+            String capability,
             boolean statoDesiderato,
             ToggleResultCallback callback) {
 
@@ -1483,6 +1486,7 @@ public class LisaAccessibilityService extends AccessibilityService {
         toggleSettingsEtichette = etichette.clone();
         toggleSettingsStato = statoDesiderato;
         toggleSettingsCallback = callback;
+        toggleSettingsCapability = capability;
 
         toggleSettingsHandler.postDelayed(
                 toggleSettingsTimeout,
@@ -1571,8 +1575,9 @@ public class LisaAccessibilityService extends AccessibilityService {
                 toggleSettingsEtichette;
 
         final boolean stato =
-                Boolean.TRUE.equals(
-                        toggleSettingsStato);
+                Boolean.TRUE.equals(toggleSettingsStato);
+
+        final String capability = toggleSettingsCapability;
 
         final ToggleResultCallback callback =
                 toggleSettingsCallback;
@@ -1587,6 +1592,7 @@ public class LisaAccessibilityService extends AccessibilityService {
 
         provaEtichettaToggle(
                 etichette,
+                capability,
                 0,
                 stato,
                 true,
@@ -1645,6 +1651,7 @@ public class LisaAccessibilityService extends AccessibilityService {
 
     private void provaEtichettaToggle(
             String[] etichette,
+            String capability,
             int indice,
             boolean statoDesiderato,
             boolean tutteEtichetteNonTrovate,
@@ -1676,6 +1683,7 @@ public class LisaAccessibilityService extends AccessibilityService {
 
         impostaTogglePerEtichetta(
                 etichetta,
+                capability,
                 statoDesiderato,
                 (riuscito, statoFinale, dettaglio) -> {
 
@@ -1706,6 +1714,7 @@ public class LisaAccessibilityService extends AccessibilityService {
 
                         provaEtichettaToggle(
                                 etichette,
+                                capability,
                                 indice + 1,
                                 statoDesiderato,
                                 ancoraTutteAssenti,
@@ -1744,6 +1753,7 @@ public class LisaAccessibilityService extends AccessibilityService {
         toggleSettingsStato = null;
         toggleSettingsCallback = null;
         toggleSettingsPackage = null;
+        toggleSettingsCapability = null;
         toggleSettingsTentativoProgrammato = false;
         toggleSettingsRetryInCorso = false;
         toggleSettingsGiro = 0;
@@ -1838,6 +1848,7 @@ public class LisaAccessibilityService extends AccessibilityService {
 
     public void impostaTogglePerEtichetta(
             String etichetta,
+            String capability,
             boolean statoDesiderato,
             ToggleResultCallback callback) {
 
@@ -1947,6 +1958,7 @@ public class LisaAccessibilityService extends AccessibilityService {
         ).postDelayed(
                 () -> verificaToggle(
                         etichetta,
+                        capability,
                         statoDesiderato,
                         callback
                 ),
@@ -1956,6 +1968,7 @@ public class LisaAccessibilityService extends AccessibilityService {
 
     private void verificaToggle(
             String etichetta,
+            String capability,
             boolean statoDesiderato,
             ToggleResultCallback callback) {
 
@@ -1963,12 +1976,22 @@ public class LisaAccessibilityService extends AccessibilityService {
                 getRootInActiveWindow();
 
         if (root == null) {
-            callback.onResult(
-                    false,
-                    null,
-                    "root_post_click_non_disponibile"
-            );
-            return;
+            if (capability != null) {
+            SystemCapabilityRegistry.Result r =
+                    SystemCapabilityRegistry.get(
+                            getApplicationContext(), capability);
+            if (r != null && r.enabled != null
+                    && r.enabled.booleanValue() == statoDesiderato) {
+                callback.onResult(true, r.enabled, "confermato_da_registry");
+                return;
+            }
+        }
+        callback.onResult(
+                false,
+                null,
+                "root_post_click_non_disponibile"
+        );
+        return;
         }
 
         AccessibilityNodeInfo label =
@@ -1978,24 +2001,44 @@ public class LisaAccessibilityService extends AccessibilityService {
                 );
 
         if (label == null) {
-            callback.onResult(
-                    false,
-                    null,
-                    "etichetta_post_click_non_trovata"
-            );
-            return;
+            if (capability != null) {
+            SystemCapabilityRegistry.Result r =
+                    SystemCapabilityRegistry.get(
+                            getApplicationContext(), capability);
+            if (r != null && r.enabled != null
+                    && r.enabled.booleanValue() == statoDesiderato) {
+                callback.onResult(true, r.enabled, "confermato_da_registry");
+                return;
+            }
+        }
+        callback.onResult(
+                false,
+                null,
+                "etichetta_post_click_non_trovata"
+        );
+        return;
         }
 
         AccessibilityNodeInfo toggle =
                 trovaToggleAssociato(label);
 
         if (toggle == null) {
-            callback.onResult(
-                    false,
-                    null,
-                    "toggle_post_click_non_trovato"
-            );
-            return;
+            if (capability != null) {
+            SystemCapabilityRegistry.Result r =
+                    SystemCapabilityRegistry.get(
+                            getApplicationContext(), capability);
+            if (r != null && r.enabled != null
+                    && r.enabled.booleanValue() == statoDesiderato) {
+                callback.onResult(true, r.enabled, "confermato_da_registry");
+                return;
+            }
+        }
+        callback.onResult(
+                false,
+                null,
+                "toggle_post_click_non_trovato"
+        );
+        return;
         }
 
         Boolean statoDopo =

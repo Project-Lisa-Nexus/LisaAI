@@ -488,6 +488,7 @@ public static final String ACTION_LISA_COMMAND = "com.lisa.app.COMMAND";
 
             servizio.impostaTogglePerEtichetta(
                     etichetta.trim(),
+                    null,
                     desiderato,
                     (ok, statoFinale, dettaglio) -> {
 
