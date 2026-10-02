@@ -108,9 +108,11 @@ if (servizio.recognizer != null) {
 
             servizio.ascoltoInCorso = false;
 
-            servizio.chiediAudioFocus(
-                    android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
-            );
+            if (!servizio.focusSessioneAscolto) {
+                servizio.chiediAudioFocus(
+                        android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+                );
+            }
 
             Log.d(TAG,
                     "ASR sospeso: Lisa sta parlando");
@@ -125,7 +127,9 @@ if (servizio.recognizer != null) {
 
         servizio.handler.postDelayed(() -> {
 
-            servizio.rilasciaAudioFocus();
+            if (!servizio.focusSessioneAscolto) {
+                servizio.rilasciaAudioFocus();
+            }
 
             if (servizio.androidAsrPipeProbeManager != null
                     && servizio.androidAsrPipeProbeManager.isRunning()) {
@@ -145,6 +149,7 @@ if (servizio.recognizer != null) {
 
     private android.media.AudioManager audioManager;
     private android.media.AudioFocusRequest focusRequest;
+    private boolean focusSessioneAscolto = false;
 
     private void chiediAudioFocus(int gain) {
         if (audioManager == null)
@@ -167,6 +172,21 @@ if (servizio.recognizer != null) {
             audioManager.requestAudioFocus(
                     null, android.media.AudioManager.STREAM_MUSIC, gain);
         }
+    }
+
+    private synchronized void attenuaMusicaPerAscolto() {
+        if (focusSessioneAscolto) return;
+
+        focusSessioneAscolto = true;
+
+        chiediAudioFocus(
+                android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+        );
+    }
+
+    private synchronized void ripristinaMusicaDopoAscolto() {
+        focusSessioneAscolto = false;
+        rilasciaAudioFocus();
     }
 
     private void rilasciaAudioFocus() {
@@ -1099,6 +1119,8 @@ if (servizio.recognizer != null) {
             return;
         }
 
+        attenuaMusicaPerAscolto();
+
         if (androidAsrPipeProbeManager != null
                 && androidAsrPipeProbeManager.isRunning()) {
 
@@ -1152,7 +1174,9 @@ if (servizio.recognizer != null) {
                             );
 
                             gestisciFrase(frase);
-                        })
+                        }),
+                        null,
+                        null
                 );
 
         androidAsrPipeProbeManager.start();
@@ -1512,6 +1536,7 @@ if (servizio.recognizer != null) {
             voiceController.stopSession();
 
             LisaAccessibilityService.aggiornaIndicatoreAscolto(false);
+            ripristinaMusicaDopoAscolto();
 
             LisaAccessibilityService servizioStop =
                     LisaAccessibilityService.getInstance();
@@ -2636,6 +2661,42 @@ if (inAttesaVuoiFareAltro) {
     }
 
 
+    private String statoToggleBreve(
+            String capability,
+            boolean attivo) {
+
+        if (capability == null) {
+            return attivo
+                    ? "Funzione attiva."
+                    : "Funzione disattivata.";
+        }
+
+        switch (capability) {
+            case "location":
+                return attivo ? "Posizione attiva." : "Posizione disattivata.";
+            case "bluetooth":
+                return attivo ? "Bluetooth attivo." : "Bluetooth disattivato.";
+            case "wifi":
+                return attivo ? "Wi-Fi attivo." : "Wi-Fi disattivato.";
+            case "airplane_mode":
+                return attivo ? "Modalità aereo attiva." : "Modalità aereo disattivata.";
+            case "nfc":
+                return attivo ? "NFC attivo." : "NFC disattivato.";
+            case "auto_rotate":
+                return attivo ? "Rotazione automatica attiva." : "Rotazione automatica disattivata.";
+            case "battery_saver":
+                return attivo ? "Risparmio energetico attivo." : "Risparmio energetico disattivato.";
+            case "do_not_disturb":
+                return attivo ? "Modalità Non disturbare attiva." : "Modalità Non disturbare disattivata.";
+            case "mobile_data":
+                return attivo ? "Dati mobili attivi." : "Dati mobili disattivati.";
+            case "hotspot":
+                return attivo ? "Hotspot attivo." : "Hotspot disattivato.";
+            default:
+                return attivo ? "Funzione attiva." : "Funzione disattivata.";
+        }
+    }
+
     // V2-B-1: nome parlato delle capability di sistema.
     private String nomeItalianoCapability(String capability) {
 
@@ -3163,10 +3224,9 @@ if (inAttesaVuoiFareAltro) {
 
                                     LisaSpeaker.parla(
                                             this,
-                                            "Attivazione eseguita: "
-                                                    + nomeItalianoCapability(
-                                                            plan.capability)
-                                                    + ".",
+                                            statoToggleBreve(
+                                                    plan.capability,
+                                                    true),
                                             null
                                     );
 
@@ -3315,10 +3375,9 @@ if (inAttesaVuoiFareAltro) {
 
                                     LisaSpeaker.parla(
                                             this,
-                                            "Disattivazione eseguita: "
-                                                    + nomeItalianoCapability(
-                                                            plan.capability)
-                                                    + ".",
+                                            statoToggleBreve(
+                                                    plan.capability,
+                                                    false),
                                             null
                                     );
 
@@ -3470,17 +3529,24 @@ if (inAttesaVuoiFareAltro) {
         // TORCIA
         if (testo.equals("torcia")
                 || testo.equals("apri torcia")
+                || testo.equals("apri la torcia")
                 || testo.equals("accendi torcia")
+                || testo.equals("accendi la torcia")
                 || testo.equals("attiva torcia")
                 || testo.equals("torcia accesa")
                 || testo.equals("spegni torcia")
+                || testo.equals("spegni la torcia")
                 || testo.equals("disattiva torcia")
+                || testo.equals("chiudi torcia")
+                || testo.equals("chiudi la torcia")
                 || testo.equals("torcia spenta")) {
 
             boolean accendi =
                     testo.equals("torcia")
                             || testo.equals("apri torcia")
+                            || testo.equals("apri la torcia")
                             || testo.equals("accendi torcia")
+                            || testo.equals("accendi la torcia")
                             || testo.equals("attiva torcia")
                             || testo.equals("torcia accesa");
 
@@ -4368,6 +4434,7 @@ if (inAttesaVuoiFareAltro) {
         voiceController.stopSession();
 
         LisaAccessibilityService.aggiornaIndicatoreAscolto(false);
+        ripristinaMusicaDopoAscolto();
 
         // Aggiorna subito la MainActivity:
         // da "Ferma Lisa" a "Attiva Lisa".
@@ -4471,6 +4538,7 @@ if (inAttesaVuoiFareAltro) {
         sessioneAttiva = false;
 
         LisaAccessibilityService.aggiornaIndicatoreAscolto(false);
+        ripristinaMusicaDopoAscolto();
 
         // Ultima sincronizzazione UI quando il Service muore.
         MainActivity.aggiornaStatoPulsante();

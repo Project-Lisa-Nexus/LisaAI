@@ -30,6 +30,10 @@ public final class AndroidAsrPipeProbeManager {
     private final Context context;
     private final Runnable alTermine;
     private final SegmentCallback segmentCallback;
+    private final Runnable onSpeechStart;
+    private final Runnable onSpeechEnd;
+    private volatile boolean focusDucked = false;
+    private volatile boolean speechActive = false;
 
     private SpeechRecognizer recognizer;
     private AudioRecord audioRecord;
@@ -68,11 +72,7 @@ public final class AndroidAsrPipeProbeManager {
             Context context,
             Runnable alTermine) {
 
-        this(
-                context,
-                alTermine,
-                null
-        );
+        this(context, alTermine, null, null, null);
     }
 
     public AndroidAsrPipeProbeManager(
@@ -80,9 +80,18 @@ public final class AndroidAsrPipeProbeManager {
             Runnable alTermine,
             SegmentCallback segmentCallback) {
 
+        this(context, alTermine, segmentCallback, null, null);
+    }
+
+    public AndroidAsrPipeProbeManager(
+            Context context, Runnable alTermine,
+            SegmentCallback segmentCallback,
+            Runnable onSpeechStart, Runnable onSpeechEnd) {
         this.context = context.getApplicationContext();
         this.alTermine = alTermine;
         this.segmentCallback = segmentCallback;
+        this.onSpeechStart = onSpeechStart;
+        this.onSpeechEnd = onSpeechEnd;
     }
 
     public void start() {
@@ -339,6 +348,11 @@ public final class AndroidAsrPipeProbeManager {
             @Override
             public void onBeginningOfSpeech() {
                 Log.i(TAG, "onBeginningOfSpeech");
+                speechActive = true;
+                if (!focusDucked && onSpeechStart != null) {
+                    focusDucked = true;
+                    onSpeechStart.run();
+                }
             }
 
             @Override
@@ -350,6 +364,7 @@ public final class AndroidAsrPipeProbeManager {
             @Override
             public void onEndOfSpeech() {
                 Log.i(TAG, "onEndOfSpeech");
+                speechActive = false;
             }
 
             @Override
@@ -467,6 +482,13 @@ public final class AndroidAsrPipeProbeManager {
 
         if (!finito.compareAndSet(false, true)) {
             return;
+        }
+
+        speechActive = false;
+
+        if (focusDucked) {
+            focusDucked = false;
+            if (onSpeechEnd != null) onSpeechEnd.run();
         }
 
         fermaAudio();
