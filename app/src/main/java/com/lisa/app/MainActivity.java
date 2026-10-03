@@ -15,19 +15,35 @@ public class MainActivity extends Activity {
     
     private static final int PERM_REQUEST = 100;
     private static volatile Button btnVoceLisaStatico;
+    private static volatile TextView statoLisaStatico;
     private LocalWhisperAsrProbeManager localWhisperAsrProbe;
     private Button btnAsrPipeTest;
 
     public static void aggiornaStatoPulsante() {
         Button pulsante = btnVoceLisaStatico;
-        if (pulsante == null) return;
-        pulsante.post(() -> {
-            pulsante.setText(
-                LisaVoiceService.isSessioneAttiva()
-                        ? "⏹ Ferma Lisa"
-                        : "🎤 Attiva Lisa"
-            );
-        });
+        TextView stato = statoLisaStatico;
+
+        if (pulsante != null) {
+            pulsante.post(() -> pulsante.setText(
+                    LisaVoiceService.getStato()
+                            == LisaVoiceService.LisaState.READY
+                            ? "🎤 Attiva Lisa"
+                            : "⏹ Ferma Lisa"
+            ));
+        }
+
+        if (stato != null) {
+            stato.post(() -> {
+                if (LisaAccessibilityService.getInstance() == null) {
+                    stato.setText("○ Accessibilità Lisa non attiva");
+                } else if (LisaVoiceService.getStato()
+                        == LisaVoiceService.LisaState.READY) {
+                    stato.setText("● Lisa pronta");
+                } else {
+                    stato.setText("● Lisa in ascolto");
+                }
+            });
+        }
     }
 
     private void gestisciIntentTest(Intent intent) {
@@ -108,14 +124,16 @@ public class MainActivity extends Activity {
         layout.addView(subtitle, subtitleLp);
 
         TextView statoLisa = new TextView(this);
+        statoLisaStatico = statoLisa;
         statoLisa.setTextSize(16);
 
-        if (LisaVoiceService.isSessioneAttiva()) {
-            statoLisa.setText("● Lisa attiva");
-        } else if (LisaAccessibilityService.getInstance() != null) {
+        if (LisaAccessibilityService.getInstance() == null) {
+            statoLisa.setText("○ Accessibilità Lisa non attiva");
+        } else if (LisaVoiceService.getStato()
+                == LisaVoiceService.LisaState.READY) {
             statoLisa.setText("● Lisa pronta");
         } else {
-            statoLisa.setText("○ Accessibilità Lisa non attiva");
+            statoLisa.setText("● Lisa in ascolto");
         }
 
         LinearLayout.LayoutParams statoLp =
@@ -130,9 +148,10 @@ public class MainActivity extends Activity {
         Button btnVoceLisa = new Button(this);
         btnVoceLisaStatico = btnVoceLisa;
         btnVoceLisa.setText(
-            LisaVoiceService.isSessioneAttiva()
-                    ? "⏹ Ferma Lisa"
-                    : "🎤 Attiva Lisa"
+            LisaVoiceService.getStato()
+                    == LisaVoiceService.LisaState.READY
+                    ? "🎤 Attiva Lisa"
+                    : "⏹ Ferma Lisa"
         );
         btnVoceLisa.setTextSize(20);
         btnVoceLisa.setMinHeight(Math.round(64 * density));
@@ -148,9 +167,8 @@ public class MainActivity extends Activity {
             }
 
             // Se è attiva una sessione Google/SpeechRecognizer, fermala.
-            if (LisaVoiceService.isSessioneAttiva()) {
-                LisaVoiceService.fermaLisaDaPulsante();
-                btnVoceLisa.setText("🎤 Attiva Lisa");
+            if (LisaVoiceService.isInAscolto()) {
+                LisaVoiceService.fermaAscolto(this);
                 return;
             }
 
@@ -185,19 +203,7 @@ public class MainActivity extends Activity {
             }
 
             // === GOOGLE / ANDROID SPEECHRECOGNIZER ===
-            Intent intent =
-                    new Intent(
-                            this,
-                            LisaVoiceService.class
-                    );
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(intent);
-            } else {
-                startService(intent);
-            }
-
-            btnVoceLisa.setText("⏹ Ferma Lisa");
+            LisaVoiceService.avviaAscolto(this);
         });
         layout.addView(btnVoceLisa);
 
@@ -229,7 +235,7 @@ public class MainActivity extends Activity {
                                             localeAttivo
                                                     ? "⏹️ Ferma Lisa"
                                                     : (
-                                                        LisaVoiceService.isSessioneAttiva()
+                                                        LisaVoiceService.isInAscolto()
                                                                 ? "⏹ Ferma Lisa"
                                                                 : "🎤 Attiva Lisa"
                                                     )
