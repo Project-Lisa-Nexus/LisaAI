@@ -206,6 +206,23 @@ public class LisaSettingsActivity extends Activity {
         android.content.SharedPreferences prefs =
                 getSharedPreferences("lisa_ui", MODE_PRIVATE);
 
+        Switch pallinoFlottante = new Switch(this);
+        pallinoFlottante.setText("Pallino flottante");
+        pallinoFlottante.setChecked(
+                prefs.getBoolean("pallino_attivo", true)
+        );
+        pallinoFlottante.setOnCheckedChangeListener(
+                (buttonView, isChecked) -> {
+                    prefs.edit()
+                            .putBoolean("pallino_attivo", isChecked)
+                            .apply();
+
+                    LisaAccessibilityService
+                            .aggiornaVisibilitaPallino();
+                }
+        );
+        layout.addView(pallinoFlottante);
+
         Switch vignettaSemplice = new Switch(this);
         vignettaSemplice.setText("Vignetta semplice");
         vignettaSemplice.setChecked(

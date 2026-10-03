@@ -175,6 +175,86 @@ public static final String ACTION_LISA_COMMAND = "com.lisa.app.COMMAND";
             return;
         }
 
+        if ("enumera_nodi".equals(azione)) {
+
+            LisaAccessibilityService servizio =
+                    LisaAccessibilityService.getInstance();
+
+            if (servizio == null) {
+                if (isOrderedBroadcast()) setResultCode(1);
+                setResultData("accessibilita_off");
+                return;
+            }
+
+            servizio.enumeraNodiCliccabili();
+
+            if (isOrderedBroadcast()) setResultCode(0);
+            setResultData("enumera_nodi_eseguito");
+            return;
+        }
+
+        if ("mostra_numeri".equals(azione)) {
+
+            LisaAccessibilityService servizio =
+                    LisaAccessibilityService.getInstance();
+
+            if (servizio == null) {
+
+                if (isOrderedBroadcast()) {
+                    setResultCode(1);
+                }
+
+                setResultData(
+                        "accessibilita_off"
+                );
+
+                return;
+            }
+
+            servizio.mostraGrigliaNumeri();
+
+            if (isOrderedBroadcast()) {
+                setResultCode(0);
+            }
+
+            setResultData(
+                    "mostra_numeri_eseguito"
+            );
+
+            return;
+        }
+
+        if ("nascondi_numeri".equals(azione)) {
+
+            LisaAccessibilityService servizio =
+                    LisaAccessibilityService.getInstance();
+
+            if (servizio == null) {
+
+                if (isOrderedBroadcast()) {
+                    setResultCode(1);
+                }
+
+                setResultData(
+                        "accessibilita_off"
+                );
+
+                return;
+            }
+
+            servizio.nascondiGrigliaNumeri();
+
+            if (isOrderedBroadcast()) {
+                setResultCode(0);
+            }
+
+            setResultData(
+                    "nascondi_numeri_eseguito"
+            );
+
+            return;
+        }
+
         if ("wake_test".equals(azione)) {
 
             android.content.Intent servizio =
