@@ -86,6 +86,10 @@ public class LisaVoiceService extends Service {
         if (stato == null) stato = LisaState.READY;
         statoLisa = stato;
         sessioneAttiva = stato != LisaState.READY;
+        if (instance != null)
+            LisaWidgetProvider.aggiornaTutti(
+                    instance.getApplicationContext()
+            );
     }
 
     public static LisaState getStato() { return statoLisa; }
