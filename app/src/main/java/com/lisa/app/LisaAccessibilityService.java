@@ -8,6 +8,12 @@ import android.view.accessibility.AccessibilityNodeInfo;
 
 public class LisaAccessibilityService extends AccessibilityService {
     private static final String TAG = "LisaAccessibility";
+
+    private static final int BADGE_LATO_DP = 20;
+    private static final int BADGE_ALPHA = 0xA6;
+    private static final int BADGE_OFFSET_DP = 4;
+    private static final int BADGE_SOGLIA_CENTRO_DP = 40;
+    private static final int BADGE_COLORE_RGB = 0x000D47A1;
     private static LisaAccessibilityService instance;
 
     private android.view.WindowManager indicatoreWindowManager;
@@ -19,6 +25,8 @@ public class LisaAccessibilityService extends AccessibilityService {
     private android.view.WindowManager grigliaWindowManager;
     private android.widget.FrameLayout grigliaNumeriContainer;
     private volatile boolean grigliaVisibile = false;
+    private static android.view.WindowManager sWm = null;
+    private static android.widget.FrameLayout sView = null;
 
     private android.view.SurfaceControlViewHost grigliaViewHost;
     private android.view.SurfaceControlViewHost.SurfacePackage grigliaSurfacePackage;
@@ -903,6 +911,12 @@ public class LisaAccessibilityService extends AccessibilityService {
 
                 indicatoreLisa =
                         new android.view.View(this);
+                indicatoreLisa.setClickable(true);
+                indicatoreLisa.setFocusable(true);
+                indicatoreLisa.setContentDescription("Pallino Lisa");
+                indicatoreLisa.setImportantForAccessibility(
+                        android.view.View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+                indicatoreLisa.setOnClickListener(v -> {});
 
                 indicatoreLp =
                         new android.view.WindowManager.LayoutParams(
@@ -1164,15 +1178,89 @@ public class LisaAccessibilityService extends AccessibilityService {
     }
 
     public java.util.List<NodoCliccabile> enumeraNodiCliccabili() {
-        java.util.List<NodoCliccabile> trovati =
-                new java.util.ArrayList<>();
-        AccessibilityNodeInfo root=getRootInActiveWindow();
-        if (root==null) return trovati;
+        java.util.List<NodoCliccabile> trovati=new java.util.ArrayList<>();
+        java.util.List<android.view.accessibility.AccessibilityWindowInfo> ws=
+                getWindows();
 
-        esploraNodi(root,trovati,new java.util.HashSet<>());
+        if (ws!=null && !ws.isEmpty()) {
 
-        java.util.List<NodoCliccabile> filtrati =
-                new java.util.ArrayList<>();
+            for (android.view.accessibility.AccessibilityWindowInfo w:ws) {
+                if (w==null) continue;
+                android.graphics.Rect wb=new android.graphics.Rect();
+                w.getBoundsInScreen(wb);
+                AccessibilityNodeInfo wr=w.getRoot();
+                String wpkg=wr==null || wr.getPackageName()==null
+                        ? "" : wr.getPackageName().toString();
+                Log.i(TAG,"FINESTRA type="+w.getType()
+                        +" layer="+w.getLayer()
+                        +" pkg="+wpkg
+                        +" bounds="+wb);
+            }
+
+            java.util.List<android.view.accessibility.AccessibilityWindowInfo> app=
+                    new java.util.ArrayList<>();
+
+            for (android.view.accessibility.AccessibilityWindowInfo w:ws) {
+                if (w==null) continue;
+
+                int tipo=w.getType();
+                boolean ammessa=
+                        tipo==android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION
+                        || tipo==android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD
+                        || tipo==android.view.accessibility.AccessibilityWindowInfo.TYPE_SYSTEM
+                        || tipo==android.view.accessibility.AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY;
+
+                if (!ammessa) continue;
+
+                AccessibilityNodeInfo root=w.getRoot();
+                if (root==null) continue;
+
+                CharSequence desc=root.getContentDescription();
+                if (desc!=null
+                        && "lisa_overlay_numeri".contentEquals(desc))
+                    continue;
+
+                app.add(w);
+            }
+
+            app.sort((a,b) -> {
+                android.graphics.Rect ra=new android.graphics.Rect();
+                android.graphics.Rect rb=new android.graphics.Rect();
+                a.getBoundsInScreen(ra);
+                b.getBoundsInScreen(rb);
+                int x=Integer.compare(ra.left,rb.left);
+                return x!=0 ? x : Integer.compare(ra.top,rb.top);
+            });
+
+            for (android.view.accessibility.AccessibilityWindowInfo w:app) {
+                AccessibilityNodeInfo root=w.getRoot();
+                if (root==null) continue;
+
+                java.util.List<NodoCliccabile> locale=new java.util.ArrayList<>();
+                esploraNodi(root,locale,new java.util.HashSet<>());
+
+                final int banda=Math.max(1,dp(60));
+                locale.sort((a,b) -> {
+                    int ba=a.y/banda, bb=b.y/banda;
+                    if (ba!=bb) return Integer.compare(ba,bb);
+                    return Integer.compare(a.x,b.x);
+                });
+
+                trovati.addAll(locale);
+            }
+        } else {
+            AccessibilityNodeInfo root=getRootInActiveWindow();
+            if (root!=null)
+                esploraNodi(root,trovati,new java.util.HashSet<>());
+        }
+
+        long areaSchermo=0;
+        for (NodoCliccabile t:trovati) {
+            long at=(long)t.bounds.width()*t.bounds.height();
+            if (at>areaSchermo) areaSchermo=at;
+        }
+
+        java.util.List<NodoCliccabile> filtrati=new java.util.ArrayList<>();
 
         for (NodoCliccabile a:trovati) {
             boolean coperto=false;
@@ -1180,26 +1268,45 @@ public class LisaAccessibilityService extends AccessibilityService {
 
             for (NodoCliccabile b:trovati) {
                 if (a==b) continue;
+                if (a.nodo==null || b.nodo==null) continue;
+                if (a.nodo.getWindowId()!=b.nodo.getWindowId()) continue;
                 long areaB=(long)b.bounds.width()*b.bounds.height();
-                if (areaB<=areaA) continue;
+                if (areaB < areaA*3L) continue;
+                if (areaSchermo>0 && areaB >= areaSchermo*85L/100L) continue;
+                if (b.nodo==null || !nodoAzzionabile(b.nodo)) continue;
+                if (b.testo==null || b.testo.trim().isEmpty()) continue;
+                if (nodoAntenatoDi(b.nodo,a.nodo)) continue;
 
-                android.graphics.Rect inter =
-                        new android.graphics.Rect(a.bounds);
-
+                android.graphics.Rect inter=new android.graphics.Rect(a.bounds);
                 if (inter.intersect(b.bounds)) {
                     long areaI=(long)inter.width()*inter.height();
                     if (areaA>0 && areaI/(double)areaA>0.80) {
-                        coperto=true;
-                        break;
+                        String clsA=a.nodo==null?"?":String.valueOf(a.nodo.getClassName());
+                        String pkgA=a.nodo==null||a.nodo.getPackageName()==null?"?":a.nodo.getPackageName().toString();
+                        String clsB=b.nodo==null?"?":String.valueOf(b.nodo.getClassName());
+                        String pkgB=b.nodo==null||b.nodo.getPackageName()==null?"?":b.nodo.getPackageName().toString();
+                        boolean clickB=b.nodo!=null && b.nodo.isClickable();
+                        Log.i(TAG,"COPRE_DETTAGLIO"
+                                +" a_txt="+a.testo
+                                +" a_cls="+clsA
+                                +" a_pkg="+pkgA
+                                +" a_b="+a.bounds
+                                +" b_txt="+b.testo
+                                +" b_cls="+clsB
+                                +" b_pkg="+pkgB
+                                +" b_click="+clickB
+                                +" b_b="+b.bounds
+                                +" ratio="+(areaI/(double)areaA));
+                        coperto=true; break;
                     }
                 }
             }
             if (!coperto) filtrati.add(a);
         }
 
-        final int banda=Math.max(1,dp(60));
+        final int bandaGlobale=Math.max(1,dp(60));
         filtrati.sort((a,b) -> {
-            int ba=a.y/banda, bb=b.y/banda;
+            int ba=a.y/bandaGlobale, bb=b.y/bandaGlobale;
             if (ba!=bb) return Integer.compare(ba,bb);
             int cx=Integer.compare(a.x,b.x);
             return cx!=0 ? cx : Integer.compare(a.y,b.y);
@@ -1212,12 +1319,72 @@ public class LisaAccessibilityService extends AccessibilityService {
             filtrati.get(i).indice=i+1;
 
         Log.i(TAG,"VOICE_ACCESS_ENUM count="+filtrati.size());
-        for (int i=0;i<Math.min(10,filtrati.size());i++) {
+        for (int i=0;i<Math.min(200,filtrati.size());i++) {
             NodoCliccabile n=filtrati.get(i);
-            Log.i(TAG,"VOICE_ACCESS_ENUM #"+n.indice
-                    +" ["+n.x+","+n.y+"] "+n.testo);
+            Log.i(TAG,"VOICE_ACCESS_ENUM #"+n.indice+
+                    " ["+n.x+","+n.y+"] "+n.testo);
         }
         return filtrati;
+    }
+
+    private void logScarto(String motivo, AccessibilityNodeInfo nodo,
+            android.graphics.Rect b) {
+        if (nodo==null) return;
+        android.graphics.Rect r=b==null ? new android.graphics.Rect() : b;
+        if (b==null) nodo.getBoundsInScreen(r);
+        Log.i(TAG,"NODO_SCARTATO:"+motivo
+                +" cls="+nodo.getClassName()
+                +" txt="+nodo.getText()
+                +" desc="+nodo.getContentDescription()
+                +" b="+r);
+    }
+
+    private boolean nodoAzzionabile(AccessibilityNodeInfo n) {
+        if (n==null) return false;
+        if (n.isClickable()) return true;
+
+        java.util.List<AccessibilityNodeInfo.AccessibilityAction> acts=
+                n.getActionList();
+
+        if (acts!=null) {
+            for (AccessibilityNodeInfo.AccessibilityAction a:acts) {
+                if (a!=null
+                        && a.getId()==AccessibilityNodeInfo.ACTION_CLICK)
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean nodoAntenatoDi(
+            AccessibilityNodeInfo candidato,
+            AccessibilityNodeInfo nodo) {
+        if (candidato==null || nodo==null) return false;
+
+        AccessibilityNodeInfo p=nodo.getParent();
+        for (int i=0;i<6 && p!=null;i++) {
+            if (candidato.equals(p)) return true;
+            p=p.getParent();
+        }
+        return false;
+    }
+
+    private String primaEtichettaDiscendente(
+            AccessibilityNodeInfo nodo, int livello) {
+        if (nodo==null || livello>3) return "";
+        int figli=Math.min(nodo.getChildCount(),10);
+        for (int i=0;i<figli;i++) {
+            AccessibilityNodeInfo figlio=nodo.getChild(i);
+            if (figlio==null) continue;
+            CharSequence t=figlio.getText();
+            CharSequence d=figlio.getContentDescription();
+            String s=t!=null ? t.toString().trim()
+                    : d!=null ? d.toString().trim() : "";
+            if (!s.isEmpty()) return s;
+            s=primaEtichettaDiscendente(figlio,livello+1);
+            if (!s.isEmpty()) return s;
+        }
+        return "";
     }
 
     private void esploraNodi(
@@ -1227,17 +1394,41 @@ public class LisaAccessibilityService extends AccessibilityService {
 
         if (nodo==null) return;
 
-        if (nodo.isVisibleToUser()) {
+        {
+            android.graphics.Rect dr=new android.graphics.Rect();
+            nodo.getBoundsInScreen(dr);
+            if (dr.top<440 && dr.left<1130 && dr.bottom>150)
+                Log.i(TAG,"NODO_ENTRA cls="+nodo.getClassName()
+                        +" txt="+nodo.getText()
+                        +" desc="+nodo.getContentDescription()
+                        +" b="+dr
+                        +" click="+nodo.isClickable()
+                        +" focus="+nodo.isFocusable()
+                        +" figli="+nodo.getChildCount());
+        }
+
+        boolean visibile=nodo.isVisibleToUser();
+        if (!visibile) logScarto("non_visibile",nodo,null);
+        if (visibile) {
             AccessibilityNodeInfo azione=null;
 
-            if (nodo.isClickable()) {
+            if (nodoAzzionabile(nodo)) {
                 azione=nodo;
             } else {
                 AccessibilityNodeInfo parent=nodo.getParent();
-                if (parent!=null && parent.isClickable())
-                    azione=parent;
+                int livelli=0;
+
+                while (parent!=null && livelli<5) {
+                    if (nodoAzzionabile(parent)) {
+                        azione=parent;
+                        break;
+                    }
+                    parent=parent.getParent();
+                    livelli++;
+                }
             }
 
+            if (azione==null) logScarto("no_azione",nodo,null);
             if (azione!=null) {
                 CharSequence pkg=azione.getPackageName();
                 CharSequence txt=nodo.getText();
@@ -1253,6 +1444,9 @@ public class LisaAccessibilityService extends AccessibilityService {
                             : ad!=null ? ad.toString().trim() : "";
                 }
 
+                if (etichetta.isEmpty())
+                    etichetta=primaEtichettaDiscendente(azione,0);
+
                 android.graphics.Rect r=new android.graphics.Rect();
                 azione.getBoundsInScreen(r);
 
@@ -1266,16 +1460,21 @@ public class LisaAccessibilityService extends AccessibilityService {
                 int minimo=dp(20);
                 String packageNodo=pkg==null?"":pkg.toString();
 
+                if (etichetta.isEmpty())
+                    logScarto("senza_etichetta",azione,r);
+                if (r.left<0 || r.width()<minimo || r.height()<minimo)
+                    logScarto("bounds",azione,r);
+
                 boolean valido=
-                        !"com.lisa.nexus".equals(packageNodo)
-                        && !"com.android.systemui".equals(packageNodo)
-                        && !etichetta.isEmpty()
-                        && r.left>=0
-                        && r.top>=dp(80)
+                        r.left>=0
                         && r.width()>=minimo
                         && r.height()>=minimo;
 
-                String key=r.left+":"+r.top+":"+r.right+":"+r.bottom;
+                String key=r.left+":"+r.top+":"+r.right+":"+r.bottom
+                        +"|"+etichetta;
+
+                if (valido && boundsUsati.contains(key))
+                    logScarto("duplicato",azione,r);
 
                 if (valido && boundsUsati.add(key)) {
                     out.add(new NodoCliccabile(
@@ -1309,8 +1508,7 @@ public class LisaAccessibilityService extends AccessibilityService {
     }
 
     private android.graphics.Rect boundsOverlay(NodoCliccabile n) {
-        return android.os.Build.VERSION.SDK_INT >= 34
-                ? n.boundsWindow : n.bounds;
+        return n.bounds;
     }
 
     private int dpOverlay(android.content.Context c, int valore) {
@@ -1332,58 +1530,93 @@ public class LisaAccessibilityService extends AccessibilityService {
             android.content.Context c,
             java.util.List<NodoCliccabile> nodi) {
         android.widget.FrameLayout root=new android.widget.FrameLayout(c);
-        int lato=dpOverlay(c,28);
-
+        root.setContentDescription("lisa_overlay_numeri");
+        int lato=dpOverlay(c,BADGE_LATO_DP);
+        int offset=dpOverlay(c,BADGE_OFFSET_DP);
+        int soglia=dpOverlay(c,BADGE_SOGLIA_CENTRO_DP);
         for (NodoCliccabile n:nodi) {
             android.graphics.Rect b=boundsOverlay(n);
             android.widget.TextView badge=creaBadgeBase(c);
-            badge.setText(String.valueOf(n.indice));
+            String numero=String.valueOf(n.indice);
+            badge.setText(numero);
             badge.setGravity(android.view.Gravity.CENTER);
+            badge.setSingleLine(true);
+
+            int padX=dpOverlay(c,5);
+            int larghezza=Math.max(
+                    lato,
+                    (int)Math.ceil(badge.getPaint().measureText(numero))
+                            + padX*2);
+
+            badge.setPadding(padX,0,padX,0);
 
             android.graphics.drawable.GradientDrawable bg=
                     new android.graphics.drawable.GradientDrawable();
-            bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-            bg.setColor(0xCC0D47A1);
+            bg.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+            bg.setCornerRadius(lato/2f);
+            bg.setColor((BADGE_ALPHA << 24) | BADGE_COLORE_RGB);
             badge.setBackground(bg);
 
             android.widget.FrameLayout.LayoutParams lp=
-                    new android.widget.FrameLayout.LayoutParams(lato,lato);
-            lp.leftMargin=Math.max(0,b.centerX()-lato/2);
-            lp.topMargin=Math.max(0,b.centerY()-lato/2);
+                    new android.widget.FrameLayout.LayoutParams(
+                            larghezza,lato);
+
+            if (b.width()<soglia || b.height()<soglia) {
+                lp.leftMargin=Math.max(0,b.centerX()-larghezza/2);
+                lp.topMargin=Math.max(0,b.centerY()-lato/2);
+            } else {
+                lp.leftMargin=Math.max(0,b.left+offset);
+                lp.topMargin=Math.max(0,b.top+offset);
+            }
             root.addView(badge,lp);
         }
         return root;
     }
 
     private void mostraOverlay(ModalitaOverlay modo) {
-        nascondiOverlay();
-        if (android.os.Build.VERSION.SDK_INT<34) return;
+        Log.i(TAG,"OVERLAY_START modo="+modo);
+        chiudiOverlay();
 
         AccessibilityNodeInfo root=getRootInActiveWindow();
-        if (root==null) return;
+        if (root==null) {
+            Log.i(TAG,"OVERLAY_ABORT:root_null");
+            return;
+        }
 
-        android.view.accessibility.AccessibilityWindowInfo win=root.getWindow();
-        if (win==null) return;
+        android.view.accessibility.AccessibilityWindowInfo win=
+                root.getWindow();
 
-        int wid=win.getId();
+        android.hardware.display.DisplayManager dm=
+                (android.hardware.display.DisplayManager)
+                        getSystemService(DISPLAY_SERVICE);
+
+        android.view.Display display=
+                dm==null ? null : dm.getDisplay(
+                        win!=null
+                                ? win.getDisplayId()
+                                : android.view.Display.DEFAULT_DISPLAY);
+
+        if (display==null) {
+            Log.i(TAG,"OVERLAY_ABORT:display_null");
+            return;
+        }
 
         try {
-            android.hardware.display.DisplayManager dm=
-                    (android.hardware.display.DisplayManager)
-                            getSystemService(DISPLAY_SERVICE);
-            android.view.Display display=
-                    dm==null ? null : dm.getDisplay(win.getDisplayId());
-            if (display==null) return;
+            android.content.Context dc=createDisplayContext(display);
 
-            android.graphics.Rect wr=new android.graphics.Rect();
-            win.getBoundsInScreen(wr);
-            if (wr.width()<=0 || wr.height()<=0) return;
-
-            android.content.Context wc=createWindowContext(
-                    display,
+            android.content.Context wc=dc.createWindowContext(
                     android.view.WindowManager.LayoutParams
                             .TYPE_ACCESSIBILITY_OVERLAY,
                     null);
+
+            android.view.WindowManager wm=
+                    (android.view.WindowManager)
+                            wc.getSystemService(WINDOW_SERVICE);
+
+            if (wm==null) {
+                Log.i(TAG,"OVERLAY_ABORT:wm_null");
+                return;
+            }
 
             java.util.List<NodoCliccabile> nodi=
                     enumeraNodiCliccabili();
@@ -1391,71 +1624,145 @@ public class LisaAccessibilityService extends AccessibilityService {
             android.widget.FrameLayout vista=
                     creaVistaNumeri(wc,nodi);
 
-            android.view.SurfaceControlViewHost host=
-                    new android.view.SurfaceControlViewHost(
-                            wc,display,(android.os.IBinder)null);
+            android.view.WindowManager.LayoutParams lp=
+                    new android.view.WindowManager.LayoutParams(
+                            android.view.WindowManager.LayoutParams.MATCH_PARENT,
+                            android.view.WindowManager.LayoutParams.MATCH_PARENT,
+                            android.view.WindowManager.LayoutParams
+                                    .TYPE_ACCESSIBILITY_OVERLAY,
+                            android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                                    | android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                                    | android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                            android.graphics.PixelFormat.TRANSLUCENT);
 
-            host.setView(vista,wr.width(),wr.height());
+            lp.gravity=
+                    android.view.Gravity.TOP
+                            | android.view.Gravity.START;
 
-            android.view.SurfaceControlViewHost.SurfacePackage pack=
-                    host.getSurfacePackage();
-            if (pack==null) { host.release(); return; }
+            lp.x=0;
+            lp.y=0;
 
-            android.view.SurfaceControl sc=pack.getSurfaceControl();
+            wm.addView(vista,lp);
+
+            sWm=wm;
+            sView=vista;
 
             grigliaOverlayContext=wc;
+            grigliaWindowManager=wm;
             grigliaNumeriContainer=vista;
-            grigliaViewHost=host;
-            grigliaSurfacePackage=pack;
-            grigliaSurfaceControl=sc;
-            grigliaWindowId=wid;
-            grigliaPackageOrigine=root.getPackageName()==null
-                    ? "" : root.getPackageName().toString();
-
-            attachAccessibilityOverlayToWindow(win.getId(),sc);
-
+            grigliaWindowId=root.getWindowId();
+            grigliaPackageOrigine=
+                    root.getPackageName()==null
+                            ? ""
+                            : root.getPackageName().toString();
             grigliaModalita=modo;
             grigliaVisibile=true;
+
             programmaAutoHideOverlay();
 
+            Log.i(TAG,"OVERLAY_WM_OK modo="+modo
+                    +" count="+nodi.size());
+
         } catch (Throwable e) {
-            Log.e(TAG,"VOICE_ACCESS_OVERLAY_2A errore",e);
+            Log.e(TAG,"OVERLAY_WM_CATCH",e);
             nascondiOverlay();
         }
     }
 
-    public void nascondiOverlay() {
-        grigliaHandler.removeCallbacks(grigliaAutoHide);
+    private void chiudiOverlay() {
+        if (sView!=null && sWm!=null) {
+            try {
+                sWm.removeViewImmediate(sView);
+                Log.i(TAG,"OVERLAY_STACCATO");
+            } catch (Throwable e) {
+                Log.e(TAG,"OVERLAY_STACCO_FAIL",e);
+            }
+        }
+        sView=null; sWm=null;
 
-        if (grigliaSurfaceControl!=null) try {
-            new android.view.SurfaceControl.Transaction()
-                    .reparent(grigliaSurfaceControl,null).apply();
-        } catch (Throwable ignored) {}
-
-        if (grigliaSurfacePackage!=null) try {
-            grigliaSurfacePackage.release();
-        } catch (Throwable ignored) {}
-
-        if (grigliaViewHost!=null) try {
-            grigliaViewHost.release();
-        } catch (Throwable ignored) {}
-
+        if (grigliaNumeriContainer!=null && grigliaWindowManager!=null) {
+            try {
+                grigliaWindowManager.removeViewImmediate(
+                        grigliaNumeriContainer);
+            } catch (Throwable e) {
+                Log.e(TAG,"OVERLAY_GRIGLIA_STACCO_FAIL",e);
+            }
+        }
+        grigliaWindowManager=null;
+        grigliaNumeriContainer=null;
+        grigliaOverlayContext=null;
         grigliaSurfaceControl=null;
         grigliaSurfacePackage=null;
         grigliaViewHost=null;
-        grigliaNumeriContainer=null;
-        grigliaOverlayContext=null;
-        grigliaWindowManager=null;
         grigliaWindowId=-1;
         grigliaPackageOrigine="";
         grigliaModalita=null;
         grigliaVisibile=false;
     }
 
+    public void nascondiOverlay() {
+        grigliaHandler.removeCallbacks(grigliaAutoHide);
+        chiudiOverlay();
+    }
+
+    public void nascondiOverlayOLD() {
+        grigliaHandler.removeCallbacks(grigliaAutoHide);
+
+        if (grigliaNumeriContainer!=null
+                && grigliaWindowManager!=null) {
+            try {
+                grigliaWindowManager.removeViewImmediate(
+                        grigliaNumeriContainer);
+            } catch (Throwable ignored) {}
+        }
+
+        grigliaWindowManager=null;
+        grigliaNumeriContainer=null;
+        grigliaOverlayContext=null;
+        grigliaSurfaceControl=null;
+        grigliaSurfacePackage=null;
+        grigliaViewHost=null;
+        grigliaWindowId=-1;
+        grigliaPackageOrigine="";
+        grigliaModalita=null;
+        grigliaVisibile=false;
+    }
+
+    private void invalidaOverlaySeNecessario(
+            android.view.accessibility.AccessibilityEvent event) {
+
+        if (!grigliaVisibile || event==null) return;
+
+        if (event.getEventType()
+                != android.view.accessibility.AccessibilityEvent
+                        .TYPE_WINDOW_STATE_CHANGED) return;
+
+        String pkg=event.getPackageName()==null
+                ? "" : event.getPackageName().toString();
+
+        if (pkg.equals(getPackageName())
+                || "com.android.systemui".equals(pkg)
+                || "com.google.android.inputmethod.latin".equals(pkg))
+            return;
+
+        final ModalitaOverlay modo=grigliaModalita;
+        if (modo==null) return;
+
+        Log.i(TAG,"OVERLAY_REATTACH pkg="+pkg);
+
+        nascondiOverlay();
+
+        grigliaHandler.postDelayed(
+                () -> mostraOverlay(modo),
+                250L);
+    }
+
 
     @Override
     public void onAccessibilityEvent(android.view.accessibility.AccessibilityEvent event) {
         if (event == null) return;
+
+        invalidaOverlaySeNecessario(event);
 
         int tipo = event.getEventType();
 
