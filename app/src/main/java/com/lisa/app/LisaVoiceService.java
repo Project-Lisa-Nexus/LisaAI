@@ -2793,9 +2793,44 @@ if (inAttesaVuoiFareAltro) {
         }
     }
 
-    private boolean eseguiLocaleRapido(String frase) {
+    private static final java.util.HashMap<String,String> OVERLAY_CMDS =
+            new java.util.HashMap<>();
+    static {
+        OVERLAY_CMDS.put("mostra numeri","mostra_numeri");
+        OVERLAY_CMDS.put("dammi i numeri","mostra_numeri");
+        OVERLAY_CMDS.put("fammi vedere i numeri","mostra_numeri");
+        OVERLAY_CMDS.put("visualizza numeri","mostra_numeri");
+        OVERLAY_CMDS.put("mostra indicatori","mostra_numeri");
+        OVERLAY_CMDS.put("mostra indicatori numerici","mostra_numeri");
+        OVERLAY_CMDS.put("nascondi numeri","nascondi_numeri");
+        OVERLAY_CMDS.put("togli numeri","nascondi_numeri");
+        OVERLAY_CMDS.put("chiudi numeri","nascondi_numeri");
+        OVERLAY_CMDS.put("leva numeri","nascondi_numeri");
+        OVERLAY_CMDS.put("nascondi indicatori","nascondi_numeri");
+    }
 
+    private boolean gestisciComandoOverlay(String frase) {
+        if (frase == null) return false;
+        String t = frase.toLowerCase(java.util.Locale.ITALIAN)
+                .trim()
+                .replaceAll("[,;:!?.]+"," ")
+                .replaceAll("\\s+"," ")
+                .trim();
+        String azione = OVERLAY_CMDS.get(t);
+        if (azione == null) return false;
+        android.content.Intent i =
+                new android.content.Intent(this, LisaCommandReceiver.class);
+        i.setAction(LisaCommandReceiver.ACTION_LISA_COMMAND);
+        i.putExtra("azione", azione);
+        sendBroadcast(i);
+        Log.i(TAG,"OVERLAY_CMD "+t+" -> "+azione);
+        return true;
+    }
+
+    private boolean eseguiLocaleRapido(String frase) {
         ultimaAzioneUiGenerica = false;
+
+        if (gestisciComandoOverlay(frase)) return true;
 
         String testo =
                 frase.toLowerCase(Locale.ITALIAN).trim();
