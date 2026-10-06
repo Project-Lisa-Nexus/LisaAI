@@ -927,6 +927,7 @@ if (servizio.recognizer != null) {
 
     private void portaInReady(boolean interrompiTts) {
         if (interrompiTts) LisaSpeaker.interrompi();
+        LisaAccessibilityService.nascondiOverlaySeAttivo();
         whisperLocaleAttivo = false;
         impostaStatoLisa(LisaState.READY);
         inAttesaVuoiFareAltro = false;
@@ -1621,17 +1622,6 @@ if (servizio.recognizer != null) {
                 .replaceAll("\\s+", " ")
                 .trim();
 
-        boolean bastaCtx=testo.equals("basta")
-                || testo.equals("basta cosi")
-                || testo.equals("basta così");
-        if (bastaCtx
-                && LisaAccessibilityService.overlayAttivo()
-                && gestisciComandoOverlay(testo)) {
-            aggiornaNotifica("Lisa pronta");
-            programmaAscolto(250);
-            return;
-        }
-
         // STOP ASSOLUTO: priorità massima.
         if (richiestaStop(testo)) {
             String risposta = testo.contains("buonanotte")
@@ -2068,13 +2058,6 @@ if (inAttesaVuoiFareAltro) {
 
         // Solo il richiamo ("Lisa", "Ehi Lisa", ecc.) non è uno STOP.
         if (testo.isEmpty()) return false;
-
-        boolean bastaOverlay=testo.equals("basta")
-                || testo.equals("basta cosi")
-                || testo.equals("basta così");
-        if (bastaOverlay
-                && LisaAccessibilityService.overlayAttivo())
-            return false;
 
         return testo.equals("basta")
                 || testo.equals("basta così")
@@ -2815,15 +2798,38 @@ if (inAttesaVuoiFareAltro) {
             new java.util.HashMap<>();
     static {
         OVERLAY_CMDS.put("mostra numeri","mostra_numeri");
-        OVERLAY_CMDS.put("dammi i numeri","mostra_numeri");
+        OVERLAY_CMDS.put("mostrami numeri","mostra_numeri");
+        OVERLAY_CMDS.put("mostrami i numeri","mostra_numeri");
+        OVERLAY_CMDS.put("mostra i numeri","mostra_numeri");
+        OVERLAY_CMDS.put("fammi vedere numeri","mostra_numeri");
         OVERLAY_CMDS.put("fammi vedere i numeri","mostra_numeri");
+        OVERLAY_CMDS.put("fai vedere numeri","mostra_numeri");
+        OVERLAY_CMDS.put("fai vedere i numeri","mostra_numeri");
+        OVERLAY_CMDS.put("apri numeri","mostra_numeri");
+        OVERLAY_CMDS.put("apri i numeri","mostra_numeri");
+        OVERLAY_CMDS.put("attiva numeri","mostra_numeri");
+        OVERLAY_CMDS.put("attiva i numeri","mostra_numeri");
         OVERLAY_CMDS.put("visualizza numeri","mostra_numeri");
+        OVERLAY_CMDS.put("visualizza i numeri","mostra_numeri");
+        OVERLAY_CMDS.put("indicami numeri","mostra_numeri");
+        OVERLAY_CMDS.put("indicami i numeri","mostra_numeri");
+        OVERLAY_CMDS.put("metti numeri","mostra_numeri");
+        OVERLAY_CMDS.put("metti i numeri","mostra_numeri");
+        OVERLAY_CMDS.put("dammi i numeri","mostra_numeri");
         OVERLAY_CMDS.put("mostra indicatori","mostra_numeri");
         OVERLAY_CMDS.put("mostra indicatori numerici","mostra_numeri");
         OVERLAY_CMDS.put("nascondi numeri","nascondi_numeri");
+        OVERLAY_CMDS.put("nascondi i numeri","nascondi_numeri");
         OVERLAY_CMDS.put("togli numeri","nascondi_numeri");
+        OVERLAY_CMDS.put("togli i numeri","nascondi_numeri");
         OVERLAY_CMDS.put("chiudi numeri","nascondi_numeri");
+        OVERLAY_CMDS.put("chiudi i numeri","nascondi_numeri");
         OVERLAY_CMDS.put("leva numeri","nascondi_numeri");
+        OVERLAY_CMDS.put("leva i numeri","nascondi_numeri");
+        OVERLAY_CMDS.put("disattiva numeri","nascondi_numeri");
+        OVERLAY_CMDS.put("disattiva i numeri","nascondi_numeri");
+        OVERLAY_CMDS.put("spegni numeri","nascondi_numeri");
+        OVERLAY_CMDS.put("spegni i numeri","nascondi_numeri");
         OVERLAY_CMDS.put("nascondi indicatori","nascondi_numeri");
     }
 
@@ -2834,19 +2840,6 @@ if (inAttesaVuoiFareAltro) {
                 .replaceAll("[,;:!?.]+"," ")
                 .replaceAll("\\s+"," ")
                 .trim();
-        boolean bastaOverlay=t.equals("basta")
-                || t.equals("basta cosi")
-                || t.equals("basta così");
-
-        if (bastaOverlay) {
-            if (LisaAccessibilityService.nascondiOverlaySeAttivo()) {
-                rispostaComandoLocale=null;
-                Log.i(TAG,"OVERLAY_CLOSE_BY_BASTA");
-                return true;
-            }
-            return false;
-        }
-
         java.util.regex.Matcher mn=java.util.regex.Pattern
                 .compile("^(?:(?:clicca|tocca|premi)\\s+)?(\\d{1,2})$")
                 .matcher(t);

@@ -44,6 +44,19 @@ public class LisaAccessibilityService extends AccessibilityService {
             new android.os.Handler(android.os.Looper.getMainLooper());
     private final Runnable grigliaAutoHide = this::nascondiOverlay;
 
+    private static final long OVERLAY_REFRESH_MS = 250L;
+    private final Runnable overlayRefresh = () -> {
+        if (!grigliaVisibile || grigliaModalita == null) return;
+        ModalitaOverlay modo = grigliaModalita;
+        Log.i(TAG,"OVERLAY_REFRESH modo="+modo);
+        mostraOverlay(modo);
+    };
+
+    private void programmaRefreshOverlay() {
+        grigliaHandler.removeCallbacks(overlayRefresh);
+        grigliaHandler.postDelayed(overlayRefresh, OVERLAY_REFRESH_MS);
+    }
+
     private android.view.WindowManager sempliceWindowManager;
     private android.widget.TextView indicatoreSemplice;
     private android.view.WindowManager.LayoutParams indicatoreSempliceLp;
@@ -1818,28 +1831,25 @@ public class LisaAccessibilityService extends AccessibilityService {
 
         if (!grigliaVisibile || event==null) return;
 
-        if (event.getEventType()
-                != android.view.accessibility.AccessibilityEvent
-                        .TYPE_WINDOW_STATE_CHANGED) return;
+        int tipo=event.getEventType();
+        boolean cambio = tipo == android.view.accessibility
+                        .AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+                || tipo == android.view.accessibility
+                        .AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED;
+
+        if (!cambio) return;
 
         String pkg=event.getPackageName()==null
                 ? "" : event.getPackageName().toString();
 
+        // Ignora eventi del proprio overlay e dell'IME
         if (pkg.equals(getPackageName())
                 || "com.android.systemui".equals(pkg)
                 || "com.google.android.inputmethod.latin".equals(pkg))
             return;
 
-        final ModalitaOverlay modo=grigliaModalita;
-        if (modo==null) return;
-
-        Log.i(TAG,"OVERLAY_REATTACH pkg="+pkg);
-
-        nascondiOverlay();
-
-        grigliaHandler.postDelayed(
-                () -> mostraOverlay(modo),
-                250L);
+        Log.i(TAG,"OVERLAY_REATTACH pkg="+pkg+" tipo="+tipo);
+        programmaRefreshOverlay();
     }
 
 
