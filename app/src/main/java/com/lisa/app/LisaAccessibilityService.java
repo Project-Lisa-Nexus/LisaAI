@@ -15,6 +15,7 @@ public class LisaAccessibilityService extends AccessibilityService {
     private static final int BADGE_SOGLIA_CENTRO_DP = 40;
     private static final int BADGE_COLORE_RGB = 0x000D47A1;
     private static LisaAccessibilityService instance;
+    private java.util.List<NodoCliccabile> ultimaListaNumeri = null;
 
     private android.view.WindowManager indicatoreWindowManager;
     private android.view.View indicatoreLisa;
@@ -1327,6 +1328,84 @@ public class LisaAccessibilityService extends AccessibilityService {
         return filtrati;
     }
 
+    public static boolean numeriAttivi() {
+        LisaAccessibilityService s=instance;
+        return s!=null
+                && s.grigliaVisibile
+                && s.grigliaModalita==ModalitaOverlay.NUMERI;
+    }
+
+    public static boolean overlayAttivo() {
+        LisaAccessibilityService s=instance;
+        return s!=null && s.grigliaVisibile && s.grigliaModalita!=null;
+    }
+
+    public static boolean nascondiOverlaySeAttivo() {
+        LisaAccessibilityService s=instance;
+        if (s==null || !s.grigliaVisibile || s.grigliaModalita==null)
+            return false;
+        new android.os.Handler(android.os.Looper.getMainLooper())
+                .post(s::nascondiOverlay);
+        return true;
+    }
+
+    public static boolean cliccaNumero(int n) {
+        LisaAccessibilityService s=instance;
+        if (s==null || !s.grigliaVisibile
+                || s.grigliaModalita!=ModalitaOverlay.NUMERI
+                || s.ultimaListaNumeri==null) {
+            Log.i(TAG,"CLICCA_NUM overlay_non_attivo n="+n);
+            return false;
+        }
+        NodoCliccabile target=null;
+        for (NodoCliccabile x:s.ultimaListaNumeri)
+            if (x.indice==n) { target=x; break; }
+        if (target==null) {
+            Log.i(TAG,"CLICCA_NUM fuori_range n="+n);
+            return false;
+        }
+        if (target.nodo==null) {
+            Log.i(TAG,"CLICCA_NUM nodo_null n="+n);
+            return false;
+        }
+        try {
+            if (!target.nodo.refresh()) {
+                Log.i(TAG,"CLICCA_NUM refresh_false n="+n);
+                return false;
+            }
+        } catch (Throwable e) {
+            Log.i(TAG,"CLICCA_NUM refresh_throw n="+n);
+            return false;
+        }
+        android.graphics.Rect now=new android.graphics.Rect();
+        target.nodo.getBoundsInScreen(now);
+        if (!now.equals(target.bounds)) {
+            Log.i(TAG,"CLICCA_NUM stale n="+n
+                    +" old="+target.bounds+" now="+now);
+            return false;
+        }
+        boolean ok=false;
+        try {
+            ok=target.nodo.performAction(
+                    AccessibilityNodeInfo.ACTION_CLICK);
+        } catch (Throwable e) {
+            Log.e(TAG,"CLICCA_NUM action_fail",e);
+        }
+        if (!ok) {
+            android.graphics.Path p=new android.graphics.Path();
+            p.moveTo(target.x,target.y);
+            android.accessibilityservice.GestureDescription gd=
+                    new android.accessibilityservice.GestureDescription.Builder()
+                    .addStroke(new android.accessibilityservice
+                            .GestureDescription
+                            .StrokeDescription(p,0L,50L))
+                    .build();
+            ok=s.dispatchGesture(gd,null,null);
+        }
+        Log.i(TAG,"CLICCA_NUM n="+n+" ok="+ok+" txt="+target.testo);
+        return ok;
+    }
+
     private void logScarto(String motivo, AccessibilityNodeInfo nodo,
             android.graphics.Rect b) {
         if (nodo==null) return;
@@ -1621,6 +1700,9 @@ public class LisaAccessibilityService extends AccessibilityService {
             java.util.List<NodoCliccabile> nodi=
                     enumeraNodiCliccabili();
 
+            if (modo==ModalitaOverlay.NUMERI)
+                ultimaListaNumeri=new java.util.ArrayList<>(nodi);
+
             android.widget.FrameLayout vista=
                     creaVistaNumeri(wc,nodi);
 
@@ -1678,9 +1760,9 @@ public class LisaAccessibilityService extends AccessibilityService {
                 Log.e(TAG,"OVERLAY_STACCO_FAIL",e);
             }
         }
-        sView=null; sWm=null;
-
-        if (grigliaNumeriContainer!=null && grigliaWindowManager!=null) {
+        if (grigliaNumeriContainer!=null
+                && grigliaWindowManager!=null
+                && grigliaNumeriContainer.isAttachedToWindow()) {
             try {
                 grigliaWindowManager.removeViewImmediate(
                         grigliaNumeriContainer);
@@ -1688,6 +1770,8 @@ public class LisaAccessibilityService extends AccessibilityService {
                 Log.e(TAG,"OVERLAY_GRIGLIA_STACCO_FAIL",e);
             }
         }
+
+        sView=null; sWm=null;
         grigliaWindowManager=null;
         grigliaNumeriContainer=null;
         grigliaOverlayContext=null;
@@ -1698,6 +1782,7 @@ public class LisaAccessibilityService extends AccessibilityService {
         grigliaPackageOrigine="";
         grigliaModalita=null;
         grigliaVisibile=false;
+        ultimaListaNumeri=null;
     }
 
     public void nascondiOverlay() {

@@ -1621,6 +1621,17 @@ if (servizio.recognizer != null) {
                 .replaceAll("\\s+", " ")
                 .trim();
 
+        boolean bastaCtx=testo.equals("basta")
+                || testo.equals("basta cosi")
+                || testo.equals("basta così");
+        if (bastaCtx
+                && LisaAccessibilityService.overlayAttivo()
+                && gestisciComandoOverlay(testo)) {
+            aggiornaNotifica("Lisa pronta");
+            programmaAscolto(250);
+            return;
+        }
+
         // STOP ASSOLUTO: priorità massima.
         if (richiestaStop(testo)) {
             String risposta = testo.contains("buonanotte")
@@ -2057,6 +2068,13 @@ if (inAttesaVuoiFareAltro) {
 
         // Solo il richiamo ("Lisa", "Ehi Lisa", ecc.) non è uno STOP.
         if (testo.isEmpty()) return false;
+
+        boolean bastaOverlay=testo.equals("basta")
+                || testo.equals("basta cosi")
+                || testo.equals("basta così");
+        if (bastaOverlay
+                && LisaAccessibilityService.overlayAttivo())
+            return false;
 
         return testo.equals("basta")
                 || testo.equals("basta così")
@@ -2816,6 +2834,35 @@ if (inAttesaVuoiFareAltro) {
                 .replaceAll("[,;:!?.]+"," ")
                 .replaceAll("\\s+"," ")
                 .trim();
+        boolean bastaOverlay=t.equals("basta")
+                || t.equals("basta cosi")
+                || t.equals("basta così");
+
+        if (bastaOverlay) {
+            if (LisaAccessibilityService.nascondiOverlaySeAttivo()) {
+                rispostaComandoLocale=null;
+                Log.i(TAG,"OVERLAY_CLOSE_BY_BASTA");
+                return true;
+            }
+            return false;
+        }
+
+        java.util.regex.Matcher mn=java.util.regex.Pattern
+                .compile("^(?:(?:clicca|tocca|premi)\\s+)?(\\d{1,2})$")
+                .matcher(t);
+        if (mn.matches()
+                && (LisaAccessibilityService.numeriAttivi()
+                    || t.matches(
+                            "^(?:clicca|tocca|premi)\\s+\\d{1,2}$"))) {
+            int n=Integer.parseInt(mn.group(1));
+            boolean ok=LisaAccessibilityService.cliccaNumero(n);
+            rispostaComandoLocale=ok
+                    ? "Fatto."
+                    : "Il numero "+n+" non è disponibile.";
+            Log.i(TAG,"OVERLAY_CLICK n="+n+" ok="+ok);
+            return true;
+        }
+
         String azione = OVERLAY_CMDS.get(t);
         if (azione == null) return false;
         android.content.Intent i =
