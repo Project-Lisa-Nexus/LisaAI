@@ -2831,6 +2831,24 @@ if (inAttesaVuoiFareAltro) {
         OVERLAY_CMDS.put("spegni numeri","nascondi_numeri");
         OVERLAY_CMDS.put("spegni i numeri","nascondi_numeri");
         OVERLAY_CMDS.put("nascondi indicatori","nascondi_numeri");
+        OVERLAY_CMDS.put("etichette","mostra_etichette");
+        OVERLAY_CMDS.put("mostra etichette","mostra_etichette");
+        OVERLAY_CMDS.put("mostra le etichette","mostra_etichette");
+        OVERLAY_CMDS.put("mostrami etichette","mostra_etichette");
+        OVERLAY_CMDS.put("mostrami le etichette","mostra_etichette");
+        OVERLAY_CMDS.put("fammi vedere etichette","mostra_etichette");
+        OVERLAY_CMDS.put("fammi vedere le etichette","mostra_etichette");
+        OVERLAY_CMDS.put("apri etichette","mostra_etichette");
+        OVERLAY_CMDS.put("apri le etichette","mostra_etichette");
+        OVERLAY_CMDS.put("attiva etichette","mostra_etichette");
+        OVERLAY_CMDS.put("attiva le etichette","mostra_etichette");
+        OVERLAY_CMDS.put("visualizza etichette","mostra_etichette");
+        OVERLAY_CMDS.put("visualizza le etichette","mostra_etichette");
+        OVERLAY_CMDS.put("nascondi etichette","nascondi_numeri");
+        OVERLAY_CMDS.put("nascondi le etichette","nascondi_numeri");
+        OVERLAY_CMDS.put("togli etichette","nascondi_numeri");
+        OVERLAY_CMDS.put("chiudi etichette","nascondi_numeri");
+        OVERLAY_CMDS.put("chiudi le etichette","nascondi_numeri");
         OVERLAY_CMDS.put("griglia","mostra_griglia");
         OVERLAY_CMDS.put("mostra griglia","mostra_griglia");
         OVERLAY_CMDS.put("mostra la griglia","mostra_griglia");
@@ -2903,6 +2921,23 @@ if (inAttesaVuoiFareAltro) {
                         : "Il numero "+n+" non è disponibile.";
                 Log.i(TAG,"OVERLAY_CLICK n="+n+" ok="+ok);
                 return true;
+            }
+        }
+
+        java.util.regex.Matcher me=java.util.regex.Pattern
+                .compile("^(?:clicca|tocca|premi)\\s+(?:su\\s+)?(.+)$")
+                .matcher(t);
+        if (me.matches()) {
+            String et=me.group(1).trim();
+            if (!et.isEmpty()
+                    && !et.matches("\\d{1,3}")
+                    && LisaAccessibilityService.numeriAttivi()) {
+                boolean ok=LisaAccessibilityService.cliccaEtichetta(et);
+                if (ok) {
+                    rispostaComandoLocale="Fatto.";
+                    Log.i(TAG,"OVERLAY_CLICK_ETI "+et+" ok=true");
+                    return true;
+                }
             }
         }
 

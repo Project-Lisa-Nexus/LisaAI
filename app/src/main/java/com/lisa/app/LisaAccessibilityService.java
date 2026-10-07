@@ -1177,20 +1177,99 @@ public class LisaAccessibilityService extends AccessibilityService {
     }
 
 
+    private boolean targetHaTestoVisibile(
+            AccessibilityNodeInfo root,
+            AccessibilityNodeInfo nodo,
+            int livello) {
+        if (nodo == null || livello > 3) return false;
+        if (nodo != root && nodoAzzionabile(nodo)) return false;
+        if (nodo.isVisibleToUser()) {
+            CharSequence t = nodo.getText();
+            if (t != null && !t.toString().trim().isEmpty())
+                return true;
+        }
+        int figli = Math.min(nodo.getChildCount(), 20);
+        for (int i = 0; i < figli; i++) {
+            AccessibilityNodeInfo f = nodo.getChild(i);
+            if (f != null
+                    && targetHaTestoVisibile(root, f, livello + 1))
+                return true;
+        }
+        return false;
+    }
+
+    private boolean targetHaTestoVisibile(AccessibilityNodeInfo azione) {
+        return targetHaTestoVisibile(azione, azione, 0);
+    }
+
+    private static final java.util.Set<String> ETICHETTE_WHITELIST =
+            new java.util.HashSet<>(java.util.Arrays.asList(
+                    "indietro","back","home","menu",
+                    "persona","account","utente","profilo",
+                    "altoparlante","speaker","audio","volume",
+                    "microfono","mic","microfoni",
+                    "impostazioni","settings",
+                    "cerca","ricerca","search",
+                    "chat","messaggi","notifiche",
+                    "chiudi","close","piu","altro","more",
+                    "play","pausa","riproduci",
+                    "preferiti","salva","aggiungi",
+                    "elimina","cancella","delete",
+                    "modifica","edit","condividi","share",
+                    "aggiorna","refresh","download","scarica",
+                    "recenti","panoramica","overview","applicazioni",
+                    "attivita","attività","task","schede",
+                    "pulsanti","navigazione"
+            ));
+
+    private static String normalizzaEtichetta(String x) {
+        if (x == null) return "";
+        return x.replaceAll("[/_\\-]+"," ")
+                .replaceAll("\\s+"," ").trim();
+    }
+
+    private static String chiaveEtichetta(String x) {
+        return normalizzaEtichetta(x)
+                .toLowerCase(java.util.Locale.ITALIAN);
+    }
+
+    private static String calcolaEtichettaSmart(
+            AccessibilityNodeInfo azione) {
+        if (azione == null) return "";
+        if (azione.getChildCount() != 0) return "";
+        CharSequence cd = azione.getContentDescription();
+        if (cd == null) return "";
+        String x = cd.toString().replaceAll("\\s+"," ").trim();
+        if (x.isEmpty() || x.length() > 30) return "";
+        String[] parole = x.toLowerCase(java.util.Locale.ITALIAN)
+                .split(" ");
+        for (String w : parole) {
+            if (ETICHETTE_WHITELIST.contains(w)) return x;
+        }
+        return "";
+    }
+
     public static final class NodoCliccabile {
         public int indice;
         public final int x;
         public final int y;
         public final String testo;
+        public final String etichettaSmart;
+        public final boolean haTestoVisibile;
+        public int numeroVisibile = 0;
         public final AccessibilityNodeInfo nodo;
         private final android.graphics.Rect bounds;
         public final android.graphics.Rect boundsWindow;
 
         NodoCliccabile(int x, int y, String testo,
+                       String etichettaSmart,
+                       boolean haTestoVisibile,
                        AccessibilityNodeInfo nodo,
                        android.graphics.Rect bounds,
                        android.graphics.Rect boundsWindow) {
             this.x=x; this.y=y; this.testo=testo;
+            this.etichettaSmart=etichettaSmart;
+            this.haTestoVisibile=haTestoVisibile;
             this.nodo=nodo;
             this.bounds=bounds;
             this.boundsWindow=boundsWindow;
@@ -1376,9 +1455,17 @@ public class LisaAccessibilityService extends AccessibilityService {
             Log.i(TAG,"CLICCA_NUM overlay_non_attivo n="+n);
             return false;
         }
+        int modo=s.getSharedPreferences("lisa_ui",
+                android.content.Context.MODE_PRIVATE)
+                .getInt("overlay_modo", 0);
         NodoCliccabile target=null;
-        for (NodoCliccabile x:s.ultimaListaNumeri)
-            if (x.indice==n) { target=x; break; }
+        if (modo==1) {
+            for (NodoCliccabile x:s.ultimaListaNumeri)
+                if (x.numeroVisibile==n) { target=x; break; }
+        } else {
+            for (NodoCliccabile x:s.ultimaListaNumeri)
+                if (x.indice==n) { target=x; break; }
+        }
         if (target==null) {
             Log.i(TAG,"CLICCA_NUM fuori_range n="+n);
             return false;
@@ -1422,6 +1509,62 @@ public class LisaAccessibilityService extends AccessibilityService {
             ok=s.dispatchGesture(gd,null,null);
         }
         Log.i(TAG,"CLICCA_NUM n="+n+" ok="+ok+" txt="+target.testo);
+        return ok;
+    }
+
+    public static boolean cliccaEtichetta(String etichetta) {
+        LisaAccessibilityService s=instance;
+        if (s==null || !s.grigliaVisibile
+                || s.grigliaModalita!=ModalitaOverlay.NUMERI
+                || s.ultimaListaNumeri==null) {
+            Log.i(TAG,"CLICCA_ETI overlay_non_attivo");
+            return false;
+        }
+        String target=chiaveEtichetta(etichetta);
+        if (target.isEmpty()) return false;
+        NodoCliccabile trovato=null;
+        int count=0;
+        for (NodoCliccabile n:s.ultimaListaNumeri) {
+            String sm=n.etichettaSmart;
+            if (sm!=null && !sm.isEmpty()
+                    && chiaveEtichetta(sm).equals(target)) {
+                trovato=n; count++;
+            }
+        }
+        if (count==0) {
+            Log.i(TAG,"CLICCA_ETI non_trovato "+etichetta);
+            return false;
+        }
+        if (count>1) {
+            Log.i(TAG,"CLICCA_ETI ambiguo count="+count);
+            return false;
+        }
+        try {
+            if (!trovato.nodo.refresh()) return false;
+        } catch (Throwable e) { return false; }
+        android.graphics.Rect now=new android.graphics.Rect();
+        trovato.nodo.getBoundsInScreen(now);
+        if (!now.equals(trovato.bounds)) return false;
+        boolean ok=false;
+        try {
+            ok=trovato.nodo.performAction(
+                    AccessibilityNodeInfo.ACTION_CLICK);
+        } catch (Throwable e) {
+            Log.e(TAG,"CLICCA_ETI action_fail",e);
+        }
+        if (!ok) {
+            android.graphics.Path p=new android.graphics.Path();
+            p.moveTo(trovato.x,trovato.y);
+            android.accessibilityservice.GestureDescription gd=
+                    new android.accessibilityservice
+                            .GestureDescription.Builder()
+                    .addStroke(new android.accessibilityservice
+                            .GestureDescription
+                            .StrokeDescription(p,0L,50L))
+                    .build();
+            ok=s.dispatchGesture(gd,null,null);
+        }
+        Log.i(TAG,"CLICCA_ETI "+etichetta+" ok="+ok);
         return ok;
     }
 
@@ -1575,9 +1718,14 @@ public class LisaAccessibilityService extends AccessibilityService {
                     logScarto("duplicato",azione,r);
 
                 if (valido && boundsUsati.add(key)) {
+                    boolean haTestoVis=targetHaTestoVisibile(azione);
+                    String smart=haTestoVis
+                            ? "" : calcolaEtichettaSmart(azione);
                     out.add(new NodoCliccabile(
                             r.centerX(),r.centerY(),
-                            etichetta.replaceAll("\\s+"," "),
+                            etichetta.replaceAll("\\s+"," ").trim(),
+                            smart,
+                            haTestoVis,
                             azione,
                             new android.graphics.Rect(r),
                             new android.graphics.Rect(rw)));
@@ -1683,6 +1831,14 @@ public class LisaAccessibilityService extends AccessibilityService {
     }
 
     public void mostraGrigliaNumeri() {
+        getSharedPreferences("lisa_ui", MODE_PRIVATE)
+                .edit().putInt("overlay_modo", 0).apply();
+        mostraOverlay(ModalitaOverlay.NUMERI);
+    }
+
+    public void mostraNumeriConEtichette() {
+        getSharedPreferences("lisa_ui", MODE_PRIVATE)
+                .edit().putInt("overlay_modo", 1).apply();
         mostraOverlay(ModalitaOverlay.NUMERI);
     }
 
@@ -1734,24 +1890,84 @@ public class LisaAccessibilityService extends AccessibilityService {
     private android.widget.FrameLayout creaVistaNumeri(
             android.content.Context c,
             java.util.List<NodoCliccabile> nodi) {
+        boolean etichette=c.getSharedPreferences(
+                "lisa_ui",
+                android.content.Context.MODE_PRIVATE)
+                .getInt("overlay_modo", 0) == 1;
+        return creaVistaNumeri(c, nodi, etichette);
+    }
+
+    private android.widget.FrameLayout creaVistaNumeri(
+            android.content.Context c,
+            java.util.List<NodoCliccabile> nodi,
+            boolean mostraEtichette) {
         android.widget.FrameLayout root=new android.widget.FrameLayout(c);
         root.setContentDescription("lisa_overlay_numeri");
         int lato=overlayBadgeHeightPx(c);
         int offset=dpOverlay(c,BADGE_OFFSET_DP);
         int soglia=dpOverlay(c,BADGE_SOGLIA_CENTRO_DP);
+
+        java.util.HashMap<String,Integer> conteggiSmart=
+                new java.util.HashMap<>();
+        if (mostraEtichette) {
+            for (NodoCliccabile n:nodi) {
+                String sm=n.etichettaSmart;
+                if (sm==null || sm.isEmpty()) continue;
+                String k=chiaveEtichetta(sm);
+                Integer cv=conteggiSmart.get(k);
+                conteggiSmart.put(k, cv==null ? 1 : cv+1);
+            }
+        }
+
+        int contatore=0;
+        for (NodoCliccabile n:nodi) {
+            String sm=n.etichettaSmart;
+            boolean smartU=mostraEtichette
+                    && sm != null && !sm.isEmpty()
+                    && conteggiSmart.get(chiaveEtichetta(sm))!=null
+                    && conteggiSmart.get(chiaveEtichetta(sm))==1;
+            if (smartU) {
+                n.numeroVisibile=0;
+            } else {
+                contatore++;
+                n.numeroVisibile=contatore;
+            }
+        }
+
         for (NodoCliccabile n:nodi) {
             android.graphics.Rect b=boundsOverlay(n);
             android.widget.TextView badge=creaBadgeBase(c);
-            String numero=String.valueOf(n.indice);
-            badge.setText(numero);
+            String contenuto;
+            if (!mostraEtichette) {
+                contenuto=String.valueOf(n.indice);
+            } else {
+                String sm=n.etichettaSmart;
+                boolean smartU=sm != null && !sm.isEmpty()
+                        && conteggiSmart.get(chiaveEtichetta(sm))!=null
+                        && conteggiSmart.get(chiaveEtichetta(sm))==1;
+                if (smartU) {
+                    contenuto=sm;
+                } else {
+                    contenuto=String.valueOf(n.numeroVisibile);
+                }
+            }
+            badge.setText(contenuto);
             badge.setGravity(android.view.Gravity.CENTER);
             badge.setSingleLine(true);
 
             int padX=dpOverlay(c,5);
-            int larghezza=Math.max(
-                    lato,
-                    (int)Math.ceil(badge.getPaint().measureText(numero))
-                            + padX*2);
+            int maxW=dpOverlay(c,180);
+            int larghezza=Math.min(
+                    maxW,
+                    Math.max(
+                            lato,
+                            (int)Math.ceil(
+                                    badge.getPaint()
+                                            .measureText(contenuto))
+                                    + padX*2));
+            badge.setMaxWidth(maxW);
+            badge.setEllipsize(
+                    android.text.TextUtils.TruncateAt.END);
 
             badge.setPadding(padX,0,padX,0);
 
@@ -2044,7 +2260,13 @@ public class LisaAccessibilityService extends AccessibilityService {
             if (modo==ModalitaOverlay.GRIGLIA) {
                 vista=creaVistaGriglia(wc);
             } else {
-                vista=creaVistaNumeri(wc,nodi);
+                int modoOverlay=wc.getSharedPreferences(
+                        "lisa_ui",
+                        android.content.Context.MODE_PRIVATE)
+                        .getInt("overlay_modo", 0);
+                if (modoOverlay != 0 && modoOverlay != 1)
+                    modoOverlay = 0;
+                vista=creaVistaNumeri(wc,nodi, modoOverlay == 1);
             }
 
             android.view.WindowManager.LayoutParams lp=

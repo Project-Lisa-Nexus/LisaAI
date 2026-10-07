@@ -224,6 +224,24 @@ public static final String ACTION_LISA_COMMAND = "com.lisa.app.COMMAND";
             return;
         }
 
+        if ("mostra_etichette".equals(azione)) {
+
+            LisaAccessibilityService servizio =
+                    LisaAccessibilityService.getInstance();
+
+            if (servizio == null) {
+                if (isOrderedBroadcast()) setResultCode(1);
+                setResultData("accessibilita_off");
+                return;
+            }
+
+            servizio.mostraNumeriConEtichette();
+
+            if (isOrderedBroadcast()) setResultCode(0);
+            setResultData("mostra_etichette_eseguito");
+            return;
+        }
+
         if ("nascondi_numeri".equals(azione)) {
 
             LisaAccessibilityService servizio =
