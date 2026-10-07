@@ -499,13 +499,13 @@ public class LisaAccessibilityService extends AccessibilityService {
                 new android.widget.TextView(this);
 
         tv.setText(testo);
-        tv.setTextSize(12);
+        tv.setTextSize(15);
         tv.setTextColor(android.graphics.Color.WHITE);
         tv.setPadding(
-                dp(10),
-                dp(5),
-                dp(10),
-                dp(5)
+                dp(14),
+                dp(8),
+                dp(14),
+                dp(8)
         );
         tv.setSingleLine(false);
 
@@ -516,8 +516,8 @@ public class LisaAccessibilityService extends AccessibilityService {
         android.graphics.drawable.GradientDrawable bg =
                 new android.graphics.drawable.GradientDrawable();
 
-        bg.setColor(0xDD202020);
-        bg.setCornerRadius(dp(12));
+        bg.setColor(0xCC202020);
+        bg.setCornerRadius(dp(20));
         // Bordo bianco rimosso: test artefatto riga residua.
 
         return bg;
@@ -2419,7 +2419,10 @@ public class LisaAccessibilityService extends AccessibilityService {
             return;
 
         if (grigliaModalita==ModalitaOverlay.GRIGLIA) {
-            Log.i(TAG,"GRIGLIA_PERSIST pkg="+pkg+" tipo="+tipo);
+            Log.i(TAG,"GRIGLIA_RICALCOLA pkg="+pkg+" tipo="+tipo);
+            grigliaAreaAttiva=null;
+            grigliaLivello=0;
+            programmaRefreshOverlay();
             return;
         }
         if (grigliaModalita==ModalitaOverlay.ETICHETTE) {
