@@ -78,7 +78,7 @@ fi
 echo
 
 echo "== MODELLI GGUF PRESENTI =="
-find ~/lisa_models -name "*.gguf" -exec ls -lh {} \; 2>/dev/null ||
+find ~/LisaOS ~/lisa_models -name "*.gguf" -exec ls -lh {} \; 2>/dev/null ||
     echo "(nessuno)"
 echo
 

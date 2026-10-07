@@ -1,38 +1,46 @@
 # LISA AI NEXUS — CHECKLIST
 
 Ultimo aggiornamento: 07/10/2026
-HEAD: 1070a80
-
-Legenda: 🟢 testato · 🟦 nel codice ma non testato · 🟡 in corso · 🔴 congelato · ⚪ coda
+Legenda: [OK] testato · [WIP] in corso · [NO] congelato · [TODO] coda
 
 ## VOICE ACCESS CORE
+[OK] NUMERI overlay + click + comandi voce
+[OK] ETICHETTE stesso Target Overlay, rinumerazione compatta
+[OK] GRIGLIA base 9x10 adattiva
+[OK] GRIGLIA raffinamento 3x3
+[OK] GRIGLIA tap cella
+[OK] GRIGLIA riapri dopo tap
+[OK] GRIGLIA reset livello 0 al cambio pagina
 
 ## INTERFACCIA
+[OK] Badge NUMERI/GRIGLIA uniformati (15sp, 0x80202020)
+[OK] Vignetta principale + "Sentito:" uniformate (15sp, 0xCC202020, r=20dp)
 
 ## LOCK SCREEN
-.git .github .gitignore .gitignore.bak_BEFORE_BACKUP_IGNORE_20260920 .gradle BASELINE_GIT_20260917_142616.txt LisaAI-Nexus-v001.apk LisaAI-Nexus-v002.apk app app-debug.apk backup backups build.gradle gradle gradle.properties gradlew gradlew.bat scripts settings.gradle  Lisa attiva su lock screen
-.git .github .gitignore .gitignore.bak_BEFORE_BACKUP_IGNORE_20260920 .gradle BASELINE_GIT_20260917_142616.txt LisaAI-Nexus-v001.apk LisaAI-Nexus-v002.apk app app-debug.apk backup backups build.gradle gradle gradle.properties gradlew gradlew.bat scripts settings.gradle  Ripristino ultima modalità (numeri/griglia/etichette)
+[TODO] Lisa attiva su lock screen
+[TODO] Ripristino ultima modalita (numeri/griglia/etichette)
+[NO] Microfono condiviso con Google (audio focus)
 
 ## COMANDI VOCALI
-.git .github .gitignore .gitignore.bak_BEFORE_BACKUP_IGNORE_20260920 .gradle BASELINE_GIT_20260917_142616.txt LisaAI-Nexus-v001.apk LisaAI-Nexus-v002.apk app app-debug.apk backup backups build.gradle gradle gradle.properties gradlew gradlew.bat scripts settings.gradle  Dizionario centrale (verbi + target + azioni)
-.git .github .gitignore .gitignore.bak_BEFORE_BACKUP_IGNORE_20260920 .gradle BASELINE_GIT_20260917_142616.txt LisaAI-Nexus-v001.apk LisaAI-Nexus-v002.apk app app-debug.apk backup backups build.gradle gradle gradle.properties gradlew gradlew.bat scripts settings.gradle  Prefisso "Lisa" opzionale
-.git .github .gitignore .gitignore.bak_BEFORE_BACKUP_IGNORE_20260920 .gradle BASELINE_GIT_20260917_142616.txt LisaAI-Nexus-v001.apk LisaAI-Nexus-v002.apk app app-debug.apk backup backups build.gradle gradle gradle.properties gradlew gradlew.bat scripts settings.gradle  Memoria alias personali utente
+[TODO] Dizionario centrale (verbi + target + azioni)
+[TODO] Prefisso "Lisa" opzionale
+[TODO] Memoria alias personali utente
 
 ## IMPOSTAZIONI VISIVE
-.git .github .gitignore .gitignore.bak_BEFORE_BACKUP_IGNORE_20260920 .gradle BASELINE_GIT_20260917_142616.txt LisaAI-Nexus-v001.apk LisaAI-Nexus-v002.apk app app-debug.apk backup backups build.gradle gradle gradle.properties gradlew gradlew.bat scripts settings.gradle  Dimensione caratteri / badge / vignette
-.git .github .gitignore .gitignore.bak_BEFORE_BACKUP_IGNORE_20260920 .gradle BASELINE_GIT_20260917_142616.txt LisaAI-Nexus-v001.apk LisaAI-Nexus-v002.apk app app-debug.apk backup backups build.gradle gradle gradle.properties gradlew gradlew.bat scripts settings.gradle  Trasparenza / contrasto
-.git .github .gitignore .gitignore.bak_BEFORE_BACKUP_IGNORE_20260920 .gradle BASELINE_GIT_20260917_142616.txt LisaAI-Nexus-v001.apk LisaAI-Nexus-v002.apk app app-debug.apk backup backups build.gradle gradle gradle.properties gradlew gradlew.bat scripts settings.gradle  Densità / stile linee griglia
+[TODO] Dimensione caratteri / badge / vignette
+[TODO] Trasparenza / contrasto
+[TODO] Densita / stile linee griglia
 
 ## CODA
-.git .github .gitignore .gitignore.bak_BEFORE_BACKUP_IGNORE_20260920 .gradle BASELINE_GIT_20260917_142616.txt LisaAI-Nexus-v001.apk LisaAI-Nexus-v002.apk app app-debug.apk backup backups build.gradle gradle gradle.properties gradlew gradlew.bat scripts settings.gradle  Gesti (long press, drag, swipe, pinch)
-.git .github .gitignore .gitignore.bak_BEFORE_BACKUP_IGNORE_20260920 .gradle BASELINE_GIT_20260917_142616.txt LisaAI-Nexus-v001.apk LisaAI-Nexus-v002.apk app app-debug.apk backup backups build.gradle gradle gradle.properties gradlew gradlew.bat scripts settings.gradle  Suggerimenti vocali quando Lisa non capisce
-.git .github .gitignore .gitignore.bak_BEFORE_BACKUP_IGNORE_20260920 .gradle BASELINE_GIT_20260917_142616.txt LisaAI-Nexus-v001.apk LisaAI-Nexus-v002.apk app app-debug.apk backup backups build.gradle gradle gradle.properties gradlew gradlew.bat scripts settings.gradle  Widget Google: numeri/etichette sulle icone
-.git .github .gitignore .gitignore.bak_BEFORE_BACKUP_IGNORE_20260920 .gradle BASELINE_GIT_20260917_142616.txt LisaAI-Nexus-v001.apk LisaAI-Nexus-v002.apk app app-debug.apk backup backups build.gradle gradle gradle.properties gradlew gradlew.bat scripts settings.gradle  Freccia Android Sinistra/Destra
-.git .github .gitignore .gitignore.bak_BEFORE_BACKUP_IGNORE_20260920 .gradle BASELINE_GIT_20260917_142616.txt LisaAI-Nexus-v001.apk LisaAI-Nexus-v002.apk app app-debug.apk backup backups build.gradle gradle gradle.properties gradlew gradlew.bat scripts settings.gradle  UserLAnd: regressione scroll
-.git .github .gitignore .gitignore.bak_BEFORE_BACKUP_IGNORE_20260920 .gradle BASELINE_GIT_20260917_142616.txt LisaAI-Nexus-v001.apk LisaAI-Nexus-v002.apk app app-debug.apk backup backups build.gradle gradle gradle.properties gradlew gradlew.bat scripts settings.gradle  STATO_LISA: script diagnostica read-only
+[TODO] Gesti (long press, drag, swipe, pinch)
+[TODO] Suggerimenti vocali quando Lisa non capisce
+[TODO] Widget Google: numeri/etichette sulle icone
+[TODO] Freccia Android Sinistra/Destra
+[TODO] UserLAnd: regressione scroll
+[OK] STATO_LISA script diagnostica read-only
 
 ## REGOLE
 - Una funzione alla volta
 - Build + test hardware prima del commit
-- 1 ora senza soluzione → congelare e passare oltre
+- 1 ora senza soluzione -> congelare
 - Non toccare zone verdi senza bug reale
