@@ -9,11 +9,11 @@ import android.view.accessibility.AccessibilityNodeInfo;
 public class LisaAccessibilityService extends AccessibilityService {
     private static final String TAG = "LisaAccessibility";
 
-    private static final int BADGE_LATO_DP = 20;
-    private static final int BADGE_ALPHA = 0xA6;
+    private static final int BADGE_LATO_DP = 24;
     private static final int BADGE_OFFSET_DP = 4;
     private static final int BADGE_SOGLIA_CENTRO_DP = 40;
-    private static final int BADGE_COLORE_RGB = 0x000D47A1;
+    private static final float OVERLAY_TEXT_SP = 15f;
+    private static final int OVERLAY_BG_COLOR = 0x80202020;
     private static LisaAccessibilityService instance;
     private java.util.List<NodoCliccabile> ultimaListaNumeri = null;
 
@@ -26,6 +26,12 @@ public class LisaAccessibilityService extends AccessibilityService {
     private android.view.WindowManager grigliaWindowManager;
     private android.widget.FrameLayout grigliaNumeriContainer;
     private volatile boolean grigliaVisibile = false;
+
+    private final java.util.ArrayList<android.graphics.Rect> grigliaCelle =
+            new java.util.ArrayList<>();
+    private android.graphics.Rect grigliaAreaAttiva = null;
+    private int grigliaLivello = 0;
+    private volatile boolean grigliaRiapriDopoTap = false;
     private static android.view.WindowManager sWm = null;
     private static android.widget.FrameLayout sView = null;
 
@@ -1231,7 +1237,7 @@ public class LisaAccessibilityService extends AccessibilityService {
 
                 CharSequence desc=root.getContentDescription();
                 if (desc!=null
-                        && "lisa_overlay_numeri".contentEquals(desc))
+                        && desc.toString().startsWith("lisa_overlay_"))
                     continue;
 
                 app.add(w);
@@ -1584,12 +1590,106 @@ public class LisaAccessibilityService extends AccessibilityService {
     }
 
 
+    public static int livelloGriglia() {
+        LisaAccessibilityService s = instance;
+        return s == null ? -1 : s.grigliaLivello;
+    }
+
+    public static boolean gestisciNumeroGriglia(int n, boolean conVerbo) {
+        LisaAccessibilityService s = instance;
+        if (s == null || !s.grigliaVisibile
+                || s.grigliaModalita != ModalitaOverlay.GRIGLIA) return false;
+        if (n < 1 || n > s.grigliaCelle.size()) return false;
+        final android.graphics.Rect cella =
+                new android.graphics.Rect(s.grigliaCelle.get(n - 1));
+        final int livello = s.grigliaLivello;
+        final boolean click = conVerbo || livello >= 1;
+        s.grigliaHandler.post(() -> {
+            if (click) {
+                s.grigliaRiapriDopoTap = false;
+                s.nascondiGriglia();
+                s.grigliaHandler.postDelayed(() -> {
+                    int cx = cella.centerX();
+                    int cy = cella.centerY();
+                    android.graphics.Path path =
+                            new android.graphics.Path();
+                    path.moveTo(cx, cy);
+                    android.accessibilityservice.GestureDescription gd =
+                            new android.accessibilityservice
+                                    .GestureDescription.Builder()
+                            .addStroke(new android.accessibilityservice
+                                    .GestureDescription
+                                    .StrokeDescription(path, 0L, 50L))
+                            .build();
+                    boolean ok = s.dispatchGesture(gd, null, null);
+                    if (ok) {
+                        s.grigliaRiapriDopoTap = true;
+                        s.grigliaHandler.postDelayed(() -> {
+                            if (s.grigliaRiapriDopoTap) {
+                                Log.i(TAG,"GRIGLIA_RIAPRI timeout");
+                                s.grigliaRiapriDopoTap = false;
+                            }
+                        }, 3000L);
+                    }
+                    Log.i(TAG,"GRIGLIA_TAP_DISPATCH x=" + cx
+                            + " y=" + cy + " ok=" + ok);
+                }, 200L);
+            } else {
+                s.grigliaAreaAttiva = cella;
+                s.grigliaLivello = livello + 1;
+                s.mostraOverlay(ModalitaOverlay.GRIGLIA, true);
+                Log.i(TAG,"GRIGLIA_RAFFINA n=" + n
+                        + " livello=" + s.grigliaLivello
+                        + " area=" + cella);
+            }
+        });
+        return true;
+    }
+
+    public static boolean grigliaAttiva() {
+        LisaAccessibilityService s=instance;
+        return s!=null
+                && s.grigliaVisibile
+                && s.grigliaModalita==ModalitaOverlay.GRIGLIA;
+    }
+
+    public void mostraGriglia() {
+        mostraOverlay(ModalitaOverlay.GRIGLIA);
+    }
+
+    public void nascondiGriglia() {
+        if (grigliaModalita == ModalitaOverlay.GRIGLIA) {
+            nascondiOverlay();
+        }
+    }
+
+    public void cambiaDensitaGriglia(int delta) {
+        if (!grigliaVisibile
+                || grigliaModalita != ModalitaOverlay.GRIGLIA) {
+            Log.i(TAG,"GRIGLIA_DENSITA ignorata_non_attiva");
+            return;
+        }
+        android.content.SharedPreferences p = getSharedPreferences(
+                "lisa_ui",
+                android.content.Context.MODE_PRIVATE);
+        int att = p.getInt("griglia_densita", 1);
+        int nuova = att + delta;
+        if (nuova < 0) nuova = 0;
+        if (nuova > 2) nuova = 2;
+        if (nuova == att) return;
+        p.edit().putInt("griglia_densita", nuova).apply();
+        Log.i(TAG,"GRIGLIA_DENSITA "+att+" -> "+nuova);
+        mostraOverlay(ModalitaOverlay.GRIGLIA);
+    }
+
     public void mostraGrigliaNumeri() {
         mostraOverlay(ModalitaOverlay.NUMERI);
     }
 
     public void nascondiGrigliaNumeri() {
-        nascondiOverlay();
+        if (grigliaModalita == ModalitaOverlay.NUMERI) {
+            nascondiOverlay();
+        }
     }
 
     private void programmaAutoHideOverlay() {
@@ -1608,12 +1708,25 @@ public class LisaAccessibilityService extends AccessibilityService {
                 .getDisplayMetrics().density);
     }
 
+    private int spOverlay(android.content.Context c, float sp) {
+        return Math.round(sp * c.getResources()
+                .getDisplayMetrics().scaledDensity);
+    }
+
+    private int overlayBadgeHeightPx(android.content.Context c) {
+        return Math.max(
+                dpOverlay(c, BADGE_LATO_DP),
+                spOverlay(c, OVERLAY_TEXT_SP) + dpOverlay(c, 6));
+    }
+
     private android.widget.TextView creaBadgeBase(
             android.content.Context c) {
         android.widget.TextView v=new android.widget.TextView(c);
         v.setTextColor(android.graphics.Color.WHITE);
-        v.setTextSize(14);
-        v.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        v.setTextSize(
+                android.util.TypedValue.COMPLEX_UNIT_SP,
+                OVERLAY_TEXT_SP);
+        v.setTypeface(android.graphics.Typeface.DEFAULT);
         v.setIncludeFontPadding(false);
         return v;
     }
@@ -1623,7 +1736,7 @@ public class LisaAccessibilityService extends AccessibilityService {
             java.util.List<NodoCliccabile> nodi) {
         android.widget.FrameLayout root=new android.widget.FrameLayout(c);
         root.setContentDescription("lisa_overlay_numeri");
-        int lato=dpOverlay(c,BADGE_LATO_DP);
+        int lato=overlayBadgeHeightPx(c);
         int offset=dpOverlay(c,BADGE_OFFSET_DP);
         int soglia=dpOverlay(c,BADGE_SOGLIA_CENTRO_DP);
         for (NodoCliccabile n:nodi) {
@@ -1646,7 +1759,7 @@ public class LisaAccessibilityService extends AccessibilityService {
                     new android.graphics.drawable.GradientDrawable();
             bg.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
             bg.setCornerRadius(lato/2f);
-            bg.setColor((BADGE_ALPHA << 24) | BADGE_COLORE_RGB);
+            bg.setColor(OVERLAY_BG_COLOR);
             badge.setBackground(bg);
 
             android.widget.FrameLayout.LayoutParams lp=
@@ -1665,9 +1778,211 @@ public class LisaAccessibilityService extends AccessibilityService {
         return root;
     }
 
+    private android.widget.FrameLayout creaVistaGriglia(
+            final android.content.Context c) {
+        android.widget.FrameLayout root =
+                new android.widget.FrameLayout(c);
+        root.setContentDescription("lisa_overlay_griglia");
+
+        final int densita = c.getSharedPreferences(
+                "lisa_ui",
+                android.content.Context.MODE_PRIVATE
+        ).getInt("griglia_densita", 1);
+
+        final float density = c.getResources()
+                .getDisplayMetrics().density;
+
+        android.view.View canvasView = new android.view.View(c) {
+            private final android.graphics.Paint linePaint =
+                    new android.graphics.Paint();
+            private float radius = 24f;
+            private final android.graphics.Paint bgPaint =
+                    new android.graphics.Paint();
+            private final android.graphics.Paint textPaint =
+                    new android.graphics.Paint();
+            private int cols = 0;
+            private int rows = 0;
+            private int lastW = 0;
+            private int lastH = 0;
+            {
+                linePaint.setColor(0xFFCCCCCC);
+                linePaint.setStrokeWidth(
+                        Math.max(3.5f, density * 1.2f));
+                linePaint.setStyle(
+                        android.graphics.Paint.Style.STROKE);
+                textPaint.setColor(0xFFFFFFFF);
+                textPaint.setTypeface(
+                        android.graphics.Typeface.DEFAULT);
+                textPaint.setTextAlign(
+                        android.graphics.Paint.Align.CENTER);
+                textPaint.setAntiAlias(true);
+                bgPaint.setColor(OVERLAY_BG_COLOR);
+                bgPaint.setStyle(android.graphics.Paint.Style.FILL);
+                bgPaint.setAntiAlias(true);
+                linePaint.setPathEffect(
+                        new android.graphics.DashPathEffect(
+                                new float[]{dpOverlay(getContext(),6),
+                                        dpOverlay(getContext(),4)},0f));
+            }
+
+            private void rebuild(int w, int h) {
+                if (w <= 0 || h <= 0) return;
+                lastW = w; lastH = h;
+
+                android.graphics.Rect area = grigliaAreaAttiva;
+                boolean livelloBase = (area == null)
+                        || (area.left == 0 && area.top == 0
+                                && area.width() == w
+                                && area.height() == h);
+
+                if (livelloBase) {
+                    area = new android.graphics.Rect(0, 0, w, h);
+                    grigliaAreaAttiva = area;
+                    grigliaLivello = 0;
+
+                    int latoCorto = Math.min(w, h);
+                    float shortDp = latoCorto / density;
+
+                    int normale = Math.round(shortDp / 78f);
+                    if (normale < 6) normale = 6;
+                    if (normale > 16) normale = 16;
+
+                    int celleLatoCorto;
+                    if (densita <= 0) {
+                        celleLatoCorto = Math.max(4,
+                                Math.round(normale * 0.75f));
+                    } else if (densita >= 2) {
+                        celleLatoCorto = Math.min(20,
+                                Math.round(normale * 1.33f));
+                    } else {
+                        celleLatoCorto = normale;
+                    }
+
+                    float target = latoCorto / (float) celleLatoCorto;
+                    if (target < 1f) target = 1f;
+                    cols = Math.max(1, Math.round(w / target));
+                    rows = Math.max(1, Math.round(h / target));
+                } else {
+                    cols = 3;
+                    rows = 3;
+                }
+
+                textPaint.setTextSize(
+                        spOverlay(getContext(), OVERLAY_TEXT_SP));
+                radius = overlayBadgeHeightPx(getContext()) / 2f;
+
+                int aw = area.width();
+                int ah = area.height();
+
+                grigliaCelle.clear();
+                for (int r = 0; r < rows; r++) {
+                    int top = area.top + r * ah / rows;
+                    int bottom = area.top + (r + 1) * ah / rows;
+                    for (int col = 0; col < cols; col++) {
+                        int left = area.left + col * aw / cols;
+                        int right = area.left + (col + 1) * aw / cols;
+                        grigliaCelle.add(new android.graphics.Rect(
+                                left, top, right, bottom));
+                    }
+                }
+
+                Log.i(TAG,
+                        "GRIGLIA_LAYOUT w=" + w
+                        + " h=" + h
+                        + " livello=" + grigliaLivello
+                        + " area=" + area
+                        + " cols=" + cols
+                        + " rows=" + rows
+                        + " celle=" + (cols * rows));
+            }
+
+            @Override
+            protected void onSizeChanged(int w, int h,
+                    int oldw, int oldh) {
+                super.onSizeChanged(w, h, oldw, oldh);
+                rebuild(w, h);
+            }
+
+            @Override
+            protected void onDraw(
+                    android.graphics.Canvas canvas) {
+                super.onDraw(canvas);
+                int w = getWidth();
+                int h = getHeight();
+                if (cols <= 0 || rows <= 0) rebuild(w, h);
+                if (cols <= 0 || rows <= 0) return;
+
+                android.graphics.Rect areaDraw =
+                        grigliaAreaAttiva != null
+                                ? grigliaAreaAttiva
+                                : new android.graphics.Rect(0, 0, w, h);
+                for (int i = 1; i < cols; i++) {
+                    float x = areaDraw.left
+                            + i * areaDraw.width() / (float) cols;
+                    canvas.drawLine(x, areaDraw.top,
+                            x, areaDraw.bottom, linePaint);
+                }
+                for (int i = 1; i < rows; i++) {
+                    float y = areaDraw.top
+                            + i * areaDraw.height() / (float) rows;
+                    canvas.drawLine(areaDraw.left, y,
+                            areaDraw.right, y, linePaint);
+                }
+
+                android.graphics.Paint.FontMetrics fm =
+                        textPaint.getFontMetrics();
+                float dy = -(fm.ascent + fm.descent) / 2f;
+                float altezza = radius * 2f;
+                float padX = dpOverlay(getContext(), 5);
+                int n = 1;
+                for (android.graphics.Rect r : grigliaCelle) {
+                    String testo = String.valueOf(n);
+                    float larghezza = Math.max(
+                            altezza,
+                            textPaint.measureText(testo) + padX * 2f);
+                    float cx = r.centerX();
+                    float cy = r.centerY();
+                    canvas.drawRoundRect(
+                            cx - larghezza / 2f,
+                            cy - altezza / 2f,
+                            cx + larghezza / 2f,
+                            cy + altezza / 2f,
+                            altezza / 2f,
+                            altezza / 2f,
+                            bgPaint);
+                    canvas.drawText(testo, cx, cy + dy, textPaint);
+                    n++;
+                }
+            }
+        };
+
+        root.addView(canvasView,
+                new android.widget.FrameLayout.LayoutParams(
+                        android.widget.FrameLayout
+                                .LayoutParams.MATCH_PARENT,
+                        android.widget.FrameLayout
+                                .LayoutParams.MATCH_PARENT));
+        return root;
+    }
+
     private void mostraOverlay(ModalitaOverlay modo) {
-        Log.i(TAG,"OVERLAY_START modo="+modo);
+        mostraOverlay(modo, false);
+    }
+
+    private void mostraOverlay(ModalitaOverlay modo, boolean preservaStato) {
+        android.graphics.Rect areaPrima = grigliaAreaAttiva;
+        int livelloPrima = grigliaLivello;
+        grigliaHandler.removeCallbacks(grigliaAutoHide);
+        Log.i(TAG,"OVERLAY_START modo="+modo
+                +" preserva="+preservaStato
+                +" livello="+livelloPrima);
         chiudiOverlay();
+        if (preservaStato
+                && modo==ModalitaOverlay.GRIGLIA
+                && areaPrima != null) {
+            grigliaAreaAttiva = areaPrima;
+            grigliaLivello = livelloPrima;
+        }
 
         AccessibilityNodeInfo root=getRootInActiveWindow();
         if (root==null) {
@@ -1710,14 +2025,27 @@ public class LisaAccessibilityService extends AccessibilityService {
                 return;
             }
 
-            java.util.List<NodoCliccabile> nodi=
-                    enumeraNodiCliccabili();
+            if (modo==ModalitaOverlay.ETICHETTE) {
+                Log.w(TAG,"OVERLAY_ETICHETTE_NOT_IMPL");
+                return;
+            }
+
+            java.util.List<NodoCliccabile> nodi;
+            if (modo==ModalitaOverlay.GRIGLIA) {
+                nodi=new java.util.ArrayList<>();
+            } else {
+                nodi=enumeraNodiCliccabili();
+            }
 
             if (modo==ModalitaOverlay.NUMERI)
                 ultimaListaNumeri=new java.util.ArrayList<>(nodi);
 
-            android.widget.FrameLayout vista=
-                    creaVistaNumeri(wc,nodi);
+            android.widget.FrameLayout vista;
+            if (modo==ModalitaOverlay.GRIGLIA) {
+                vista=creaVistaGriglia(wc);
+            } else {
+                vista=creaVistaNumeri(wc,nodi);
+            }
 
             android.view.WindowManager.LayoutParams lp=
                     new android.view.WindowManager.LayoutParams(
@@ -1753,7 +2081,9 @@ public class LisaAccessibilityService extends AccessibilityService {
             grigliaModalita=modo;
             grigliaVisibile=true;
 
-            programmaAutoHideOverlay();
+            if (modo==ModalitaOverlay.NUMERI) {
+                programmaAutoHideOverlay();
+            }
 
             Log.i(TAG,"OVERLAY_WM_OK modo="+modo
                     +" count="+nodi.size());
@@ -1796,6 +2126,9 @@ public class LisaAccessibilityService extends AccessibilityService {
         grigliaModalita=null;
         grigliaVisibile=false;
         ultimaListaNumeri=null;
+        grigliaCelle.clear();
+        grigliaAreaAttiva=null;
+        grigliaLivello=0;
     }
 
     public void nascondiOverlay() {
@@ -1829,13 +2162,28 @@ public class LisaAccessibilityService extends AccessibilityService {
     private void invalidaOverlaySeNecessario(
             android.view.accessibility.AccessibilityEvent event) {
 
-        if (!grigliaVisibile || event==null) return;
+        if (event==null) return;
+
+        if (grigliaRiapriDopoTap) {
+            int t0 = event.getEventType();
+            if (t0 == android.view.accessibility.AccessibilityEvent
+                    .TYPE_WINDOW_STATE_CHANGED) {
+                String p0 = event.getPackageName() == null
+                        ? "" : event.getPackageName().toString();
+                if (!p0.equals(getPackageName())) {
+                    grigliaRiapriDopoTap = false;
+                    Log.i(TAG,"GRIGLIA_Riapri dopo tap pkg="+p0);
+                    mostraOverlay(ModalitaOverlay.GRIGLIA);
+                    return;
+                }
+            }
+        }
+
+        if (!grigliaVisibile) return;
 
         int tipo=event.getEventType();
         boolean cambio = tipo == android.view.accessibility
-                        .AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
-                || tipo == android.view.accessibility
-                        .AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED;
+                        .AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED;
 
         if (!cambio) return;
 
@@ -1848,6 +2196,15 @@ public class LisaAccessibilityService extends AccessibilityService {
                 || "com.google.android.inputmethod.latin".equals(pkg))
             return;
 
+        if (grigliaModalita==ModalitaOverlay.GRIGLIA) {
+            Log.i(TAG,"GRIGLIA_PERSIST pkg="+pkg+" tipo="+tipo);
+            return;
+        }
+        if (grigliaModalita==ModalitaOverlay.ETICHETTE) {
+            Log.i(TAG,"OVERLAY_AUTOHIDE pkg="+pkg+" tipo="+tipo);
+            nascondiOverlay();
+            return;
+        }
         Log.i(TAG,"OVERLAY_REATTACH pkg="+pkg+" tipo="+tipo);
         programmaRefreshOverlay();
     }

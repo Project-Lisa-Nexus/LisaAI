@@ -2831,6 +2831,37 @@ if (inAttesaVuoiFareAltro) {
         OVERLAY_CMDS.put("spegni numeri","nascondi_numeri");
         OVERLAY_CMDS.put("spegni i numeri","nascondi_numeri");
         OVERLAY_CMDS.put("nascondi indicatori","nascondi_numeri");
+        OVERLAY_CMDS.put("griglia","mostra_griglia");
+        OVERLAY_CMDS.put("mostra griglia","mostra_griglia");
+        OVERLAY_CMDS.put("mostra la griglia","mostra_griglia");
+        OVERLAY_CMDS.put("mostrami griglia","mostra_griglia");
+        OVERLAY_CMDS.put("mostrami la griglia","mostra_griglia");
+        OVERLAY_CMDS.put("fammi vedere griglia","mostra_griglia");
+        OVERLAY_CMDS.put("fammi vedere la griglia","mostra_griglia");
+        OVERLAY_CMDS.put("apri griglia","mostra_griglia");
+        OVERLAY_CMDS.put("apri la griglia","mostra_griglia");
+        OVERLAY_CMDS.put("attiva griglia","mostra_griglia");
+        OVERLAY_CMDS.put("attiva la griglia","mostra_griglia");
+        OVERLAY_CMDS.put("visualizza griglia","mostra_griglia");
+        OVERLAY_CMDS.put("visualizza la griglia","mostra_griglia");
+        OVERLAY_CMDS.put("nascondi griglia","nascondi_griglia");
+        OVERLAY_CMDS.put("nascondi la griglia","nascondi_griglia");
+        OVERLAY_CMDS.put("togli griglia","nascondi_griglia");
+        OVERLAY_CMDS.put("togli la griglia","nascondi_griglia");
+        OVERLAY_CMDS.put("chiudi griglia","nascondi_griglia");
+        OVERLAY_CMDS.put("chiudi la griglia","nascondi_griglia");
+        OVERLAY_CMDS.put("leva griglia","nascondi_griglia");
+        OVERLAY_CMDS.put("leva la griglia","nascondi_griglia");
+        OVERLAY_CMDS.put("disattiva griglia","nascondi_griglia");
+        OVERLAY_CMDS.put("spegni griglia","nascondi_griglia");
+        OVERLAY_CMDS.put("piu quadrati","piu_quadrati");
+        OVERLAY_CMDS.put("più quadrati","piu_quadrati");
+        OVERLAY_CMDS.put("aumenta quadrati","piu_quadrati");
+        OVERLAY_CMDS.put("aumenta i quadrati","piu_quadrati");
+        OVERLAY_CMDS.put("meno quadrati","meno_quadrati");
+        OVERLAY_CMDS.put("riduci quadrati","meno_quadrati");
+        OVERLAY_CMDS.put("riduci i quadrati","meno_quadrati");
+        OVERLAY_CMDS.put("diminuisci quadrati","meno_quadrati");
     }
 
     private boolean gestisciComandoOverlay(String frase) {
@@ -2841,19 +2872,38 @@ if (inAttesaVuoiFareAltro) {
                 .replaceAll("\\s+"," ")
                 .trim();
         java.util.regex.Matcher mn=java.util.regex.Pattern
-                .compile("^(?:(?:clicca|tocca|premi)\\s+)?(\\d{1,2})$")
+                .compile("^(?:(?:clicca|tocca|premi)(?:\\s+su)?\\s+)?(\\d{1,3})$")
                 .matcher(t);
-        if (mn.matches()
-                && (LisaAccessibilityService.numeriAttivi()
-                    || t.matches(
-                            "^(?:clicca|tocca|premi)\\s+\\d{1,2}$"))) {
+        if (mn.matches()) {
             int n=Integer.parseInt(mn.group(1));
-            boolean ok=LisaAccessibilityService.cliccaNumero(n);
-            rispostaComandoLocale=ok
-                    ? "Fatto."
-                    : "Il numero "+n+" non è disponibile.";
-            Log.i(TAG,"OVERLAY_CLICK n="+n+" ok="+ok);
-            return true;
+
+            if (LisaAccessibilityService.grigliaAttiva()) {
+                boolean conVerbo = t.matches(
+                        "^(?:clicca|tocca|premi)(?:\\s+su)?\\s+\\d{1,3}$");
+                int livelloPrima =
+                        LisaAccessibilityService.livelloGriglia();
+                boolean saraClick = conVerbo || livelloPrima >= 1;
+                boolean ok = LisaAccessibilityService
+                        .gestisciNumeroGriglia(n, conVerbo);
+                rispostaComandoLocale = !ok
+                        ? "Numero non disponibile."
+                        : saraClick ? "Fatto." : "Raffino.";
+                Log.i(TAG,"GRIGLIA_INTERAZIONE n="+n
+                        +" verbo="+conVerbo+" livello="+livelloPrima
+                        +" click="+saraClick+" ok="+ok);
+                return true;
+            }
+
+            if (LisaAccessibilityService.numeriAttivi()
+                    || t.matches(
+                            "^(?:clicca|tocca|premi)(?:\\s+su)?\\s+\\d{1,3}$")) {
+                boolean ok=LisaAccessibilityService.cliccaNumero(n);
+                rispostaComandoLocale=ok
+                        ? "Fatto."
+                        : "Il numero "+n+" non è disponibile.";
+                Log.i(TAG,"OVERLAY_CLICK n="+n+" ok="+ok);
+                return true;
+            }
         }
 
         String azione = OVERLAY_CMDS.get(t);

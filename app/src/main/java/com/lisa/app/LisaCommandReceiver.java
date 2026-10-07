@@ -255,6 +255,62 @@ public static final String ACTION_LISA_COMMAND = "com.lisa.app.COMMAND";
             return;
         }
 
+        if ("mostra_griglia".equals(azione)) {
+            LisaAccessibilityService servizio =
+                    LisaAccessibilityService.getInstance();
+            if (servizio == null) {
+                if (isOrderedBroadcast()) setResultCode(1);
+                setResultData("accessibilita_off");
+                return;
+            }
+            servizio.mostraGriglia();
+            if (isOrderedBroadcast()) setResultCode(0);
+            setResultData("mostra_griglia_eseguito");
+            return;
+        }
+
+        if ("nascondi_griglia".equals(azione)) {
+            LisaAccessibilityService servizio =
+                    LisaAccessibilityService.getInstance();
+            if (servizio == null) {
+                if (isOrderedBroadcast()) setResultCode(1);
+                setResultData("accessibilita_off");
+                return;
+            }
+            servizio.nascondiGriglia();
+            if (isOrderedBroadcast()) setResultCode(0);
+            setResultData("nascondi_griglia_eseguito");
+            return;
+        }
+
+        if ("piu_quadrati".equals(azione)) {
+            LisaAccessibilityService servizio =
+                    LisaAccessibilityService.getInstance();
+            if (servizio == null) {
+                if (isOrderedBroadcast()) setResultCode(1);
+                setResultData("accessibilita_off");
+                return;
+            }
+            servizio.cambiaDensitaGriglia(+1);
+            if (isOrderedBroadcast()) setResultCode(0);
+            setResultData("piu_quadrati_eseguito");
+            return;
+        }
+
+        if ("meno_quadrati".equals(azione)) {
+            LisaAccessibilityService servizio =
+                    LisaAccessibilityService.getInstance();
+            if (servizio == null) {
+                if (isOrderedBroadcast()) setResultCode(1);
+                setResultData("accessibilita_off");
+                return;
+            }
+            servizio.cambiaDensitaGriglia(-1);
+            if (isOrderedBroadcast()) setResultCode(0);
+            setResultData("meno_quadrati_eseguito");
+            return;
+        }
+
         if ("wake_test".equals(azione)) {
 
             android.content.Intent servizio =
