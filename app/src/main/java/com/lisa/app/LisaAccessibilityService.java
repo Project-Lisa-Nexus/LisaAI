@@ -32,6 +32,7 @@ public class LisaAccessibilityService extends AccessibilityService {
     private android.graphics.Rect grigliaAreaAttiva = null;
     private int grigliaLivello = 0;
     private volatile boolean grigliaRiapriDopoTap = false;
+    private volatile int grigliaTapGen = 0;
     private static android.view.WindowManager sWm = null;
     private static android.widget.FrameLayout sView = null;
 
@@ -1440,11 +1441,18 @@ public class LisaAccessibilityService extends AccessibilityService {
 
     public static boolean nascondiOverlaySeAttivo() {
         LisaAccessibilityService s=instance;
-        if (s==null || !s.grigliaVisibile || s.grigliaModalita==null)
-            return false;
+        if (s==null) return false;
+
+        boolean attivo =
+                s.grigliaVisibile
+                || s.grigliaRiapriDopoTap;
+
+        // Deve passare sempre da nascondiOverlay():
+        // cosi annulla anche un timeout di riapertura pendente.
         new android.os.Handler(android.os.Looper.getMainLooper())
                 .post(s::nascondiOverlay);
-        return true;
+
+        return attivo;
     }
 
     public static boolean cliccaNumero(int n) {
@@ -1738,6 +1746,19 @@ public class LisaAccessibilityService extends AccessibilityService {
     }
 
 
+    public static void resetGrigliaLivello0() {
+        LisaAccessibilityService s=instance;
+        if (s==null) return;
+        s.grigliaHandler.post(() -> {
+            s.grigliaAreaAttiva = null;
+            s.grigliaLivello = 0;
+            s.grigliaRiapriDopoTap = false;
+            s.grigliaTapGen++;
+            s.mostraOverlay(ModalitaOverlay.GRIGLIA);
+            Log.i(TAG,"GRIGLIA_RESET_BACK livello=0");
+        });
+    }
+
     public static int livelloGriglia() {
         LisaAccessibilityService s = instance;
         return s == null ? -1 : s.grigliaLivello;
@@ -1772,12 +1793,15 @@ public class LisaAccessibilityService extends AccessibilityService {
                     boolean ok = s.dispatchGesture(gd, null, null);
                     if (ok) {
                         s.grigliaRiapriDopoTap = true;
+                        final int gen = ++s.grigliaTapGen;
                         s.grigliaHandler.postDelayed(() -> {
+                            if (gen != s.grigliaTapGen) return;
                             if (s.grigliaRiapriDopoTap) {
-                                Log.i(TAG,"GRIGLIA_RIAPRI timeout");
                                 s.grigliaRiapriDopoTap = false;
+                                Log.i(TAG,"GRIGLIA_Riapri timeout-nochange");
+                                s.mostraOverlay(ModalitaOverlay.GRIGLIA);
                             }
-                        }, 3000L);
+                        }, 800L);
                     }
                     Log.i(TAG,"GRIGLIA_TAP_DISPATCH x=" + cx
                             + " y=" + cy + " ok=" + ok);
@@ -2354,6 +2378,9 @@ public class LisaAccessibilityService extends AccessibilityService {
     }
 
     public void nascondiOverlay() {
+        // Chiusura esplicita: invalida riaperture automatiche pendenti
+        grigliaRiapriDopoTap = false;
+        grigliaTapGen++;
         grigliaHandler.removeCallbacks(grigliaAutoHide);
         chiudiOverlay();
     }

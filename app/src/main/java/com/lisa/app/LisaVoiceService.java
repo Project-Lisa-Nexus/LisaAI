@@ -1689,6 +1689,9 @@ if (servizio.recognizer != null) {
                 .replaceAll("\\s+", " ")
                 .trim();
 
+        // Normalizza verbi (accendi->apri, spegni->chiudi, ecc.)
+        testo = LisaVerbNormalizer.normalizza(testo);
+
         // STOP ASSOLUTO: priorità massima.
         if (richiestaStop(testo)) {
             String risposta = testo.contains("buonanotte")
@@ -2861,6 +2864,80 @@ if (inAttesaVuoiFareAltro) {
         }
     }
 
+    private static final java.util.Map<String,Integer> PAROLA_NUMERO;
+    static {
+        java.util.Map<String,Integer> m=new java.util.HashMap<>();
+        m.put("zero",0);
+        m.put("uno",1); m.put("una",1);
+        m.put("due",2);
+        m.put("tre",3);
+        m.put("quattro",4);
+        m.put("cinque",5);
+        m.put("sei",6);
+        m.put("sette",7);
+        m.put("otto",8);
+        m.put("nove",9);
+        m.put("dieci",10);
+        m.put("undici",11);
+        m.put("dodici",12);
+        m.put("tredici",13);
+        m.put("quattordici",14);
+        m.put("quindici",15);
+        m.put("sedici",16);
+        m.put("diciassette",17);
+        m.put("diciotto",18);
+        m.put("diciannove",19);
+        m.put("venti",20);
+        m.put("ventuno",21); m.put("ventidue",22);
+        m.put("ventitre",23); m.put("ventitre",23);
+        m.put("ventiquattro",24); m.put("venticinque",25);
+        m.put("ventisei",26); m.put("ventisette",27);
+        m.put("ventotto",28); m.put("ventinove",29);
+        m.put("trenta",30);
+        m.put("trentuno",31); m.put("trentadue",32);
+        m.put("trentatre",33);
+        m.put("trentaquattro",34); m.put("trentacinque",35);
+        m.put("trentasei",36); m.put("trentasette",37);
+        m.put("trentotto",38); m.put("trentanove",39);
+        m.put("quaranta",40);
+        m.put("quarantuno",41); m.put("quarantadue",42);
+        m.put("quarantatre",43);
+        m.put("quarantaquattro",44); m.put("quarantacinque",45);
+        m.put("quarantasei",46); m.put("quarantasette",47);
+        m.put("quarantotto",48); m.put("quarantanove",49);
+        m.put("cinquanta",50);
+        m.put("cinquantuno",51); m.put("cinquantadue",52);
+        m.put("cinquantatre",53);
+        m.put("cinquantaquattro",54); m.put("cinquantacinque",55);
+        m.put("cinquantasei",56); m.put("cinquantasette",57);
+        m.put("cinquantotto",58); m.put("cinquantanove",59);
+        m.put("sessanta",60);
+        m.put("sessantuno",61); m.put("sessantadue",62);
+        m.put("sessantatre",63);
+        m.put("sessantaquattro",64); m.put("sessantacinque",65);
+        m.put("sessantasei",66); m.put("sessantasette",67);
+        m.put("sessantotto",68); m.put("sessantanove",69);
+        m.put("settanta",70);
+        m.put("settantuno",71); m.put("settantadue",72);
+        m.put("settantatre",73);
+        m.put("settantaquattro",74); m.put("settantacinque",75);
+        m.put("settantasei",76); m.put("settantasette",77);
+        m.put("settantotto",78); m.put("settantanove",79);
+        m.put("ottanta",80);
+        m.put("ottantuno",81); m.put("ottantadue",82);
+        m.put("ottantatre",83);
+        m.put("ottantaquattro",84); m.put("ottantacinque",85);
+        m.put("ottantasei",86); m.put("ottantasette",87);
+        m.put("ottantotto",88); m.put("ottantanove",89);
+        m.put("novanta",90);
+        m.put("novantuno",91); m.put("novantadue",92);
+        m.put("novantatre",93);
+        m.put("novantaquattro",94); m.put("novantacinque",95);
+        m.put("novantasei",96); m.put("novantasette",97);
+        m.put("novantotto",98); m.put("novantanove",99);
+        PAROLA_NUMERO=java.util.Collections.unmodifiableMap(m);
+    }
+
     private static final java.util.HashMap<String,String> OVERLAY_CMDS =
             new java.util.HashMap<>();
     static {
@@ -2956,6 +3033,21 @@ if (inAttesaVuoiFareAltro) {
                 .replaceAll("[,;:!?.]+"," ")
                 .replaceAll("\\s+"," ")
                 .trim();
+        // Traduzione parola-numero (ASR puo sentire "cinque" invece di "5")
+        java.util.regex.Matcher mw=java.util.regex.Pattern
+                .compile("^(?:(clicca|tocca|premi)(?:\\s+su)?\\s+)?([a-z]+)$")
+                .matcher(t);
+        if (mw.matches()) {
+            String verbo=mw.group(1);
+            String parola=mw.group(2);
+            Integer num=PAROLA_NUMERO.get(
+                    parola.toLowerCase(java.util.Locale.ITALIAN));
+            if (num!=null) {
+                t=(verbo!=null ? verbo+" " : "")+num;
+                Log.i(TAG,"PAROLA_NUMERO "+parola+" -> "+num);
+            }
+        }
+
         java.util.regex.Matcher mn=java.util.regex.Pattern
                 .compile("^(?:(?:clicca|tocca|premi)(?:\\s+su)?\\s+)?(\\d{1,3})$")
                 .matcher(t);
@@ -4148,6 +4240,14 @@ if (inAttesaVuoiFareAltro) {
         if (testo.equals("indietro")
                 || testo.equals("torna indietro")
                 || testo.equals("vai indietro")) {
+
+            // Se sono dentro il 3x3, "indietro" torna alla griglia base
+            if (LisaAccessibilityService.grigliaAttiva()
+                    && LisaAccessibilityService.livelloGriglia() > 0) {
+                LisaAccessibilityService.resetGrigliaLivello0();
+                rispostaComandoLocale = "Griglia base.";
+                return true;
+            }
 
             return servizio.performGlobalAction(
                     android.accessibilityservice
