@@ -207,6 +207,19 @@ if (servizio.recognizer != null) {
     private android.media.AudioManager audioManager;
     private android.media.AudioFocusRequest focusRequest;
     private boolean focusSessioneAscolto = false;
+    private volatile boolean ascoltoSospesoPerScreenOff = false;
+    private android.content.BroadcastReceiver screenReceiver = null;
+
+    private boolean schermoInterattivo() {
+        try {
+            android.os.PowerManager pm =
+                    (android.os.PowerManager)
+                            getSystemService(POWER_SERVICE);
+            return pm != null && pm.isInteractive();
+        } catch (Throwable t) {
+            return true;
+        }
+    }
 
     private void chiediAudioFocus(int gain) {
         if (audioManager == null)
@@ -264,7 +277,57 @@ if (servizio.recognizer != null) {
         super.onCreate();
         instance = this;
         creaCanaleNotifica();
+        registraScreenReceiver();
         Log.i(TAG, "Lisa Voice Session creata");
+    }
+
+    private void registraScreenReceiver() {
+        if (screenReceiver != null) return;
+        screenReceiver = new android.content.BroadcastReceiver() {
+            @Override
+            public void onReceive(android.content.Context ctx,
+                    android.content.Intent intent) {
+                if (intent == null) return;
+                String a = intent.getAction();
+                if (android.content.Intent.ACTION_SCREEN_OFF.equals(a)) {
+                    onScreenOff();
+                } else if (android.content.Intent.ACTION_SCREEN_ON.equals(a)) {
+                    onScreenOn();
+                }
+            }
+        };
+        android.content.IntentFilter f =
+                new android.content.IntentFilter();
+        f.addAction(android.content.Intent.ACTION_SCREEN_OFF);
+        f.addAction(android.content.Intent.ACTION_SCREEN_ON);
+        registerReceiver(screenReceiver, f);
+        Log.i(TAG, "SCREEN_RECEIVER registrato");
+    }
+
+    private void onScreenOff() {
+        if (!sessioneAttiva) return;
+        Log.i(TAG, "SCREEN_OFF: libero microfono per Ehi Google");
+        ascoltoSospesoPerScreenOff = true;
+        try {
+            fermaPipeAttivo();
+        } catch (Throwable t) {
+            Log.e(TAG, "SCREEN_OFF fermaPipe KO", t);
+        }
+    }
+
+    private void onScreenOn() {
+        if (!ascoltoSospesoPerScreenOff) return;
+        if (!sessioneAttiva) return;
+        if (whisperLocaleAttivo) return;
+        ascoltoSospesoPerScreenOff = false;
+        Log.i(TAG, "SCREEN_ON: riprendo ascolto Lisa via programmaAscolto");
+        handler.postDelayed(() -> {
+            try {
+                programmaAscolto(0);
+            } catch (Throwable t) {
+                Log.e(TAG, "SCREEN_ON programmaAscolto KO", t);
+            }
+        }, 400);
     }
 
     @Override
@@ -1211,6 +1274,12 @@ if (servizio.recognizer != null) {
     private void avviaPipeNormale() {
 
         if (!sessioneAttiva || whisperLocaleAttivo) {
+            return;
+        }
+
+        if (!schermoInterattivo()) {
+            ascoltoSospesoPerScreenOff = true;
+            Log.i(TAG, "PIPE_SKIP schermo non interattivo");
             return;
         }
 
@@ -4726,6 +4795,12 @@ if (inAttesaVuoiFareAltro) {
 
     @Override
     public void onDestroy() {
+        if (screenReceiver != null) {
+            try { unregisterReceiver(screenReceiver); }
+            catch (Throwable ignored) {}
+            screenReceiver = null;
+        }
+
         if (instance == this) {
             instance = null;
         }
