@@ -163,7 +163,8 @@ if (servizio.recognizer != null) {
 
             if (!servizio.focusSessioneAscolto) {
                 servizio.chiediAudioFocus(
-                        android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+                        android.media.AudioManager
+                                .AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
                 );
             }
 
@@ -231,13 +232,10 @@ if (servizio.recognizer != null) {
     }
 
     private synchronized void attenuaMusicaPerAscolto() {
-        if (focusSessioneAscolto) return;
-
-        focusSessioneAscolto = true;
-
-        chiediAudioFocus(
-                android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
-        );
+        // NO-OP: Lisa in ascolto NON tocca l'audio focus.
+        // La musica resta al volume originale.
+        // Il focus e richiesto solo per il TTS breve (sospendiPerTts).
+        focusSessioneAscolto = false;
     }
 
     private synchronized void ripristinaMusicaDopoAscolto() {
