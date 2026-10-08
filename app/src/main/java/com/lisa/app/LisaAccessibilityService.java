@@ -1759,6 +1759,48 @@ public class LisaAccessibilityService extends AccessibilityService {
         });
     }
 
+    public static void salvaStatoOverlayCorrente() {
+        LisaAccessibilityService s=instance;
+        String stato="nessuno";
+        if (s!=null && s.grigliaVisibile) {
+            if (s.grigliaModalita==ModalitaOverlay.GRIGLIA) {
+                stato="griglia";
+            } else if (s.grigliaModalita==ModalitaOverlay.NUMERI) {
+                int modo=s.getSharedPreferences("lisa_ui", MODE_PRIVATE)
+                        .getInt("overlay_modo", 0);
+                stato = (modo==1) ? "etichette" : "numeri";
+            }
+        }
+        if (s!=null) {
+            s.getSharedPreferences("lisa_ui", MODE_PRIVATE)
+                    .edit().putString("ultimo_overlay", stato).apply();
+        }
+        Log.i(TAG,"OVERLAY_SALVATO "+stato);
+    }
+
+    public static void riapriUltimoOverlay() {
+        LisaAccessibilityService s=instance;
+        if (s==null) return;
+        String u=s.getSharedPreferences("lisa_ui", MODE_PRIVATE)
+                .getString("ultimo_overlay", "nessuno");
+        if (u==null || u.equals("nessuno") || u.isEmpty()) return;
+        final String nome=u;
+        s.grigliaHandler.post(() -> {
+            if (nome.equals("griglia")) {
+                s.mostraOverlay(ModalitaOverlay.GRIGLIA);
+            } else if (nome.equals("etichette")) {
+                s.getSharedPreferences("lisa_ui", MODE_PRIVATE)
+                        .edit().putInt("overlay_modo", 1).apply();
+                s.mostraOverlay(ModalitaOverlay.NUMERI);
+            } else {
+                s.getSharedPreferences("lisa_ui", MODE_PRIVATE)
+                        .edit().putInt("overlay_modo", 0).apply();
+                s.mostraOverlay(ModalitaOverlay.NUMERI);
+            }
+            Log.i(TAG,"OVERLAY_RIPRISTINO "+nome);
+        });
+    }
+
     public static int livelloGriglia() {
         LisaAccessibilityService s = instance;
         return s == null ? -1 : s.grigliaLivello;

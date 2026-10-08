@@ -305,9 +305,13 @@ if (servizio.recognizer != null) {
     }
 
     private void onScreenOff() {
-        if (!sessioneAttiva) return;
-        Log.i(TAG, "SCREEN_OFF: libero microfono per Ehi Google");
+        LisaAccessibilityService.salvaStatoOverlayCorrente();
         ascoltoSospesoPerScreenOff = true;
+        if (!sessioneAttiva) {
+            Log.i(TAG, "SCREEN_OFF: Lisa era READY, niente da liberare");
+            return;
+        }
+        Log.i(TAG, "SCREEN_OFF: libero microfono per Ehi Google");
         try {
             fermaPipeAttivo();
         } catch (Throwable t) {
@@ -317,15 +321,24 @@ if (servizio.recognizer != null) {
 
     private void onScreenOn() {
         if (!ascoltoSospesoPerScreenOff) return;
-        if (!sessioneAttiva) return;
         if (whisperLocaleAttivo) return;
+        if (!accessibilitaLisaAttiva()) {
+            Log.i(TAG, "SCREEN_ON: Accessibility Lisa OFF, non riparto");
+            ascoltoSospesoPerScreenOff = false;
+            return;
+        }
         ascoltoSospesoPerScreenOff = false;
-        Log.i(TAG, "SCREEN_ON: riprendo ascolto Lisa via programmaAscolto");
+        Log.i(TAG, "SCREEN_ON: riprendo ascolto Lisa (sessione="+sessioneAttiva+")");
         handler.postDelayed(() -> {
             try {
-                programmaAscolto(0);
+                if (sessioneAttiva) {
+                    programmaAscolto(0);
+                } else {
+                    avviaAscoltoInterno();
+                }
+                LisaAccessibilityService.riapriUltimoOverlay();
             } catch (Throwable t) {
-                Log.e(TAG, "SCREEN_ON programmaAscolto KO", t);
+                Log.e(TAG, "SCREEN_ON ripresa KO", t);
             }
         }, 400);
     }
