@@ -2412,10 +2412,13 @@ public class LisaAccessibilityService extends AccessibilityService {
         String pkg=event.getPackageName()==null
                 ? "" : event.getPackageName().toString();
 
-        // Ignora eventi del proprio overlay e dell'IME
+        // Ignora eventi del proprio overlay, IME e popup di sistema
         if (pkg.equals(getPackageName())
                 || "com.android.systemui".equals(pkg)
-                || "com.google.android.inputmethod.latin".equals(pkg))
+                || "com.google.android.inputmethod.latin".equals(pkg)
+                || "com.oplus.screenshot".equals(pkg)
+                || "com.mpointer.touchpad.bigphones".equals(pkg)
+                || "com.oplus.screenrecorder".equals(pkg))
             return;
 
         if (grigliaModalita==ModalitaOverlay.GRIGLIA) {
