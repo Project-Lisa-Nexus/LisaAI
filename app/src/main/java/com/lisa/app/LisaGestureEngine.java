@@ -175,7 +175,12 @@ public final class LisaGestureEngine {
                     handler.post(this::eseguiProssima);
                     return;
                 }
-                if (modo != ModoScroll.FISICO) {
+                boolean keyguardLocked = isKeyguardLocked();
+                if (keyguardLocked) {
+                    Log.i(TAG, "KEYGUARD_FORCE_FISICO dir=("
+                            + dxContenuto + "," + dyContenuto + ")");
+                }
+                if (!keyguardLocked && modo != ModoScroll.FISICO) {
                     if (scrollSemantico(dxContenuto, dyContenuto, origine)) {
                         safe(cb, Risultato.SUCCESS);
                         handler.post(LisaGestureEngine.this::eseguiProssima);
@@ -494,6 +499,18 @@ public final class LisaGestureEngine {
             r.set(0, 0, dm.widthPixels, dm.heightPixels);
         }
         return r;
+    }
+
+    public boolean isKeyguardLocked() {
+        try {
+            android.app.KeyguardManager km =
+                    (android.app.KeyguardManager) service.getSystemService(
+                            android.content.Context.KEYGUARD_SERVICE);
+            return km != null && km.isKeyguardLocked();
+        } catch (Throwable t) {
+            Log.e(TAG, "KEYGUARD_CHECK_FAIL", t);
+            return false;
+        }
     }
 
     private int[] px(GesturePoint p) {

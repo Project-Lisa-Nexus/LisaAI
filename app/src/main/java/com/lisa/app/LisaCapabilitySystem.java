@@ -198,14 +198,31 @@ public final class LisaCapabilitySystem {
         LisaGestureEngine eng = LisaGestureEngine.get();
         if (eng == null) return unsupported(cb, "engine_null");
 
-        int distanza = 800; // default: ~1/3 schermo su density tipica
+        int distanza = 0;
         if (b.params != null) {
             int d = b.params.getInt(PARAM_DISTANCE, 0);
             if (d > 0) distanza = d;
         }
+        LisaAccessibilityService svc = LisaAccessibilityService.getInstance();
+        if (svc == null) return unsupported(cb, "accessibility_off");
+        android.util.DisplayMetrics dm = svc.getResources().getDisplayMetrics();
+        LisaGestureEngine.GesturePoint origine = b.targetPoint;
+        if (Math.abs(dirY) >= Math.abs(dirX)) {
+            if (distanza <= 0) distanza = Math.round(dm.heightPixels * 0.55f);
+            if (origine == null) {
+                float py = (dirY > 0) ? 0.78f : 0.22f;
+                origine = LisaGestureEngine.GesturePoint.norm(0.50f, py);
+            }
+        } else {
+            if (distanza <= 0) distanza = Math.round(dm.widthPixels * 0.55f);
+            if (origine == null) {
+                float px = (dirX > 0) ? 0.78f : 0.22f;
+                origine = LisaGestureEngine.GesturePoint.norm(px, 0.50f);
+            }
+        }
 
         eng.scroll(dirX, dirY, distanza,
-                b.targetPoint,
+                origine,
                 LisaGestureEngine.ModoScroll.AUTO,
                 r -> {
                     if (cb != null) {

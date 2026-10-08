@@ -3127,6 +3127,27 @@ if (inAttesaVuoiFareAltro) {
         return true;
     }
 
+    // 🟢 Adapter voce → LisaCapabilitySystem (bus azioni canoniche)
+    private void eseguiCapabilityVoce(LisaCapabilitySystem.Cap cap) {
+        try {
+            LisaCapabilitySystem.ActionBinding binding =
+                    new LisaCapabilitySystem.ActionBinding.Builder(
+                            cap,
+                            LisaCapabilitySystem.Source.VOICE
+                    ).build();
+            LisaCapabilitySystem.ActionResult immediato =
+                    LisaCapabilitySystem.esegui(binding,
+                            (result, detail) -> Log.i(TAG,
+                                    "CAP_VOICE " + cap
+                                    + " result=" + result
+                                    + " detail=" + detail));
+            Log.i(TAG, "CAP_VOICE_DISPATCH " + cap
+                    + " immediate=" + immediato);
+        } catch (Throwable t) {
+            Log.e(TAG, "capability_voce_fail " + cap, t);
+        }
+    }
+
     private boolean eseguiLocaleRapido(String frase) {
         ultimaAzioneUiGenerica = false;
 
@@ -4222,19 +4243,23 @@ if (inAttesaVuoiFareAltro) {
             }
         }
 
-        // SCROLL VOCALE VERTICALE
+        // 🟢 SCROLL VOCALE VERTICALE (via bus capability)
         if (testo.equals("scorri in basso")
                 || testo.equals("scorri giù")
                 || testo.equals("scorri giu")
                 || testo.equals("vai giù")
                 || testo.equals("vai giu")) {
-            return servizio.scorriAvanti();
+            eseguiCapabilityVoce(
+                    LisaCapabilitySystem.Cap.GESTURE_SCROLL_DOWN);
+            return true;
         }
 
         if (testo.equals("scorri in alto")
                 || testo.equals("scorri su")
                 || testo.equals("vai su")) {
-            return servizio.scorriIndietro();
+            eseguiCapabilityVoce(
+                    LisaCapabilitySystem.Cap.GESTURE_SCROLL_UP);
+            return true;
         }
 
         if (testo.equals("recenti") || testo.equals("app recenti") || testo.equals("mostra recenti")) return servizio.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS);
