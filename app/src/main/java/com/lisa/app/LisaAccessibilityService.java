@@ -127,6 +127,8 @@ public class LisaAccessibilityService extends AccessibilityService {
     protected void onServiceConnected() {
         super.onServiceConnected();
         instance = this;
+        // 🟢 Aggancio motore gesture unico
+        LisaGestureEngine.init(this);
         Log.d(TAG, "Servizio accessibilita connesso");
 
         mostraStatoLisa(false);
@@ -2797,6 +2799,9 @@ public class LisaAccessibilityService extends AccessibilityService {
 
     @Override
     public void onDestroy() {
+
+        // 🟢 Rilascio motore gesture prima di distruggere il servizio
+        LisaGestureEngine.release();
 
         nascondiGrigliaNumeri();
 

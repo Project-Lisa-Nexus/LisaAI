@@ -305,6 +305,9 @@ if (servizio.recognizer != null) {
     }
 
     private void onScreenOff() {
+        LisaGestureEngine eng = LisaGestureEngine.get();
+        if (eng != null) eng.cancelAll();
+
         LisaAccessibilityService.salvaStatoOverlayCorrente();
         ascoltoSospesoPerScreenOff = true;
         if (!sessioneAttiva) {
