@@ -380,6 +380,8 @@ public final class LisaGestureEngine {
         } else {
             x2 = cx + (dxC > 0 ? -distanzaPx : distanzaPx);
         }
+        x2 = Math.max(b.left, Math.min(b.right - 1, x2));
+        y2 = Math.max(b.top, Math.min(b.bottom - 1, y2));
         Path path = new Path();
         path.moveTo(cx, cy);
         path.lineTo(x2, y2);

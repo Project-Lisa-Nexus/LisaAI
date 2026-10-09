@@ -208,15 +208,15 @@ public final class LisaCapabilitySystem {
         android.util.DisplayMetrics dm = svc.getResources().getDisplayMetrics();
         LisaGestureEngine.GesturePoint origine = b.targetPoint;
         if (Math.abs(dirY) >= Math.abs(dirX)) {
-            if (distanza <= 0) distanza = Math.round(dm.heightPixels * 0.55f);
+            if (distanza <= 0) distanza = Math.round(dm.heightPixels * 0.50f);
             if (origine == null) {
-                float py = (dirY > 0) ? 0.78f : 0.22f;
+                float py = (dirY > 0) ? 0.75f : 0.25f;
                 origine = LisaGestureEngine.GesturePoint.norm(0.50f, py);
             }
         } else {
-            if (distanza <= 0) distanza = Math.round(dm.widthPixels * 0.55f);
+            if (distanza <= 0) distanza = Math.round(dm.widthPixels * 0.50f);
             if (origine == null) {
-                float px = (dirX > 0) ? 0.78f : 0.22f;
+                float px = (dirX > 0) ? 0.75f : 0.25f;
                 origine = LisaGestureEngine.GesturePoint.norm(px, 0.50f);
             }
         }
