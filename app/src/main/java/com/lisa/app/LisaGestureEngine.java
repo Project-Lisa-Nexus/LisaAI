@@ -353,7 +353,8 @@ public final class LisaGestureEngine {
         try {
             AccessibilityNodeInfo root = service.getRootInActiveWindow();
             if (root == null) return false;
-            AccessibilityNodeInfo target = trovaScrollabilePerOrigine(root, origine);
+            AccessibilityNodeInfo target = trovaScrollabilePerOrigine(
+                    root, origine, dxC, dyC);
             if (target == null) return false;
             int azione = scegliAzioneScroll(target, dxC, dyC);
             if (azione == 0) return false;
@@ -390,18 +391,66 @@ public final class LisaGestureEngine {
     }
 
     private AccessibilityNodeInfo trovaScrollabilePerOrigine(
-            AccessibilityNodeInfo root, GesturePoint origine) {
+            AccessibilityNodeInfo root, GesturePoint origine, int dx, int dy) {
+        boolean verticale = Math.abs(dy) >= Math.abs(dx);
+        java.util.List<AccessibilityNodeInfo> candidati =
+                new java.util.ArrayList<>();
+        raccogliScrollabili(root, candidati, 0);
+
+        AccessibilityNodeInfo best = null;
+        long bestArea = -1;
+        int cx = -1, cy = -1;
         if (origine != null) {
             int[] p = px(origine);
-            AccessibilityNodeInfo sotto = nodoInPunto(root, p[0], p[1], 0);
-            AccessibilityNodeInfo s = risaliScrollabile(sotto, 8);
-            if (s != null) return s;
+            cx = p[0]; cy = p[1];
         }
-        AccessibilityNodeInfo focus = root.findFocus(
-                AccessibilityNodeInfo.FOCUS_INPUT);
-        AccessibilityNodeInfo s2 = risaliScrollabile(focus, 8);
-        if (s2 != null) return s2;
-        return trovaScrollabile(root, 0);
+
+        for (AccessibilityNodeInfo n : candidati) {
+            if (!haAsseCorretto(n, verticale, dx, dy)) continue;
+            Rect r = new Rect();
+            n.getBoundsInScreen(r);
+            long area = (long) r.width() * r.height();
+            // Bonus se contiene il punto origine
+            if (cx >= 0 && r.contains(cx, cy)) area += 10_000_000L;
+            if (area > bestArea) {
+                bestArea = area;
+                best = n;
+            }
+        }
+        return best;
+    }
+
+    private boolean haAsseCorretto(AccessibilityNodeInfo n,
+            boolean verticale, int dx, int dy) {
+        java.util.List<AccessibilityNodeInfo.AccessibilityAction> acts =
+                n.getActionList();
+        if (acts == null) return false;
+        int up = AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_UP.getId();
+        int down = AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_DOWN.getId();
+        int left = AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_LEFT.getId();
+        int right = AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_RIGHT.getId();
+        for (AccessibilityNodeInfo.AccessibilityAction a : acts) {
+            if (a == null) continue;
+            int id = a.getId();
+            if (verticale) {
+                if (dy > 0 && id == down) return true;
+                if (dy < 0 && id == up) return true;
+            } else {
+                if (dx > 0 && id == right) return true;
+                if (dx < 0 && id == left) return true;
+            }
+        }
+        return false;
+    }
+
+    private void raccogliScrollabili(AccessibilityNodeInfo n,
+            java.util.List<AccessibilityNodeInfo> out, int lvl) {
+        if (n == null || lvl > 8) return;
+        if (n.isScrollable()) out.add(n);
+        int figli = Math.min(n.getChildCount(), 20);
+        for (int i = 0; i < figli; i++) {
+            raccogliScrollabili(n.getChild(i), out, lvl + 1);
+        }
     }
 
     private AccessibilityNodeInfo nodoInPunto(AccessibilityNodeInfo n,
@@ -449,7 +498,7 @@ public final class LisaGestureEngine {
                 .ACTION_SCROLL_LEFT.getId();
         int scrollRight = AccessibilityNodeInfo.AccessibilityAction
                 .ACTION_SCROLL_RIGHT.getId();
-        boolean up=false, down=false, left=false, right=false, fwd=false, bwd=false;
+        boolean up=false, down=false, left=false, right=false;
         if (acts != null) {
             for (AccessibilityNodeInfo.AccessibilityAction a : acts) {
                 if (a == null) continue;
@@ -458,28 +507,17 @@ public final class LisaGestureEngine {
                 else if (id == scrollDown) down = true;
                 else if (id == scrollLeft) left = true;
                 else if (id == scrollRight) right = true;
-                else if (id == AccessibilityNodeInfo.ACTION_SCROLL_FORWARD) fwd = true;
-                else if (id == AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD) bwd = true;
             }
         }
+        // Solo azioni direzionali esplicite.
+        // FORWARD/BACKWARD non definiscono l'asse: esclusi.
         if (Math.abs(dy) >= Math.abs(dx)) {
-            if (dy > 0) {
-                if (down) return scrollDown;
-                if (fwd) return AccessibilityNodeInfo.ACTION_SCROLL_FORWARD;
-            } else {
-                if (up) return scrollUp;
-                if (bwd) return AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD;
-            }
+            if (dy > 0) return down ? scrollDown : 0;
+            else return up ? scrollUp : 0;
         } else {
-            if (dx > 0) {
-                if (right) return scrollRight;
-                if (fwd) return AccessibilityNodeInfo.ACTION_SCROLL_FORWARD;
-            } else {
-                if (left) return scrollLeft;
-                if (bwd) return AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD;
-            }
+            if (dx > 0) return right ? scrollRight : 0;
+            else return left ? scrollLeft : 0;
         }
-        return 0;
     }
 
     private Rect boundsSchermo() {
