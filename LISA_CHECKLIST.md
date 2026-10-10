@@ -64,3 +64,18 @@ TTS Lisa piu basso della musica. Deve stare a volume normale.
 
 ## FEEDBACK 12 (bug aperto)
 TTS Lisa piu basso della musica.
+
+## FASE B - MAPPA (chiusa con riserva, 10/10/2026)
+- Mappa in LISA_MAPPA_V2.md (1489a87)
+- Comandi locali (home, basta, volume) gestiti da Android: un gradino per comando visto nelle prove
+- Doppia esecuzione LisaOS/Android: NON VERIFICATA, da chiudere in FASE C con test singolo
+- Eccezione E/BroadcastReceiver 18:15: da analizzare
+- LisaOS collegato ai comandi AI/complessi; percorso completo ancora da verificare
+
+## FASE C - IN CORSO
+C0. Test singolo doppia esecuzione (abbassa volume, una volta, log pulito)
+C1. Completare LisaCapabilitySystem (case swipe/tap/long/pinch)
+C2. Migrare 3 dispatchGesture da LisaAccessibilityService a LisaGestureEngine
+C3. Collegare o archiviare agent_loop.py
+C4. Valutare ruoli delle due memorie prima di eventuali modifiche
+C5. Pad Lisa, hotspot, context menu, dettatura
