@@ -129,9 +129,6 @@
         </receiver>
 
     
-        <activity
-            android:name=".LisaVoiceCommandActivity"
-            android:exported="false" />
 
     
         <!-- LISA ASSISTANT ANDROID -->
