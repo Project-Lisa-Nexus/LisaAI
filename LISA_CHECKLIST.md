@@ -44,3 +44,23 @@ Legenda: [OK] testato · [WIP] in corso · [NO] congelato · [TODO] coda
 - Build + test hardware prima del commit
 - 1 ora senza soluzione -> congelare
 - Non toccare zone verdi senza bug reale
+
+## FASE A — PULIZIA (chiusa 10/10/2026)
+- SshTest rimosso (381752a)
+- LisaVoiceCommandActivity rimossa (381752a)
+- LocalSherpaAsrProbeManager rimosso (3697961)
+- Archiviati: open-jarvis, droidrun, Open-AutoGLM, backup, log WhatsApp
+- Test utente OK su WhatsApp, griglia, numeri, etichette, scroll, volume, torcia, indietro, home, basta, lock screen
+
+## FEEDBACK #12 (bug aperto)
+TTS Lisa piu basso della musica. Deve stare a volume normale.
+
+## FASE A - PULIZIA (chiusa 10/10/2026, test parziali)
+- SshTest rimosso (381752a)
+- LisaVoiceCommandActivity rimossa (381752a, commit non atomico)
+- LocalSherpaAsrProbeManager rimosso (3697961)
+- Archiviati: open-jarvis, droidrun, Open-AutoGLM, backup, log WhatsApp
+- Test manuali utente: WhatsApp, griglia, numeri, etichette, scroll, volume, torcia, indietro, home, basta, lock screen. NON ancora ripetuti in sequenza (criterio: 15 comandi consecutivi)
+
+## FEEDBACK 12 (bug aperto)
+TTS Lisa piu basso della musica.
