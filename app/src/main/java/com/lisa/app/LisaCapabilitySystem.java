@@ -154,6 +154,14 @@ public final class LisaCapabilitySystem {
                 case GESTURE_SCROLL_RIGHT:
                     return scroll(+1, 0, b, cb);
 
+                // --- GESTURE TAP (targetPoint obbligatorio) ---
+                case GESTURE_TAP:
+                    return tapTarget(b, cb);
+                case GESTURE_DOUBLE_TAP:
+                    return doubleTapTarget(b, cb);
+                case GESTURE_LONG_PRESS:
+                    return longPressTarget(b, cb);
+
                 // --- GESTURE CANCEL ---
                 case GESTURE_CANCEL: {
                     LisaGestureEngine eng = LisaGestureEngine.get();
@@ -234,6 +242,42 @@ public final class LisaCapabilitySystem {
                     }
                 });
         return ActionResult.IN_PROGRESS;
+    }
+
+    private static ActionResult tapTarget(ActionBinding b, Callback cb) {
+        LisaGestureEngine eng = LisaGestureEngine.get();
+        if (eng == null) return unsupported(cb, "engine_null");
+        if (b.targetPoint == null) return unsupported(cb, "no_target");
+        eng.tap(b.targetPoint, r -> {
+            if (cb != null) cb.onResult(mapRis(r), "tap_gesto_consegnato");
+        });
+        return ActionResult.IN_PROGRESS;
+    }
+
+    private static ActionResult doubleTapTarget(ActionBinding b, Callback cb) {
+        LisaGestureEngine eng = LisaGestureEngine.get();
+        if (eng == null) return unsupported(cb, "engine_null");
+        if (b.targetPoint == null) return unsupported(cb, "no_target");
+        eng.doubleTap(b.targetPoint, r -> {
+            if (cb != null) cb.onResult(mapRis(r), "doubleTap_gesto_consegnato");
+        });
+        return ActionResult.IN_PROGRESS;
+    }
+
+    private static ActionResult longPressTarget(ActionBinding b, Callback cb) {
+        LisaGestureEngine eng = LisaGestureEngine.get();
+        if (eng == null) return unsupported(cb, "engine_null");
+        if (b.targetPoint == null) return unsupported(cb, "no_target");
+        eng.longPress(b.targetPoint, 600L, r -> {
+            if (cb != null) cb.onResult(mapRis(r), "longPress_gesto_consegnato");
+        });
+        return ActionResult.IN_PROGRESS;
+    }
+
+    private static ActionResult mapRis(LisaGestureEngine.Risultato r) {
+        if (r == LisaGestureEngine.Risultato.SUCCESS) return ActionResult.SUCCESS;
+        if (r == LisaGestureEngine.Risultato.CANCELLED) return ActionResult.CANCELLED;
+        return ActionResult.FAILED;
     }
 
     private static ActionResult unsupported(Callback cb, String detail) {
