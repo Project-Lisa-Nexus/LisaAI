@@ -9,6 +9,8 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Switch;
+import android.widget.RadioGroup;
+import android.widget.RadioButton;
 
 public class LisaSettingsActivity extends Activity {
 
@@ -71,6 +73,7 @@ public class LisaSettingsActivity extends Activity {
 
         aggiungiSezioneBolle(layout);
         aggiungiSezioneMotoreAsr(layout);
+        aggiungiSezioneMotoreLisa(layout);
 
         aggiungiSezione(
                 layout,
@@ -186,6 +189,45 @@ public class LisaSettingsActivity extends Activity {
         );
 
         layout.addView(gruppo);
+    }
+
+    private void aggiungiSezioneMotoreLisa(LinearLayout layout) {
+        android.content.SharedPreferences prefs =
+                getSharedPreferences("lisa_ui", MODE_PRIVATE);
+        String cur = prefs.getString("lisa_engine", "v1");
+
+        TextView tv = new TextView(this);
+        tv.setText("Motore Lisa");
+        tv.setTextSize(20);
+        tv.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(24);
+        layout.addView(tv, lp);
+
+        RadioGroup rg = new RadioGroup(this);
+        int idV1 = android.view.View.generateViewId();
+        int idV2 = android.view.View.generateViewId();
+        RadioButton r1 = new RadioButton(this);
+        r1.setId(idV1);
+        r1.setText("Lisa V1 - Stabile (attuale)");
+        RadioButton r2 = new RadioButton(this);
+        r2.setId(idV2);
+        r2.setText("Lisa V2 - In sviluppo (osservazione, non esegue azioni)");
+        rg.addView(r1);
+        rg.addView(r2);
+        if ("v2".equals(cur)) rg.check(idV2); else rg.check(idV1);
+
+        rg.setOnCheckedChangeListener((g, id) -> {
+            if (id == idV1) {
+                prefs.edit().putString("lisa_engine", "v1").apply();
+            } else if (id == idV2) {
+                prefs.edit().putString("lisa_engine", "v2").apply();
+            }
+        });
+
+        layout.addView(rg);
     }
 
     private void aggiungiSezioneBolle(LinearLayout layout) {

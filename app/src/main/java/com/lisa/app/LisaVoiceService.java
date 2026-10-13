@@ -131,6 +131,8 @@ public class LisaVoiceService extends Service {
 
     private static volatile LisaVoiceService instance;
     private volatile boolean sospesoPerTts = false;
+    private static com.lisa.app.v2.LisaV2Dictionary v2Dictionary = null;
+    private static boolean v2LoadAttempted = false;
 
     public static void sospendiPerTts() {
 
@@ -1705,6 +1707,11 @@ if (servizio.recognizer != null) {
                 .replaceAll("\\s+", " ")
                 .trim();
 
+        // testoV2: testo ASR pulito (lowercase, punteggiatura, spazi)
+        // ma PRIMA della normalizzazione dei verbi. Il resolver V2
+        // usa forme originali ("accendi torcia"), non canoniche.
+        String testoV2 = testo;
+
         // Normalizza verbi (accendi->apri, spegni->chiudi, ecc.)
         testo = LisaVerbNormalizer.normalizza(testo);
 
@@ -1716,6 +1723,38 @@ if (servizio.recognizer != null) {
             LisaSpeaker.parla(getApplicationContext(), risposta, () -> {});
             Log.i(TAG, "Lisa fermata dalla voce: " + testo);
             return;
+        }
+
+        // V2 OSSERVAZIONE: logga soltanto, non esegue azioni.
+        // Caricamento asset al primo comando in V2: costo I/O + parse
+        // reale, non paragonabile a HashMap.get. Caricato una sola
+        // volta per processo (v2LoadAttempted).
+        try {
+            String eng = getSharedPreferences("lisa_ui", MODE_PRIVATE)
+                    .getString("lisa_engine", "v1");
+            if ("v2".equals(eng)) {
+                if (!v2LoadAttempted) {
+                    v2LoadAttempted = true;
+                    try {
+                        v2Dictionary = com.lisa.app.v2.LisaV2Dictionary.load(this);
+                        Log.i(TAG, "V2_DICT_OK alias=" + v2Dictionary.aliasCount());
+                    } catch (java.io.IOException | org.json.JSONException e) {
+                        v2Dictionary = null;
+                        Log.w(TAG, "V2_DICT_FAIL " + e.getClass().getSimpleName()
+                                + " - non ricaricato fino al riavvio");
+                    }
+                }
+                if (v2Dictionary != null) {
+                    com.lisa.app.v2.LisaV2Dictionary.Entry e = v2Dictionary.resolve(testoV2);
+                    if (e != null) {
+                        Log.i(TAG, "V2_RESOLVE id=" + e.id);
+                    } else {
+                        Log.i(TAG, "V2_NO_MATCH");
+                    }
+                }
+            }
+        } catch (RuntimeException e) {
+            Log.w(TAG, "V2_HOOK_ERR " + e.getClass().getSimpleName());
         }
 
         // RISPOSTA CONTESTUALE A "VUOI FARE ALTRO?"
