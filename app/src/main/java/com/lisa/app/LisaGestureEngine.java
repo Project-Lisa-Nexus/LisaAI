@@ -211,6 +211,7 @@ public final class LisaGestureEngine {
         path.lineTo(dragX, y2);
         dragStroke = new GestureDescription.StrokeDescription(
                 path, 0L, 600L, true);
+        dragY = y2;   // allinea dragY al punto di fine stroke
         Log.i(TAG, "DRAG_START " + dragX + "," + dragY);
         GestureDescription gd = new GestureDescription.Builder()
                 .addStroke(dragStroke).build();
