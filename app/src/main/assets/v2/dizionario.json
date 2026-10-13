@@ -1,0 +1,382 @@
+{
+  "schema_version": 1,
+  "scope": "lisa_v2_only",
+  "description": "Mappa statica di intenti: non esegue azioni e non modifica Lisa V1.",
+  "intents": [
+    {
+      "id": "overlay.numeri.mostra",
+      "aliases": [
+        "mostra numeri",
+        "mostrami numeri",
+        "mostrami i numeri",
+        "mostra i numeri",
+        "fammi vedere numeri",
+        "fammi vedere i numeri",
+        "fai vedere numeri",
+        "fai vedere i numeri",
+        "apri numeri",
+        "apri i numeri",
+        "attiva numeri",
+        "attiva i numeri",
+        "visualizza numeri",
+        "visualizza i numeri",
+        "indicami numeri",
+        "indicami i numeri",
+        "metti numeri",
+        "metti i numeri",
+        "dammi i numeri",
+        "mostra indicatori",
+        "mostra indicatori numerici"
+      ],
+      "params": {
+        "mode": "show"
+      },
+      "v1_action": "mostra_numeri",
+      "source": "LisaVoiceService.java:2960-3040 / OVERLAY_CMDS",
+      "capability": "OVERLAY_NUMBERS"
+    },
+    {
+      "id": "overlay.numeri.nascondi",
+      "aliases": [
+        "nascondi numeri",
+        "nascondi i numeri",
+        "togli numeri",
+        "togli i numeri",
+        "chiudi numeri",
+        "chiudi i numeri",
+        "leva numeri",
+        "leva i numeri",
+        "disattiva numeri",
+        "disattiva i numeri",
+        "spegni numeri",
+        "spegni i numeri",
+        "nascondi indicatori"
+      ],
+      "params": {
+        "target": "numbers"
+      },
+      "v1_action": "nascondi_numeri",
+      "source": "LisaVoiceService.java:2960-3040 / OVERLAY_CMDS",
+      "capability": "OVERLAY_HIDE"
+    },
+    {
+      "id": "overlay.etichette.mostra",
+      "aliases": [
+        "etichette",
+        "mostra etichette",
+        "mostra le etichette",
+        "mostrami etichette",
+        "mostrami le etichette",
+        "fammi vedere etichette",
+        "fammi vedere le etichette",
+        "apri etichette",
+        "apri le etichette",
+        "attiva etichette",
+        "attiva le etichette",
+        "visualizza etichette",
+        "visualizza le etichette"
+      ],
+      "params": {
+        "mode": "show"
+      },
+      "v1_action": "mostra_etichette",
+      "source": "LisaVoiceService.java:2960-3040 / OVERLAY_CMDS",
+      "capability": "OVERLAY_LABELS"
+    },
+    {
+      "id": "overlay.etichette.nascondi",
+      "aliases": [
+        "nascondi etichette",
+        "nascondi le etichette",
+        "togli etichette",
+        "chiudi etichette",
+        "chiudi le etichette"
+      ],
+      "params": {
+        "target": "labels"
+      },
+      "v1_action": "nascondi_numeri",
+      "source": "LisaVoiceService.java:2960-3040 / OVERLAY_CMDS",
+      "capability": "OVERLAY_HIDE",
+      "legacy_note": "v1_action e solo una fotografia di OVERLAY_CMDS V1 (che usa nascondi_numeri); in V2 usa id overlay.etichette.nascondi, capability OVERLAY_HIDE e params.target=labels. NON usare v1_action nel dispatcher."
+    },
+    {
+      "id": "overlay.griglia.mostra",
+      "aliases": [
+        "griglia",
+        "mostra griglia",
+        "mostra la griglia",
+        "mostrami griglia",
+        "mostrami la griglia",
+        "fammi vedere griglia",
+        "fammi vedere la griglia",
+        "apri griglia",
+        "apri la griglia",
+        "attiva griglia",
+        "attiva la griglia",
+        "visualizza griglia",
+        "visualizza la griglia"
+      ],
+      "params": {
+        "mode": "show"
+      },
+      "v1_action": "mostra_griglia",
+      "source": "LisaVoiceService.java:2960-3040 / OVERLAY_CMDS",
+      "capability": "OVERLAY_GRID"
+    },
+    {
+      "id": "overlay.griglia.nascondi",
+      "aliases": [
+        "nascondi griglia",
+        "nascondi la griglia",
+        "togli griglia",
+        "togli la griglia",
+        "chiudi griglia",
+        "chiudi la griglia",
+        "leva griglia",
+        "leva la griglia",
+        "disattiva griglia",
+        "spegni griglia"
+      ],
+      "params": {
+        "target": "grid"
+      },
+      "v1_action": "nascondi_griglia",
+      "source": "LisaVoiceService.java:2960-3040 / OVERLAY_CMDS",
+      "capability": "OVERLAY_HIDE"
+    },
+    {
+      "id": "overlay.griglia.piu",
+      "aliases": [
+        "piu quadrati",
+        "più quadrati",
+        "aumenta quadrati",
+        "aumenta i quadrati"
+      ],
+      "params": {
+        "operation": "more_cells"
+      },
+      "v1_action": "piu_quadrati",
+      "source": "LisaVoiceService.java:2960-3040 / OVERLAY_CMDS",
+      "capability": "OVERLAY_GRID"
+    },
+    {
+      "id": "overlay.griglia.meno",
+      "aliases": [
+        "meno quadrati",
+        "riduci quadrati",
+        "riduci i quadrati",
+        "diminuisci quadrati"
+      ],
+      "params": {
+        "operation": "fewer_cells"
+      },
+      "v1_action": "meno_quadrati",
+      "source": "LisaVoiceService.java:2960-3040 / OVERLAY_CMDS",
+      "capability": "OVERLAY_GRID"
+    },
+    {
+      "id": "nav.home",
+      "aliases": [
+        "vai alla home",
+        "torna alla home",
+        "portami alla home",
+        "schermata principale",
+        "home"
+      ],
+      "source": "LisaVoiceService.java:840-880, 1700+, 3190+ / aliases locali",
+      "capability": "NAV_HOME"
+    },
+    {
+      "id": "nav.back",
+      "aliases": [
+        "indietro",
+        "torna indietro",
+        "vai indietro"
+      ],
+      "source": "LisaVoiceService.java:840-880, 1700+, 3190+ / aliases locali",
+      "capability": "NAV_BACK"
+    },
+    {
+      "id": "nav.notifications",
+      "aliases": [
+        "notifiche",
+        "apri notifiche"
+      ],
+      "source": "Richiede correzione BUG-05 prima esecuzione",
+      "capability": "NAV_NOTIFICATIONS"
+    },
+    {
+      "id": "nav.quick_settings",
+      "aliases": [
+        "impostazioni rapide"
+      ],
+      "source": "Intento V2 statico; controllo runtime richiesto",
+      "capability": "NAV_QUICK_SETTINGS"
+    },
+    {
+      "id": "gesture.scroll.up",
+      "aliases": [
+        "scorri in alto",
+        "scorri su"
+      ],
+      "source": "LisaVerbNormalizer.java:65-76",
+      "capability": "GESTURE_SCROLL_UP"
+    },
+    {
+      "id": "gesture.scroll.down",
+      "aliases": [
+        "scorri in basso",
+        "scorri giù",
+        "scorri giu"
+      ],
+      "source": "LisaVerbNormalizer.java:65-76",
+      "capability": "GESTURE_SCROLL_DOWN"
+    },
+    {
+      "id": "gesture.scroll.left",
+      "aliases": [
+        "scorri a sinistra"
+      ],
+      "source": "LisaVerbNormalizer.java:65-76",
+      "capability": "GESTURE_SCROLL_LEFT"
+    },
+    {
+      "id": "gesture.scroll.right",
+      "aliases": [
+        "scorri a destra"
+      ],
+      "source": "LisaVerbNormalizer.java:65-76",
+      "capability": "GESTURE_SCROLL_RIGHT"
+    },
+    {
+      "id": "system.volume.up",
+      "aliases": [
+        "alza volume",
+        "alza il volume",
+        "volume su",
+        "aumenta volume"
+      ],
+      "source": "LisaVoiceService.java:840-880, 1700+, 3190+ / aliases locali"
+    },
+    {
+      "id": "system.volume.down",
+      "aliases": [
+        "abbassa volume",
+        "abbassa il volume",
+        "volume giu",
+        "volume giù",
+        "diminuisci volume"
+      ],
+      "source": "LisaVoiceService.java:840-880, 1700+, 3190+ / aliases locali"
+    },
+    {
+      "id": "system.luminosita.up",
+      "aliases": [
+        "luminosita su",
+        "luminosità su",
+        "aumenta luminosita",
+        "aumenta luminosità"
+      ],
+      "source": "LisaVoiceService.java:840-880, 1700+, 3190+ / aliases locali"
+    },
+    {
+      "id": "system.luminosita.down",
+      "aliases": [
+        "luminosita giu",
+        "luminosità giù",
+        "abbassa luminosita",
+        "abbassa luminosità"
+      ],
+      "source": "LisaVoiceService.java:840-880, 1700+, 3190+ / aliases locali"
+    },
+    {
+      "id": "session.stop",
+      "aliases": [
+        "basta",
+        "ferma lisa",
+        "stop lisa"
+      ],
+      "source": "LisaVoiceService.java / stop assoluto"
+    },
+    {
+      "id": "app.whatsapp.open",
+      "aliases": [
+        "apri whatsapp"
+      ],
+      "params": {
+        "app_name": "WhatsApp"
+      },
+      "source": "Controllo funzionale V1; adapter V2 futuro",
+      "capability": "APP_OPEN"
+    },
+    {
+      "id": "system.torch.on",
+      "aliases": [
+        "accendi torcia"
+      ],
+      "source": "Obiettivo stato ON; non tradurre in toggle cieco"
+    },
+    {
+      "id": "system.torch.off",
+      "aliases": [
+        "spegni torcia"
+      ],
+      "source": "Obiettivo stato OFF; non tradurre in toggle cieco"
+    },
+    {
+      "id": "system.bluetooth.on",
+      "aliases": [
+        "attiva bluetooth",
+        "accendi bluetooth"
+      ],
+      "params": {
+        "target": "bluetooth"
+      },
+      "source": "Richiede SafetyGuard e risoluzione UI",
+      "capability": "SYSTEM_ENABLE",
+      "safety_note": "Solo riconoscimento testo. NON eseguire azioni su connettivita; il futuro dispatcher deve imporre SafetyGuard, conferma esplicita e piano di recupero accessibilita indipendentemente dal contenuto JSON."
+    },
+    {
+      "id": "system.bluetooth.off",
+      "aliases": [
+        "disattiva bluetooth",
+        "spegni bluetooth"
+      ],
+      "params": {
+        "target": "bluetooth"
+      },
+      "source": "CRITICO: conferma obbligatoria",
+      "capability": "SYSTEM_DISABLE",
+      "safety_note": "Solo riconoscimento testo. NON eseguire azioni su connettivita; il futuro dispatcher deve imporre SafetyGuard, conferma esplicita e piano di recupero accessibilita indipendentemente dal contenuto JSON."
+    },
+    {
+      "id": "system.wifi.on",
+      "aliases": [
+        "attiva wifi",
+        "accendi wifi",
+        "attiva wi-fi"
+      ],
+      "params": {
+        "target": "wifi"
+      },
+      "source": "Richiede SafetyGuard e risoluzione UI",
+      "capability": "SYSTEM_ENABLE",
+      "safety_note": "Solo riconoscimento testo. NON eseguire azioni su connettivita; il futuro dispatcher deve imporre SafetyGuard, conferma esplicita e piano di recupero accessibilita indipendentemente dal contenuto JSON."
+    },
+    {
+      "id": "system.wifi.off",
+      "aliases": [
+        "disattiva wifi",
+        "spegni wifi",
+        "disattiva wi-fi"
+      ],
+      "params": {
+        "target": "wifi"
+      },
+      "source": "CRITICO: conferma obbligatoria",
+      "capability": "SYSTEM_DISABLE",
+      "safety_note": "Solo riconoscimento testo. NON eseguire azioni su connettivita; il futuro dispatcher deve imporre SafetyGuard, conferma esplicita e piano di recupero accessibilita indipendentemente dal contenuto JSON."
+    }
+  ]
+}
