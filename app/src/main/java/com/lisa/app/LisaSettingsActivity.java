@@ -214,7 +214,7 @@ public class LisaSettingsActivity extends Activity {
         r1.setText("Lisa V1 - Stabile (attuale)");
         RadioButton r2 = new RadioButton(this);
         r2.setId(idV2);
-        r2.setText("Lisa V2 - In sviluppo (osservazione, non esegue azioni)");
+        r2.setText("Lisa V2 - Sperimentale (gesti vocali griglia in verifica)");
         rg.addView(r1);
         rg.addView(r2);
         if ("v2".equals(cur)) rg.check(idV2); else rg.check(idV1);

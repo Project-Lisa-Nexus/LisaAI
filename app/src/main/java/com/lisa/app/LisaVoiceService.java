@@ -3088,6 +3088,124 @@ if (inAttesaVuoiFareAltro) {
                 .replaceAll("[,;:!?.]+"," ")
                 .replaceAll("\\s+"," ")
                 .trim();
+        // V2 GRIGLIA GESTI - solo con lisa_engine=v2.
+        try {
+            String eng = getSharedPreferences("lisa_ui", MODE_PRIVATE)
+                    .getString("lisa_engine", "v1");
+            LisaAccessibilityService acc = LisaAccessibilityService.getInstance();
+            if ("v2".equals(eng) && acc != null
+                    && LisaAccessibilityService.grigliaAttiva()) {
+                java.util.regex.Matcher mt = java.util.regex.Pattern
+                        .compile("^trascina\\s+da\\s+(.+?)\\s+a\\s+(.+)$").matcher(t);
+                java.util.regex.Matcher msw = java.util.regex.Pattern
+                        .compile("^scorri\\s+da\\s+(.+?)\\s+a\\s+(.+)$").matcher(t);
+                java.util.regex.Matcher msd = java.util.regex.Pattern
+                        .compile("^scorri\\s+(.+?)\\s+(in\\s+basso|in\\s+alto|a\\s+destra|a\\s+sinistra)$").matcher(t);
+                java.util.regex.Matcher mlp = java.util.regex.Pattern
+                        .compile("^(?:tieni\\s+premuto|premi\\s+a\\s+lungo)\\s+(.+)$").matcher(t);
+                Integer nA = null, nB = null;
+                String dir = null;
+                String tipo = null;
+                if (mt.matches()) {
+                    tipo = "DRAG";
+                    nA = PAROLA_NUMERO.get(mt.group(1).trim());
+                    nB = PAROLA_NUMERO.get(mt.group(2).trim());
+                    if (nA == null && mt.group(1).trim().matches("\\d{1,3}"))
+                        nA = Integer.parseInt(mt.group(1).trim());
+                    if (nB == null && mt.group(2).trim().matches("\\d{1,3}"))
+                        nB = Integer.parseInt(mt.group(2).trim());
+                } else if (msw.matches()) {
+                    tipo = "SWIPE";
+                    nA = PAROLA_NUMERO.get(msw.group(1).trim());
+                    nB = PAROLA_NUMERO.get(msw.group(2).trim());
+                    if (nA == null && msw.group(1).trim().matches("\\d{1,3}"))
+                        nA = Integer.parseInt(msw.group(1).trim());
+                    if (nB == null && msw.group(2).trim().matches("\\d{1,3}"))
+                        nB = Integer.parseInt(msw.group(2).trim());
+                } else if (msd.matches()) {
+                    tipo = "SCROLL";
+                    nA = PAROLA_NUMERO.get(msd.group(1).trim());
+                    if (nA == null && msd.group(1).trim().matches("\\d{1,3}"))
+                        nA = Integer.parseInt(msd.group(1).trim());
+                    dir = msd.group(2);
+                } else if (mlp.matches()) {
+                    tipo = "LONG";
+                    nA = PAROLA_NUMERO.get(mlp.group(1).trim());
+                    if (nA == null && mlp.group(1).trim().matches("\\d{1,3}"))
+                        nA = Integer.parseInt(mlp.group(1).trim());
+                }
+                if (tipo != null) {
+                    boolean ok;
+                    if ("LONG".equals(tipo) || "SCROLL".equals(tipo)) {
+                        ok = (nA != null);
+                    } else {
+                        ok = (nA != null && nB != null && !nA.equals(nB));
+                    }
+                    if (!ok) {
+                        rispostaComandoLocale = "Numero non riconosciuto.";
+                        return true;
+                    }
+                    final android.graphics.Rect rA = LisaAccessibilityService.cellaGrigliaCentro(nA);
+                    final android.graphics.Rect rB = (nB != null)
+                            ? LisaAccessibilityService.cellaGrigliaCentro(nB) : null;
+                    final LisaGestureEngine eng2 = LisaGestureEngine.get();
+                    if (rA == null || (nB != null && rB == null) || eng2 == null) {
+                        rispostaComandoLocale = "Numero non disponibile.";
+                        return true;
+                    }
+                    final int cxA = rA.centerX(), cyA = rA.centerY();
+                    final int cxB = (rB != null) ? rB.centerX() : 0;
+                    final int cyB = (rB != null) ? rB.centerY() : 0;
+                    final String tipoF = tipo;
+                    final String dirF = dir;
+                    final int distanza = (int)(Math.min(
+                            getResources().getDisplayMetrics().widthPixels,
+                            getResources().getDisplayMetrics().heightPixels) * 0.5);
+                    acc.nascondiGriglia();
+                    rispostaComandoLocale = "Eseguo il gesto.";
+                    LisaGestureEngine.Callback cb = r ->
+                        Log.i(TAG, "V2_GESTO " + tipoF + " res=" + r);
+                    if ("DRAG".equals(tipo)) {
+                        eng2.dragStart(LisaGestureEngine.GesturePoint.px(cxA, cyA), r1 -> {
+                            if (r1 != LisaGestureEngine.Risultato.SUCCESS) {
+                                cb.onComplete(r1); return;
+                            }
+                            eng2.dragMove(LisaGestureEngine.GesturePoint.px(cxB, cyB), r2 -> {
+                                if (r2 != LisaGestureEngine.Risultato.SUCCESS) {
+                                    eng2.dragCancel(); cb.onComplete(r2); return;
+                                }
+                                eng2.dragEnd(r3 -> {
+                                    if (r3 != LisaGestureEngine.Risultato.SUCCESS) eng2.dragCancel();
+                                    cb.onComplete(r3);
+                                });
+                            });
+                        });
+                    } else if ("SWIPE".equals(tipo)) {
+                        eng2.swipe(
+                                LisaGestureEngine.GesturePoint.px(cxA, cyA),
+                                LisaGestureEngine.GesturePoint.px(cxB, cyB),
+                                300L, cb);
+                    } else if ("LONG".equals(tipo)) {
+                        eng2.longPress(LisaGestureEngine.GesturePoint.px(cxA, cyA), 600L, cb);
+                    } else {
+                        int dx = 0, dy = 0;
+                        if (dirF.contains("basso")) dy = +1;
+                        else if (dirF.contains("alto")) dy = -1;
+                        else if (dirF.contains("destra")) dx = +1;
+                        else dx = -1;
+                        eng2.scroll(dx, dy, distanza,
+                                LisaGestureEngine.GesturePoint.px(cxA, cyA),
+                                LisaGestureEngine.ModoScroll.FISICO, cb);
+                    }
+                    return true;
+                }
+            }
+        } catch (RuntimeException e) {
+            Log.w(TAG, "V2_GESTO_ERR " + e.getClass().getSimpleName());
+            rispostaComandoLocale = "Comando non eseguito.";
+            return true;
+        }
+
         // Traduzione parola-numero (ASR puo sentire "cinque" invece di "5")
         java.util.regex.Matcher mw=java.util.regex.Pattern
                 .compile("^(?:(clicca|tocca|premi)(?:\\s+su)?\\s+)?([a-z]+)$")

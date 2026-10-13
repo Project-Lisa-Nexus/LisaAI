@@ -1803,6 +1803,15 @@ public class LisaAccessibilityService extends AccessibilityService {
         });
     }
 
+    /** Rect della cella n (1-based), o null se griglia chiusa o n fuori range. */
+    public static android.graphics.Rect cellaGrigliaCentro(int n) {
+        LisaAccessibilityService s = instance;
+        if (s == null || !s.grigliaVisibile
+                || s.grigliaModalita != ModalitaOverlay.GRIGLIA) return null;
+        if (n < 1 || n > s.grigliaCelle.size()) return null;
+        return new android.graphics.Rect(s.grigliaCelle.get(n - 1));
+    }
+
     public static int livelloGriglia() {
         LisaAccessibilityService s = instance;
         return s == null ? -1 : s.grigliaLivello;
