@@ -4444,6 +4444,19 @@ if (inAttesaVuoiFareAltro) {
             return true;
         }
 
+        // SCROLL VOCALE ORIZZONTALE
+        if (testo.equals("scorri a destra")) {
+            eseguiCapabilityVoce(
+                    LisaCapabilitySystem.Cap.GESTURE_SCROLL_RIGHT);
+            return true;
+        }
+
+        if (testo.equals("scorri a sinistra")) {
+            eseguiCapabilityVoce(
+                    LisaCapabilitySystem.Cap.GESTURE_SCROLL_LEFT);
+            return true;
+        }
+
         if (testo.equals("recenti") || testo.equals("app recenti") || testo.equals("mostra recenti")) return servizio.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS);
         if (testo.equals("notifiche") || testo.equals("apri notifiche") || testo.equals("mostra notifiche")) return servizio.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS);
         if (testo.equals("blocca schermo") || testo.equals("blocca lo schermo") || testo.equals("spegni schermo")) return servizio.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN);
