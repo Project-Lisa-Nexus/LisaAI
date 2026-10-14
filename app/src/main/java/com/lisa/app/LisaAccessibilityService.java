@@ -1817,6 +1817,33 @@ public class LisaAccessibilityService extends AccessibilityService {
         return s == null ? -1 : s.grigliaLivello;
     }
 
+    public static int grigliaTapGenAttuale() {
+        LisaAccessibilityService s = instance;
+        return s == null ? -1 : s.grigliaTapGen;
+    }
+
+    public static void preparaRiaperturaDopoGesto(final int genAcquisita) {
+        final LisaAccessibilityService s = instance;
+        if (s == null || genAcquisita < 0) return;
+        s.grigliaHandler.post(() -> {
+            if (s != instance || genAcquisita != s.grigliaTapGen) return;
+            android.content.SharedPreferences p = s.getSharedPreferences(
+                    "lisa_ui", android.content.Context.MODE_PRIVATE);
+            if (!"v2".equals(p.getString("lisa_engine", "v1"))) return;
+            s.grigliaRiapriDopoTap = true;
+            s.grigliaHandler.postDelayed(() -> {
+                if (s != instance || genAcquisita != s.grigliaTapGen) return;
+                android.content.SharedPreferences p2 = s.getSharedPreferences(
+                        "lisa_ui", android.content.Context.MODE_PRIVATE);
+                if (!"v2".equals(p2.getString("lisa_engine", "v1"))) return;
+                if (s.grigliaRiapriDopoTap) {
+                    s.grigliaRiapriDopoTap = false;
+                    s.mostraOverlay(ModalitaOverlay.GRIGLIA);
+                }
+            }, 800L);
+        });
+    }
+
     public static boolean gestisciNumeroGriglia(int n, boolean conVerbo) {
         LisaAccessibilityService s = instance;
         if (s == null || !s.grigliaVisibile

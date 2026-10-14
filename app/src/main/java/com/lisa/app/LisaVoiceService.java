@@ -3103,6 +3103,12 @@ if (inAttesaVuoiFareAltro) {
                         .compile("^scorri\\s+(.+?)\\s+(in\\s+basso|in\\s+alto|a\\s+destra|a\\s+sinistra)$").matcher(t);
                 java.util.regex.Matcher mlp = java.util.regex.Pattern
                         .compile("^(?:tieni\\s+premuto|premi\\s+a\\s+lungo)\\s+(.+)$").matcher(t);
+                java.util.regex.Matcher mnn1 = java.util.regex.Pattern
+                        .compile("^da\\s+(\\S+)\\s+a\\s+(\\S+)$").matcher(t);
+                java.util.regex.Matcher mnn2 = java.util.regex.Pattern
+                        .compile("^(\\S+)\\s+e\\s+(\\S+)$").matcher(t);
+                java.util.regex.Matcher mnn3 = java.util.regex.Pattern
+                        .compile("^(\\S+)\\s+(\\S+)$").matcher(t);
                 Integer nA = null, nB = null;
                 String dir = null;
                 String tipo = null;
@@ -3133,6 +3139,22 @@ if (inAttesaVuoiFareAltro) {
                     nA = PAROLA_NUMERO.get(mlp.group(1).trim());
                     if (nA == null && mlp.group(1).trim().matches("\\d{1,3}"))
                         nA = Integer.parseInt(mlp.group(1).trim());
+                } else if (mnn1.matches() || mnn2.matches() || mnn3.matches()) {
+                    java.util.regex.Matcher mm = mnn1.matches() ? mnn1
+                            : (mnn2.matches() ? mnn2 : mnn3);
+                    String sa = mm.group(1).trim();
+                    String sb = mm.group(2).trim();
+                    Integer ta = PAROLA_NUMERO.get(sa);
+                    Integer tb = PAROLA_NUMERO.get(sb);
+                    if (ta == null && sa.matches("\\d{1,3}"))
+                        ta = Integer.parseInt(sa);
+                    if (tb == null && sb.matches("\\d{1,3}"))
+                        tb = Integer.parseInt(sb);
+                    if (ta != null && tb != null && !ta.equals(tb)) {
+                        tipo = "SWIPE";
+                        nA = ta;
+                        nB = tb;
+                    }
                 }
                 if (tipo != null) {
                     boolean ok;
@@ -3162,9 +3184,12 @@ if (inAttesaVuoiFareAltro) {
                             getResources().getDisplayMetrics().widthPixels,
                             getResources().getDisplayMetrics().heightPixels) * 0.5);
                     acc.nascondiGriglia();
+                    final int genGesto = LisaAccessibilityService.grigliaTapGenAttuale();
                     rispostaComandoLocale = "Eseguo il gesto.";
-                    LisaGestureEngine.Callback cb = r ->
+                    LisaGestureEngine.Callback cb = r -> {
                         Log.i(TAG, "V2_GESTO " + tipoF + " res=" + r);
+                        LisaAccessibilityService.preparaRiaperturaDopoGesto(genGesto);
+                    };
                     if ("DRAG".equals(tipo)) {
                         eng2.dragStart(LisaGestureEngine.GesturePoint.px(cxA, cyA), r1 -> {
                             if (r1 != LisaGestureEngine.Risultato.SUCCESS) {
