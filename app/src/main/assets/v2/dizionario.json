@@ -50,7 +50,9 @@
         "disattiva i numeri",
         "spegni numeri",
         "spegni i numeri",
-        "nascondi indicatori"
+        "nascondi indicatori",
+        "elimina numeri",
+        "elimina i numeri"
       ],
       "params": {
         "target": "numbers"
@@ -90,7 +92,9 @@
         "nascondi le etichette",
         "togli etichette",
         "chiudi etichette",
-        "chiudi le etichette"
+        "chiudi le etichette",
+        "elimina etichette",
+        "elimina le etichette"
       ],
       "params": {
         "target": "labels"
@@ -136,7 +140,9 @@
         "leva griglia",
         "leva la griglia",
         "disattiva griglia",
-        "spegni griglia"
+        "spegni griglia",
+        "elimina griglia",
+        "elimina la griglia"
       ],
       "params": {
         "target": "grid"
