@@ -1780,6 +1780,33 @@ public class LisaAccessibilityService extends AccessibilityService {
         Log.i(TAG,"OVERLAY_SALVATO "+stato);
     }
 
+    public static void eseguiScreenshotConRipristino() {
+        final LisaAccessibilityService s = instance;
+        if (s == null) return;
+        s.grigliaHandler.post(() -> {
+            if (s != instance) return;
+            salvaStatoOverlayCorrente();
+            final boolean ceraOverlay = s.grigliaVisibile
+                    || s.grigliaRiapriDopoTap;
+            s.nascondiOverlay();
+            final int gen = s.grigliaTapGen;
+            s.grigliaHandler.postDelayed(() -> {
+                if (s != instance) return;
+                if (gen != s.grigliaTapGen) return;
+                s.performGlobalAction(
+                        android.accessibilityservice.AccessibilityService
+                                .GLOBAL_ACTION_TAKE_SCREENSHOT);
+                if (ceraOverlay) {
+                    s.grigliaHandler.postDelayed(() -> {
+                        if (s != instance) return;
+                        if (gen != s.grigliaTapGen) return;
+                        riapriUltimoOverlay();
+                    }, 900L);
+                }
+            }, 200L);
+        });
+    }
+
     public static void riapriUltimoOverlay() {
         LisaAccessibilityService s=instance;
         if (s==null) return;

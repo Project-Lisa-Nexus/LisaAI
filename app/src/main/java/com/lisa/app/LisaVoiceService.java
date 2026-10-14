@@ -4460,7 +4460,11 @@ if (inAttesaVuoiFareAltro) {
         if (testo.equals("recenti") || testo.equals("app recenti") || testo.equals("mostra recenti")) return servizio.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS);
         if (testo.equals("notifiche") || testo.equals("apri notifiche") || testo.equals("mostra notifiche")) return servizio.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS);
         if (testo.equals("blocca schermo") || testo.equals("blocca lo schermo") || testo.equals("spegni schermo")) return servizio.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN);
-        if (testo.equals("screenshot") || testo.equals("fai screenshot") || testo.equals("fai uno screenshot")) return servizio.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT);
+        if (testo.equals("screenshot") || testo.equals("fai screenshot") || testo.equals("fai uno screenshot") || testo.equals("fai unoscreenshot")) {
+            // return true dichiara "sequenza avviata", non "screenshot riuscito".
+            LisaAccessibilityService.eseguiScreenshotConRipristino();
+            return true;
+        }
 
         if (testo.equals("home")
                 || testo.equals("vai alla home")

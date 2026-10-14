@@ -415,9 +415,7 @@ public class MainActivity extends Activity {
         Button btnScreenshot=new Button(this);
         btnScreenshot.setText("Screenshot");
         btnScreenshot.setOnClickListener(v->{
-            LisaAccessibilityService s=LisaAccessibilityService.getInstance();
-            if(s!=null)
-                s.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT);
+            LisaAccessibilityService.eseguiScreenshotConRipristino();
         });
 
         Button btnTorch=new Button(this);
