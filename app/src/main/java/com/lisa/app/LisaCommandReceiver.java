@@ -83,6 +83,33 @@ public static final String ACTION_LISA_COMMAND = "com.lisa.app.COMMAND";
         }
 
 
+        if ("dock_mostra".equals(azione)
+                || "dock_nascondi".equals(azione)) {
+            if ((context.getApplicationInfo().flags
+                    & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) == 0) {
+                Log.w(TAG, "DOCK_DEBUG_ONLY");
+                if (isOrderedBroadcast()) setResultCode(0);
+                return;
+            }
+            LisaAccessibilityService las = LisaAccessibilityService.getInstance();
+            if (las == null) {
+                Log.e(TAG, "DOCK_servizio_non_attivo");
+                if (isOrderedBroadcast()) setResultCode(0);
+                return;
+            }
+            if ("dock_mostra".equals(azione)) {
+                String lato = intent.getStringExtra("lato");
+                if (lato != null) las.setDockLato(lato);
+                las.mostraDock();
+                Log.i(TAG, "DOCK_mostra lato=" + lato);
+            } else {
+                las.nascondiDock();
+                Log.i(TAG, "DOCK_nascondi");
+            }
+            if (isOrderedBroadcast()) setResultCode(0);
+            return;
+        }
+
         if ("asr_probe_status".equals(azione)) {
 
             if (isOrderedBroadcast()) setResultCode(0);

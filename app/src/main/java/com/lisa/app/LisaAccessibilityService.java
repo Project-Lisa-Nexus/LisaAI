@@ -49,6 +49,8 @@ public class LisaAccessibilityService extends AccessibilityService {
     private ModalitaOverlay grigliaModalita = null;
     private final android.os.Handler grigliaHandler =
             new android.os.Handler(android.os.Looper.getMainLooper());
+    private LisaDockView dockView = null;
+    private volatile boolean servizioAttivo = false;
     private final Runnable grigliaAutoHide = this::nascondiOverlay;
 
     private static final long OVERLAY_REFRESH_MS = 250L;
@@ -129,6 +131,9 @@ public class LisaAccessibilityService extends AccessibilityService {
         instance = this;
         // 🟢 Aggancio motore gesture unico
         LisaGestureEngine.init(this);
+
+        servizioAttivo = true;
+
         Log.d(TAG, "Servizio accessibilita connesso");
 
         mostraStatoLisa(false);
@@ -2860,6 +2865,28 @@ public class LisaAccessibilityService extends AccessibilityService {
         return super.onUnbind(intent);
     }
 
+    public void mostraDock() {
+        grigliaHandler.post(() -> {
+            if (!servizioAttivo) return;
+            if (dockView == null) dockView = new LisaDockView(this);
+            dockView.mostra();
+        });
+    }
+
+    public void nascondiDock() {
+        grigliaHandler.post(() -> {
+            if (dockView != null) dockView.nascondi();
+        });
+    }
+
+    public void setDockLato(String lato) {
+        grigliaHandler.post(() -> {
+            if (!servizioAttivo) return;
+            if (dockView == null) dockView = new LisaDockView(this);
+            dockView.setLato(lato);
+        });
+    }
+
     @Override
     public void onDestroy() {
 
@@ -2876,6 +2903,13 @@ public class LisaAccessibilityService extends AccessibilityService {
         }
 
         spegniLisaCompletamente();
+
+        servizioAttivo = false;
+        if (dockView != null) {
+            dockView.nascondi();
+            dockView = null;
+        }
+
         super.onDestroy();
     }
 
