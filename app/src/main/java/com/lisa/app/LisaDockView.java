@@ -7,7 +7,14 @@ import android.graphics.PixelFormat;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.WindowManager;
+import android.graphics.drawable.GradientDrawable;
+import android.view.Gravity;
+import android.util.TypedValue;
+import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.TextView;
 import android.widget.LinearLayout;
+import android.view.View;
 
 /**
  * Lisa Dock - struttura base.
@@ -39,16 +46,17 @@ public final class LisaDockView {
     private final LinearLayout root;
     private WindowManager.LayoutParams lp;
     private boolean visibile = false;
+    private int dimPulsanteDp = 48;
 
     public LisaDockView(AccessibilityService context) {
         this.ctx = context;
         this.wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
         this.root = new LinearLayout(context);
         this.root.setOrientation(LinearLayout.VERTICAL);
-        this.root.setBackgroundColor(COLORE_SFONDO);
-        int pad = dp(PAD_DP);
-        this.root.setPadding(pad, pad, pad, pad);
-        applicaDimensioni("sx");
+        this.root.setBackgroundColor(0x00000000);
+        this.root.setPadding(0, 0, 0, 0);
+        applicaDimensioni("dx");
+        creaPulsanti();
     }
 
     public boolean isVisibile() {
@@ -98,6 +106,159 @@ public final class LisaDockView {
         }
     }
 
+    private void creaPulsanti() {
+        nav("⏺️", "Home", LisaCapabilitySystem.Cap.NAV_HOME);
+        navRuotata("⏏️", "Indietro", LisaCapabilitySystem.Cap.NAV_BACK, -90f);
+        nav("⏹️", "Recenti", LisaCapabilitySystem.Cap.NAV_RECENTS);
+        nav("🔔", "Notifiche", LisaCapabilitySystem.Cap.NAV_NOTIFICATIONS);
+        nav("⚡", "Quick Settings", LisaCapabilitySystem.Cap.NAV_QUICK_SETTINGS);
+        nav("🔒", "Blocca schermo", LisaCapabilitySystem.Cap.NAV_LOCK_SCREEN);
+
+        ctrl("🔊", "Volume su", "aumenta");
+        ctrl("🔉", "Volume giu", "diminuisci");
+
+        nav("🔼", "Scorri su", LisaCapabilitySystem.Cap.GESTURE_SCROLL_UP);
+        nav("🔽", "Scorri giu", LisaCapabilitySystem.Cap.GESTURE_SCROLL_DOWN);
+        nav("◀️", "Scorri sinistra", LisaCapabilitySystem.Cap.GESTURE_SCROLL_LEFT);
+        nav("▶️", "Scorri destra", LisaCapabilitySystem.Cap.GESTURE_SCROLL_RIGHT);
+
+        ctrlSis("🔆", "Luminosita su", "luminosita", "aumenta");
+        ctrlSis("🔅", "Luminosita giu", "luminosita", "diminuisci");
+        screenshot("📸", "Screenshot");
+        overlay("⊞", "Griglia");
+
+    }
+
+    private void navRuotata(String icona, String descrizione,
+                            final LisaCapabilitySystem.Cap cap,
+                            final float gradi) {
+        FrameLayout frame = new FrameLayout(ctx);
+        int size = dp(dimPulsanteDp);
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(size, size);
+        p.setMargins(0, 0, 0, 0);
+        frame.setLayoutParams(p);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(0x00000000);
+        bg.setCornerRadius(0);
+        bg.setStroke(dp(1), 0x00000000);
+        frame.setBackground(bg);
+        TextView tv = new TextView(ctx);
+        tv.setText(icona);
+        tv.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                dp(dimPulsanteDp) * 0.60f);
+        tv.setIncludeFontPadding(false);
+        tv.setTextColor(0xFF202020);
+        tv.setGravity(Gravity.CENTER);
+        tv.setRotation(gradi);
+        frame.addView(tv, new FrameLayout.LayoutParams(-1, -1));
+        frame.setContentDescription(descrizione);
+        frame.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { eseguiNav(cap); }
+        });
+        root.addView(frame);
+    }
+
+    private void ctrlSis(String icona, String descrizione,
+                        final String tipo, final String op) {
+        aggiungiPulsante(icona, descrizione, new Runnable() {
+            public void run() {
+                SystemController.regola(ctx, tipo, op, null);
+            }
+        });
+    }
+
+    private void screenshot(String icona, String descrizione) {
+        aggiungiPulsante(icona, descrizione, new Runnable() {
+            public void run() {
+                try {
+                    LisaAccessibilityService.eseguiScreenshotConRipristino();
+                } catch (Throwable t) {
+                    Log.e(TAG, "DOCK_SCREENSHOT_FAIL", t);
+                }
+            }
+        });
+    }
+
+    private void overlay(String icona, String descrizione) {
+        aggiungiPulsante(icona, descrizione, new Runnable() {
+            public void run() {
+                try {
+                    LisaAccessibilityService s =
+                            LisaAccessibilityService.getInstance();
+                    if (s != null) s.mostraGriglia();
+                } catch (Throwable t) {
+                    Log.e(TAG, "DOCK_OVERLAY_FAIL", t);
+                }
+            }
+        });
+    }
+
+    private void vuoto() {
+        aggiungiPulsante("", "", null);
+    }
+
+    private void nav(String icona, String descrizione, final LisaCapabilitySystem.Cap cap) {
+        aggiungiPulsante(icona, descrizione, new Runnable() {
+            public void run() { eseguiNav(cap); }
+        });
+    }
+
+    private void ctrl(String icona, String descrizione, final String op) {
+        aggiungiPulsante(icona, descrizione, new Runnable() {
+            public void run() {
+                SystemController.regola(ctx, "volume", op, null);
+            }
+        });
+    }
+
+    private void placeholder(String icona, final String descrizione) {
+        aggiungiPulsante(icona, descrizione, null);
+    }
+
+    private void aggiungiPulsante(String testo, String descrizione, final Runnable azione) {
+        TextView b = new TextView(ctx);
+        b.setText(testo);
+        b.setAllCaps(false);
+        b.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                dp(dimPulsanteDp) * 0.60f);
+        b.setIncludeFontPadding(false);
+        b.setGravity(android.view.Gravity.CENTER);
+        b.setPadding(0, 0, 0, 0);
+        b.setContentDescription(descrizione);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(0x00000000);
+        bg.setCornerRadius(0);
+        bg.setStroke(dp(1), 0x00000000);
+        b.setBackground(bg);
+        b.setForeground(null);
+        b.setStateListAnimator(null);
+        b.setTextColor(0xFF202020);
+        int size = dp(dimPulsanteDp);
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(size, size);
+        p.setMargins(0, 0, 0, 0);
+        b.setLayoutParams(p);
+        if (azione != null) {
+            b.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) { azione.run(); }
+            });
+        } else {
+            b.setEnabled(false);
+            b.setAlpha(0.4f);
+        }
+        root.addView(b);
+    }
+
+    private void eseguiNav(LisaCapabilitySystem.Cap c) {
+        try {
+            LisaCapabilitySystem.ActionBinding b =
+                    new LisaCapabilitySystem.ActionBinding.Builder(
+                            c, LisaCapabilitySystem.Source.PAD).build();
+            LisaCapabilitySystem.esegui(b, null);
+        } catch (Throwable t) {
+            Log.e(TAG, "DOCK_NAV_FAIL " + c, t);
+        }
+    }
+
     public void setLato(String lato) {
         String valido = normalizzaLato(lato);
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -107,7 +268,7 @@ public final class LisaDockView {
 
     private String leggiLato() {
         SharedPreferences p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        return normalizzaLato(p.getString(KEY_LATO, "sx"));
+        return normalizzaLato(p.getString(KEY_LATO, "dx"));
     }
 
     private String normalizzaLato(String lato) {
@@ -154,12 +315,24 @@ public final class LisaDockView {
 
     private void applicaDimensioni(String lato) {
         boolean orizzontale = "alto".equals(lato) || "basso".equals(lato);
+
+        int nPulsanti = 16;
+        android.util.DisplayMetrics dm =
+                ctx.getResources().getDisplayMetrics();
+        int dimSchermoDp = Math.round(
+                (orizzontale ? dm.widthPixels : dm.heightPixels)
+                        / dm.density);
+        int spazioUtile = Math.max(120, dimSchermoDp - 100);
+        int dim = spazioUtile / nPulsanti;
+        dim = dim * 145 / 100;  // LARGE 145%
+        dimPulsanteDp = Math.max(30, Math.min(85, dim));
+
         root.setMinimumWidth(dp(orizzontale
-                ? LATO_ORIZZONTALE_LARGHEZZA_DP
-                : LATO_VERTICALE_LARGHEZZA_DP));
+                ? dimPulsanteDp * nPulsanti
+                : dimPulsanteDp));
         root.setMinimumHeight(dp(orizzontale
-                ? LATO_ORIZZONTALE_ALTEZZA_DP
-                : LATO_VERTICALE_ALTEZZA_DP));
+                ? dimPulsanteDp
+                : dimPulsanteDp * nPulsanti));
     }
 
     private int dp(int v) {

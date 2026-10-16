@@ -114,7 +114,7 @@
     android:enabled="true"
     android:exported="true">
     <intent-filter>
-        <action android:name="com.lisa.app.LISA_COMMAND" />
+        <action android:name="com.lisa.app.COMMAND" />
     </intent-filter>
 </receiver>
         
