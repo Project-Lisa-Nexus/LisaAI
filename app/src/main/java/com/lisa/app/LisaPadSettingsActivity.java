@@ -16,7 +16,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.content.SharedPreferences;
 
-public class LisaPadSettingsActivity extends Activity {
+public class LisaPadSettingsActivity extends LisaBaseActivity {
 
     private int dp(int valore) {
         return Math.round(valore * getResources().getDisplayMetrics().density);
@@ -84,6 +84,37 @@ public class LisaPadSettingsActivity extends Activity {
         radioGroupModello.addView(rbFluttuante);
         radioGroupModello.addView(rbRaggruppata);
         layout.addView(radioGroupModello);
+
+        // --- PULSANTE AZIONI E BOTTONI (stile EVA, senza banda grigia) ---
+        android.widget.LinearLayout rowAzioni = new android.widget.LinearLayout(this);
+        rowAzioni.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        rowAzioni.setPadding(0, dp(16), 0, dp(16));
+        rowAzioni.setClickable(true);
+        rowAzioni.setFocusable(true);
+        rowAzioni.setBackgroundColor(android.graphics.Color.TRANSPARENT); // Nessuno sfondo
+
+        android.widget.TextView tvAzioni = new android.widget.TextView(this);
+        tvAzioni.setText("Azioni e Bottoni");
+        tvAzioni.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 20);
+        tvAzioni.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+        android.widget.LinearLayout.LayoutParams tvLp = new android.widget.LinearLayout.LayoutParams(
+                0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        tvAzioni.setLayoutParams(tvLp);
+        rowAzioni.addView(tvAzioni);
+
+        android.widget.TextView tvFreccia = new android.widget.TextView(this);
+        tvFreccia.setText(">");
+        tvFreccia.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 20);
+        rowAzioni.addView(tvFreccia);
+
+        rowAzioni.setOnClickListener(new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) {
+                startActivity(new android.content.Intent(LisaPadSettingsActivity.this, LisaPadAzioniActivity.class));
+            }
+        });
+        layout.addView(rowAzioni);
+        // --- FINE PULSANTE AZIONI ---
+
 
         syncRadioGroupWithPrefs();
 
@@ -180,4 +211,5 @@ public class LisaPadSettingsActivity extends Activity {
             dialog.getWindow().setLayout(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         }
     }
+
 }

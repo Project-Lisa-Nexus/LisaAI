@@ -12,7 +12,7 @@ import android.widget.Switch;
 import android.widget.RadioGroup;
 import android.widget.RadioButton;
 
-public class LisaSettingsActivity extends Activity {
+public class LisaSettingsActivity extends LisaBaseActivity {
 
     private int dp(int valore) {
         return Math.round(
@@ -120,7 +120,51 @@ public class LisaSettingsActivity extends Activity {
         tornaDashboard.setOnClickListener(v -> finish());
         layout.addView(tornaDashboard, backLp);
 
+        LinearLayout padRow = new LinearLayout(this);
+        padRow.setOrientation(LinearLayout.HORIZONTAL);
+        padRow.setPadding(dp(16), dp(14), dp(16), dp(14));
+
+        LinearLayout testoPadContainer = new LinearLayout(this);
+        testoPadContainer.setOrientation(LinearLayout.VERTICAL);
+        testoPadContainer.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        TextView tvPad = new TextView(this);
+        tvPad.setText("🎮 Lisa Pad");
+        tvPad.setTextSize(18);
+        tvPad.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+        testoPadContainer.addView(tvPad);
+
+        TextView descPad = new TextView(this);
+        descPad.setText("Attiva o disattiva il pad personalizzabile");
+        descPad.setTextSize(14);
+        testoPadContainer.addView(descPad);
+
+        padRow.addView(testoPadContainer);
+        testoPadContainer.setOnClickListener(new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) {
+                startActivity(new android.content.Intent(LisaSettingsActivity.this, LisaPadSettingsActivity.class));
+            }
+        });
+        android.widget.Switch swPad = new android.widget.Switch(this);
+        boolean padAttivo = getSharedPreferences("lisa_ui", MODE_PRIVATE).getBoolean("lisa_pad_attivo", false);
+        swPad.setChecked(padAttivo);
+        swPad.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(android.widget.CompoundButton buttonView, boolean isChecked) {
+                getSharedPreferences("lisa_ui", MODE_PRIVATE).edit().putBoolean("lisa_pad_attivo", isChecked).apply();
+                if (isChecked) {
+                    startActivity(new android.content.Intent(LisaSettingsActivity.this, LisaPadSettingsActivity.class));
+                }
+            }
+        });
+        padRow.addView(swPad);
+        layout.addView(padRow, 3);
+
+
         scrollView.addView(layout);
+        
+        
+
         setContentView(scrollView);
     }
 

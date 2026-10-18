@@ -324,7 +324,11 @@ public final class LisaDockView {
                         / dm.density);
         int spazioUtile = Math.max(120, dimSchermoDp - 100);
         int dim = spazioUtile / nPulsanti;
-        dim = dim * 145 / 100;  // LARGE 145%
+        // Fattore dimensioni in percentuale. Default: 100 (Small).
+        // 145 = Large (valore precedente, da riattivare con lo slider).
+        // Normal e Big: valori da definire con te, non ancora fissati.
+        int fattorePct = 100;
+        dim = dim * fattorePct / 100;
         dimPulsanteDp = Math.max(30, Math.min(85, dim));
 
         root.setMinimumWidth(dp(orizzontale

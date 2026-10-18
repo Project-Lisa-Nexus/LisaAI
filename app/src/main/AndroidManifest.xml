@@ -168,5 +168,7 @@
                 android:resource="@xml/lisa_recognition_service" />
         </service>
 
+    <activity android:name=".LisaPadSettingsActivity" android:exported="false" />
+        <activity android:name=".LisaPadAzioniActivity" android:exported="false" />
 </application>
 </manifest>

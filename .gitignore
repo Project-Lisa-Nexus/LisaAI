@@ -12,3 +12,4 @@ app-debug.apk
 backup/
 backups/
 BASELINE_GIT_*.txt
+.aider*
