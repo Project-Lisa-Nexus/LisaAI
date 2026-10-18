@@ -49,7 +49,7 @@ public class LisaSettingsActivity extends LisaBaseActivity {
         descrizione.setText(
                 "Configura Lisa Assist e controlla lo stato dei suoi servizi."
         );
-        descrizione.setTextSize(15);
+        descrizione.setTextSize(16);
 
         LinearLayout.LayoutParams descrizioneLp =
                 new LinearLayout.LayoutParams(
@@ -130,13 +130,13 @@ public class LisaSettingsActivity extends LisaBaseActivity {
 
         TextView tvPad = new TextView(this);
         tvPad.setText("🎮 Lisa Pad");
-        tvPad.setTextSize(18);
+        tvPad.setTextSize(20);
         tvPad.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
         testoPadContainer.addView(tvPad);
 
         TextView descPad = new TextView(this);
         descPad.setText("Attiva o disattiva il pad personalizzabile");
-        descPad.setTextSize(14);
+        descPad.setTextSize(16);
         testoPadContainer.addView(descPad);
 
         padRow.addView(testoPadContainer);
@@ -171,7 +171,7 @@ public class LisaSettingsActivity extends LisaBaseActivity {
     private void aggiungiSezioneMotoreAsr(LinearLayout layout) {
         TextView titolo = new TextView(this);
         titolo.setText("Motore ASR");
-        titolo.setTextSize(18);
+        titolo.setTextSize(20);
         titolo.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
 
         LinearLayout.LayoutParams titoloLp =
@@ -187,7 +187,7 @@ public class LisaSettingsActivity extends LisaBaseActivity {
         descrizione.setText(
                 "Scegli il motore di riconoscimento vocale di Lisa"
         );
-        descrizione.setTextSize(14);
+        descrizione.setTextSize(16);
         layout.addView(descrizione);
 
         android.content.SharedPreferences prefs =
@@ -277,7 +277,7 @@ public class LisaSettingsActivity extends LisaBaseActivity {
     private void aggiungiSezioneBolle(LinearLayout layout) {
         TextView titolo = new TextView(this);
         titolo.setText("Bolle/Vignette");
-        titolo.setTextSize(18);
+        titolo.setTextSize(20);
         titolo.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
 
         LinearLayout.LayoutParams titoloLp =
@@ -349,7 +349,7 @@ public class LisaSettingsActivity extends LisaBaseActivity {
 
         TextView titolo = new TextView(this);
         titolo.setText("🛡 Affidabilità");
-        titolo.setTextSize(18);
+        titolo.setTextSize(20);
         titolo.setTypeface(
                 Typeface.DEFAULT,
                 Typeface.BOLD
@@ -373,7 +373,7 @@ public class LisaSettingsActivity extends LisaBaseActivity {
         descrizione.setText(
                 "Temperatura, batteria e sicurezza del telefono"
         );
-        descrizione.setTextSize(14);
+        descrizione.setTextSize(16);
         layout.addView(descrizione);
 
         android.content.SharedPreferences prefs =
@@ -568,7 +568,7 @@ public class LisaSettingsActivity extends LisaBaseActivity {
 
         TextView nome = new TextView(this);
         nome.setText(titolo);
-        nome.setTextSize(18);
+        nome.setTextSize(20);
         nome.setTypeface(
                 Typeface.DEFAULT,
                 Typeface.BOLD
@@ -577,7 +577,7 @@ public class LisaSettingsActivity extends LisaBaseActivity {
 
         TextView dettaglio = new TextView(this);
         dettaglio.setText(descrizione);
-        dettaglio.setTextSize(14);
+        dettaglio.setTextSize(16);
         contenitore.addView(dettaglio);
 
         LinearLayout.LayoutParams lp =

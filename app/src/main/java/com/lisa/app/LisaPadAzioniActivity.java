@@ -69,7 +69,7 @@ public class LisaPadAzioniActivity extends LisaBaseActivity {
 
         TextView descrizione = new TextView(this);
         descrizione.setText("Seleziona fino a 16 comandi per il tuo Pad.");
-        descrizione.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        descrizione.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
         descrizione.setPadding(0, dp(8), 0, dp(8));
         layout.addView(descrizione);
 
@@ -105,7 +105,7 @@ public class LisaPadAzioniActivity extends LisaBaseActivity {
             row.addView(sqBox);
 
             android.widget.TextView tv = new android.widget.TextView(this);
-            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
             tv.setTextColor(0xFF202020);
             android.widget.LinearLayout.LayoutParams tvLp = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
             tv.setLayoutParams(tvLp);

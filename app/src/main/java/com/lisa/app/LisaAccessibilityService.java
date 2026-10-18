@@ -524,7 +524,7 @@ public class LisaAccessibilityService extends AccessibilityService {
         android.graphics.drawable.GradientDrawable bg =
                 new android.graphics.drawable.GradientDrawable();
 
-        bg.setColor(0xCC202020);
+        bg.setColor(0xDD383838);
         bg.setCornerRadius(dp(20));
         // Bordo bianco rimosso: test artefatto riga residua.
 
@@ -743,7 +743,7 @@ public class LisaAccessibilityService extends AccessibilityService {
 
                 android.graphics.drawable.GradientDrawable bg =
                         new android.graphics.drawable.GradientDrawable();
-                bg.setColor(0xCC202020);
+                bg.setColor(0xDD383838);
                 bg.setCornerRadius(dp(20));
                 // Bordo bianco rimosso: test artefatto riga residua.
                 indicatoreSemplice.setBackground(bg);
