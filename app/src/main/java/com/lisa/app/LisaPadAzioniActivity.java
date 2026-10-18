@@ -205,40 +205,38 @@ public class LisaPadAzioniActivity extends LisaBaseActivity {
 
     private void aggiungiAzione(LinearLayout layout, final String id, String label) {
         idToLabel.put(id, label);
-        
+
         android.widget.LinearLayout row = new android.widget.LinearLayout(this);
         row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
         row.setGravity(android.view.Gravity.CENTER_VERTICAL);
         row.setPadding(0, dp(8), 0, dp(8));
-        row.setClickable(true);
 
         android.widget.RadioButton rb = new android.widget.RadioButton(this);
         rb.setText(label);
         rb.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
         rb.setTextColor(0xFF202020);
         rb.setChecked(selezionate.contains(id));
-        rb.setClickable(false);
         rb.setFocusable(false);
 
-        row.addView(rb);
-
-        row.setOnClickListener(v -> {
-            boolean nuovoStato = !selezionate.contains(id);
-            if (nuovoStato) {
+        rb.setOnClickListener(v -> {
+            boolean eraSelezionato = selezionate.contains(id);
+            if (eraSelezionato) {
+                selezionate.remove(id);
+                rb.setChecked(false);
+            } else {
                 if (selezionate.size() >= MAX_AZIONI) {
+                    rb.setChecked(false);
                     Toast.makeText(this, "Massimo " + MAX_AZIONI + " azioni selezionabili", Toast.LENGTH_SHORT).show();
                     return;
                 }
                 selezionate.add(id);
-            } else {
-                selezionate.remove(id);
+                rb.setChecked(true);
             }
-            
-            rb.setChecked(nuovoStato);
-            
             salvaSelezioni();
             aggiornaPreview();
         });
+
+        row.addView(rb);
 
         layout.addView(row);
     }
