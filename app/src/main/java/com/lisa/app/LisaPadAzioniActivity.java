@@ -64,12 +64,14 @@ public class LisaPadAzioniActivity extends LisaBaseActivity {
         TextView titolo = new TextView(this);
         titolo.setText("Azioni e Bottoni");
         titolo.setTextSize(TypedValue.COMPLEX_UNIT_SP, 26);
+        titolo.setTextColor(0xFF000000);
         titolo.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
         layout.addView(titolo);
 
         TextView descrizione = new TextView(this);
         descrizione.setText("Seleziona fino a 16 comandi per il tuo Pad.");
         descrizione.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        descrizione.setTextColor(0xFF000000);
         descrizione.setPadding(0, dp(8), 0, dp(8));
         layout.addView(descrizione);
 
@@ -92,7 +94,7 @@ public class LisaPadAzioniActivity extends LisaBaseActivity {
             android.graphics.drawable.GradientDrawable boxBg = new android.graphics.drawable.GradientDrawable();
             boxBg.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
             boxBg.setColor(0x00000000);
-            boxBg.setStroke(dp(2), 0xFF888888);
+            boxBg.setStroke(dp(2), 0xFF000000);
             sqBox.setBackground(boxBg);
 
             android.view.View dot = new android.view.View(this);
@@ -106,7 +108,8 @@ public class LisaPadAzioniActivity extends LisaBaseActivity {
 
             android.widget.TextView tv = new android.widget.TextView(this);
             tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-            tv.setTextColor(0xFF202020);
+            tv.setTextColor(0xFF000000);
+            tv.setTextColor(0xFF000000);
             android.widget.LinearLayout.LayoutParams tvLp = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
             tv.setLayoutParams(tvLp);
             tv.setSingleLine(true);
@@ -198,6 +201,7 @@ public class LisaPadAzioniActivity extends LisaBaseActivity {
         TextView tv = new TextView(this);
         tv.setText(nome);
         tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+        tv.setTextColor(0xFF000000);
         tv.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
         tv.setPadding(0, dp(16), 0, dp(8));
         layout.addView(tv);
@@ -214,7 +218,8 @@ public class LisaPadAzioniActivity extends LisaBaseActivity {
         android.widget.RadioButton rb = new android.widget.RadioButton(this);
         rb.setText(label);
         rb.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        rb.setTextColor(0xFF202020);
+        rb.setTextColor(0xFF000000);
+        rb.setTextColor(0xFF000000);
         rb.setChecked(selezionate.contains(id));
         rb.setFocusable(false);
 
@@ -275,7 +280,7 @@ public class LisaPadAzioniActivity extends LisaBaseActivity {
             } else {
                 // Bordo grigio, vuoto
                 boxBg.setColor(0x00000000);
-                boxBg.setStroke(dp(2), 0xFF888888);
+                boxBg.setStroke(dp(2), 0xFF000000);
                 sqBox.setBackground(boxBg);
                 dot.setVisibility(android.view.View.INVISIBLE);
                 previewTexts.get(i).setText("");

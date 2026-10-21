@@ -12,6 +12,7 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 
 public class MainActivity extends Activity {
+    private android.widget.RadioButton dotAccess;
     
     private static final int PERM_REQUEST = 100;
     private static volatile Button btnVoceLisaStatico;
@@ -104,46 +105,127 @@ public class MainActivity extends Activity {
         TextView title = new TextView(this);
         title.setText("Lisa Assist");
         title.setTextSize(26);
+        title.setTextColor(android.graphics.Color.parseColor("#000000"));
         title.setTypeface(
                 android.graphics.Typeface.DEFAULT,
                 android.graphics.Typeface.BOLD
         );
         layout.addView(title);
 
-        TextView subtitle = new TextView(this);
-        subtitle.setText("Assistente personale");
-        subtitle.setTextSize(15);
 
-        LinearLayout.LayoutParams subtitleLp =
-                new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                );
-        subtitleLp.bottomMargin = Math.round(10 * density);
+        // Rimosso Lisa pronta
 
-        layout.addView(subtitle, subtitleLp);
+        // ===== ACCESSIBILITÀ =====
+        android.widget.LinearLayout rowAccess = new android.widget.LinearLayout(this);
+        rowAccess.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        rowAccess.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        rowAccess.setPadding(0, Math.round(12 * density), 0, 0);
 
-        TextView statoLisa = new TextView(this);
-        statoLisaStatico = statoLisa;
-        statoLisa.setTextSize(16);
+        android.widget.TextView tvAccess = new android.widget.TextView(this);
+        tvAccess.setText("♿ Accessibilità");
+        tvAccess.setTextSize(20);
+        tvAccess.setTextColor(0xFF000000);
+        tvAccess.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+        tvAccess.setPadding(0, 0, Math.round(38 * density), 0);
+        tvAccess.setClickable(true);
 
-        if (LisaAccessibilityService.getInstance() == null) {
-            statoLisa.setText("○ Accessibilità Lisa non attiva");
-        } else if (LisaVoiceService.getStato()
-                == LisaVoiceService.LisaState.READY) {
-            statoLisa.setText("● Lisa pronta");
-        } else {
-            statoLisa.setText("● Lisa in ascolto");
-        }
+        android.view.View spacerAccess = new android.view.View(this);
+        spacerAccess.setLayoutParams(new android.widget.LinearLayout.LayoutParams(0, 1, 1f));
+        spacerAccess.setClickable(false);
+        spacerAccess.setFocusable(false);
 
-        LinearLayout.LayoutParams statoLp =
-                new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                );
-        statoLp.bottomMargin = Math.round(14 * density);
+        dotAccess = new android.widget.RadioButton(this);
+        dotAccess.setClickable(false);
+        dotAccess.setFocusable(false);
+        dotAccess.setPadding(0,0,0,0);
+        dotAccess.setMinimumWidth(0);
+        dotAccess.setMinimumHeight(0);
+        int[][] states = new int[][] { new int[] { android.R.attr.state_checked }, new int[] {} };
+        int[] colors = new int[] { 0xFF2196F3, 0xFF000000 };
+        dotAccess.setButtonTintList(new android.content.res.ColorStateList(states, colors));
+        dotAccess.setClickable(false);
+        android.widget.LinearLayout.LayoutParams dotLp = new android.widget.LinearLayout.LayoutParams(
+                Math.round(16 * density), Math.round(16 * density));
+        dotLp.rightMargin = Math.round(16 * density);
+        dotAccess.setLayoutParams(dotLp);
+        aggiornaPallinoAccessibilita();
 
-        layout.addView(statoLisa, statoLp);
+        android.widget.TextView tvFrecciaAccess = new android.widget.TextView(this);
+        tvFrecciaAccess.setText("›");
+        tvFrecciaAccess.setTextSize(24);
+        tvFrecciaAccess.setTextColor(0xFF000000);
+        tvFrecciaAccess.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+        tvFrecciaAccess.setPadding(Math.round(16 * density), Math.round(20 * density), Math.round(32 * density), Math.round(20 * density));
+        tvFrecciaAccess.setClickable(true);
+        tvFrecciaAccess.setFocusable(true);
+
+        android.view.View.OnClickListener apriAccess = new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) {
+                startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+            }
+        };
+        tvAccess.setOnClickListener(apriAccess);
+        tvFrecciaAccess.setOnClickListener(apriAccess);
+
+        rowAccess.addView(tvAccess);
+        rowAccess.addView(spacerAccess);
+        rowAccess.addView(dotAccess);
+        rowAccess.addView(tvFrecciaAccess);
+        layout.addView(rowAccess);
+
+        android.widget.TextView descAccess = new android.widget.TextView(this);
+        descAccess.setText("Servizio Lisa, autorizzazioni e stato del sistema");
+        descAccess.setTextSize(16);
+        descAccess.setTextColor(0xFF000000);
+        android.widget.LinearLayout.LayoutParams descAccessLp = new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        
+        descAccessLp.topMargin = Math.round(-16 * density); // Attaccato al titolo
+        descAccessLp.bottomMargin = Math.round(14 * density); // Spazio sotto
+        layout.addView(descAccess, descAccessLp);
+
+        // ===== IMPOSTAZIONI =====
+        android.widget.LinearLayout rowImpostazioni = new android.widget.LinearLayout(this);
+        rowImpostazioni.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        rowImpostazioni.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        rowImpostazioni.setPadding(0, 0, 0, Math.round(12 * density));
+
+        android.widget.TextView tvImpostazioni = new android.widget.TextView(this);
+        tvImpostazioni.setText("⚙ Impostazioni");
+        tvImpostazioni.setTextSize(20);
+        tvImpostazioni.setTextColor(0xFF000000);
+        tvImpostazioni.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+        tvImpostazioni.setPadding(0, 0, Math.round(38 * density), 0);
+        tvImpostazioni.setClickable(true);
+
+        android.view.View spacerImp = new android.view.View(this);
+        spacerImp.setLayoutParams(new android.widget.LinearLayout.LayoutParams(0, 1, 1f));
+        spacerImp.setClickable(false);
+        spacerImp.setFocusable(false);
+
+        android.widget.TextView tvFrecciaImp = new android.widget.TextView(this);
+        tvFrecciaImp.setText("›");
+        tvFrecciaImp.setTextSize(24);
+        tvFrecciaImp.setTextColor(0xFF000000);
+        tvFrecciaImp.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+        tvFrecciaImp.setPadding(Math.round(16 * density), Math.round(20 * density), Math.round(32 * density), Math.round(20 * density));
+        tvFrecciaImp.setClickable(true);
+        tvFrecciaImp.setFocusable(true);
+
+        android.view.View.OnClickListener apriImp = new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) {
+                startActivity(new Intent(MainActivity.this, LisaSettingsActivity.class));
+            }
+        };
+        tvImpostazioni.setOnClickListener(apriImp);
+        tvFrecciaImp.setOnClickListener(apriImp);
+
+        rowImpostazioni.addView(tvImpostazioni);
+        rowImpostazioni.addView(spacerImp);
+        rowImpostazioni.addView(tvFrecciaImp);
+        layout.addView(rowImpostazioni);
 
         Button btnVoceLisa = new Button(this);
         btnVoceLisaStatico = btnVoceLisa;
@@ -154,6 +236,7 @@ public class MainActivity extends Activity {
                     : "⏹ Ferma Lisa"
         );
         btnVoceLisa.setTextSize(20);
+        btnVoceLisa.setTextColor(0xFF000000);
         btnVoceLisa.setMinHeight(Math.round(64 * density));
         btnVoceLisa.setOnClickListener(v -> {
 
@@ -212,6 +295,7 @@ public class MainActivity extends Activity {
         btnAsrPipeTest.setText("🧠 TEST VOCE LOCALE");
         btnAsrPipeTest.setVisibility(android.view.View.GONE);
         btnAsrPipeTest.setTextSize(18);
+        btnAsrPipeTest.setTextColor(0xFF000000);
         btnAsrPipeTest.setMinHeight(120);
 
         btnAsrPipeTest.setOnClickListener(v -> {
@@ -249,13 +333,6 @@ public class MainActivity extends Activity {
 
         layout.addView(btnAsrPipeTest);
 
-
-        Button btnAccess = new Button(this);
-        btnAccess.setText("Apri Impostazioni Accessibilita");
-        btnAccess.setOnClickListener(v -> {
-            Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
-            startActivity(intent);
-        });
 
 
         Button btnHome = new Button(this);
@@ -490,7 +567,8 @@ public class MainActivity extends Activity {
 
         TextView titoloRapidi = new TextView(this);
         titoloRapidi.setText("Comandi rapidi");
-        titoloRapidi.setTextSize(17);
+        titoloRapidi.setTextSize(20);
+        titoloRapidi.setTextColor(android.graphics.Color.parseColor("#000000"));
         titoloRapidi.setTypeface(
                 android.graphics.Typeface.DEFAULT,
                 android.graphics.Typeface.BOLD
@@ -502,7 +580,7 @@ public class MainActivity extends Activity {
                         LinearLayout.LayoutParams.WRAP_CONTENT
                 );
 
-        titoloRapidiLp.topMargin = Math.round(16 * density);
+        titoloRapidiLp.topMargin = 0;
         titoloRapidiLp.bottomMargin = Math.round(8 * density);
 
         layout.addView(titoloRapidi, titoloRapidiLp);
@@ -562,46 +640,6 @@ public class MainActivity extends Activity {
                 )
         );
 
-        // Accessibilità Lisa: necessaria per bolla e comandi Android
-        btnAccess.setText("♿ Accessibilità Lisa");
-
-        LinearLayout.LayoutParams accessLp =
-                new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                );
-
-        accessLp.topMargin = Math.round(14 * density);
-
-        layout.addView(btnAccess, accessLp);
-
-
-        Button btnLisaSettings = new Button(this);
-        btnLisaSettings.setText("⚙ Tutte le impostazioni Lisa");
-        btnLisaSettings.setTextSize(16);
-
-        btnLisaSettings.setOnClickListener(v -> {
-            Intent intent =
-                    new Intent(
-                            this,
-                            LisaSettingsActivity.class
-                    );
-
-            startActivity(intent);
-        });
-
-        LinearLayout.LayoutParams impostazioniLp =
-                new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                );
-
-        impostazioniLp.topMargin = Math.round(18 * density);
-
-        layout.addView(
-                btnLisaSettings,
-                impostazioniLp
-        );
 
 
         android.widget.ScrollView scrollView =
@@ -615,6 +653,56 @@ public class MainActivity extends Activity {
 
         scrollView.addView(layout);
         setContentView(scrollView);
+    }
+
+    private void aggiornaStatoLisa(TextView tv) {
+        if (LisaAccessibilityService.getInstance() == null) {
+            tv.setText("○ Accessibilità Lisa non attiva");
+            return;
+        }
+        LisaVoiceService.LisaState st = LisaVoiceService.getStato();
+        if (st == null) {
+            tv.setText("● Lisa non avviata");
+            return;
+        }
+        switch (st) {
+            case READY:
+                tv.setText("● Lisa pronta");
+                break;
+            case LISTENING:
+                tv.setText("● Lisa in ascolto");
+                break;
+            case SPEAKING:
+                tv.setText("● Lisa sta parlando");
+                break;
+            default:
+                tv.setText("● Stato sconosciuto");
+                break;
+        }
+    }
+
+    private void aggiornaPallinoAccessibilita() {
+        if (dotAccess == null) return;
+        android.view.accessibility.AccessibilityManager am = (android.view.accessibility.AccessibilityManager) getSystemService(android.content.Context.ACCESSIBILITY_SERVICE);
+        boolean attivo = false;
+        if (am != null) {
+            java.util.List<android.accessibilityservice.AccessibilityServiceInfo> services = am.getEnabledAccessibilityServiceList(android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_ALL_MASK);
+            String targetService = getPackageName() + "/" + LisaAccessibilityService.class.getName();
+            for (android.accessibilityservice.AccessibilityServiceInfo info : services) {
+                if (targetService.equals(info.getId())) {
+                    attivo = true;
+                    break;
+                }
+            }
+        }
+        dotAccess.setChecked(attivo);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        
+        aggiornaPallinoAccessibilita();
     }
 
     private LinearLayout creaRigaDashboard(

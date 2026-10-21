@@ -39,6 +39,7 @@ public class LisaSettingsActivity extends LisaBaseActivity {
         TextView titolo = new TextView(this);
         titolo.setText("Impostazioni Lisa");
         titolo.setTextSize(26);
+        titolo.setTextColor(0xFF000000);
         titolo.setTypeface(
                 Typeface.DEFAULT,
                 Typeface.BOLD
@@ -50,20 +51,17 @@ public class LisaSettingsActivity extends LisaBaseActivity {
                 "Configura Lisa Assist e controlla lo stato dei suoi servizi."
         );
         descrizione.setTextSize(16);
+        descrizione.setTextColor(0xFF000000);
 
         LinearLayout.LayoutParams descrizioneLp =
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                 );
-        descrizioneLp.bottomMargin = dp(20);
+        descrizioneLp.bottomMargin = dp(12);
         layout.addView(descrizione, descrizioneLp);
 
-        aggiungiSezione(
-                layout,
-                "♿ Accessibilità",
-                "Servizio Lisa, autorizzazioni e stato del sistema"
-        );
+        // Rimosso per evitare il doppione (spostato in MainActivity)
 
         aggiungiSezione(
                 layout,
@@ -107,22 +105,10 @@ public class LisaSettingsActivity extends LisaBaseActivity {
                 "LisaOS, diagnostica, test e strumenti sviluppatore"
         );
 
-        Button tornaDashboard = new Button(this);
-        tornaDashboard.setText("← Torna alla Dashboard");
-
-        LinearLayout.LayoutParams backLp =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
-        backLp.topMargin = dp(24);
-
-        tornaDashboard.setOnClickListener(v -> finish());
-        layout.addView(tornaDashboard, backLp);
 
         LinearLayout padRow = new LinearLayout(this);
         padRow.setOrientation(LinearLayout.HORIZONTAL);
-        padRow.setPadding(dp(16), dp(14), dp(16), dp(14));
+        padRow.setPadding(dp(0), dp(12), dp(0), dp(12));
 
         LinearLayout testoPadContainer = new LinearLayout(this);
         testoPadContainer.setOrientation(LinearLayout.VERTICAL);
@@ -131,12 +117,14 @@ public class LisaSettingsActivity extends LisaBaseActivity {
         TextView tvPad = new TextView(this);
         tvPad.setText("🎮 Lisa Pad");
         tvPad.setTextSize(20);
+        tvPad.setTextColor(0xFF000000);
         tvPad.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
         testoPadContainer.addView(tvPad);
 
         TextView descPad = new TextView(this);
         descPad.setText("Attiva o disattiva il pad personalizzabile");
         descPad.setTextSize(16);
+        descPad.setTextColor(0xFF000000);
         testoPadContainer.addView(descPad);
 
         padRow.addView(testoPadContainer);
@@ -172,6 +160,7 @@ public class LisaSettingsActivity extends LisaBaseActivity {
         TextView titolo = new TextView(this);
         titolo.setText("Motore ASR");
         titolo.setTextSize(20);
+        titolo.setTextColor(0xFF000000);
         titolo.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
 
         LinearLayout.LayoutParams titoloLp =
@@ -179,7 +168,7 @@ public class LisaSettingsActivity extends LisaBaseActivity {
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                 );
-        titoloLp.topMargin = dp(8);
+        titoloLp.topMargin = 0;
         titoloLp.bottomMargin = dp(4);
         layout.addView(titolo, titoloLp);
 
@@ -188,7 +177,10 @@ public class LisaSettingsActivity extends LisaBaseActivity {
                 "Scegli il motore di riconoscimento vocale di Lisa"
         );
         descrizione.setTextSize(16);
-        layout.addView(descrizione);
+        descrizione.setTextColor(0xFF000000);
+        LinearLayout.LayoutParams lpDescAsr = new LinearLayout.LayoutParams(-1, -2);
+        lpDescAsr.bottomMargin = dp(12);
+        layout.addView(descrizione, lpDescAsr);
 
         android.content.SharedPreferences prefs =
                 getSharedPreferences("lisa_ui", MODE_PRIVATE);
@@ -207,8 +199,13 @@ public class LisaSettingsActivity extends LisaBaseActivity {
         whisper.setId(android.view.View.generateViewId());
         whisper.setText("Whisper Small locale");
 
-        gruppo.addView(google);
-        gruppo.addView(whisper);
+        android.widget.RadioGroup.LayoutParams lpGoogle = new android.widget.RadioGroup.LayoutParams(-1, -2);
+        lpGoogle.bottomMargin = dp(12);
+        gruppo.addView(google, lpGoogle);
+
+        android.widget.RadioGroup.LayoutParams lpWhisper = new android.widget.RadioGroup.LayoutParams(-1, -2);
+        lpWhisper.bottomMargin = 0;
+        gruppo.addView(whisper, lpWhisper);
 
         String motore =
                 prefs.getString("motore_asr", "google");
@@ -232,7 +229,9 @@ public class LisaSettingsActivity extends LisaBaseActivity {
                 }
         );
 
-        layout.addView(gruppo);
+        LinearLayout.LayoutParams lpGruppo = new LinearLayout.LayoutParams(-1, -2);
+        lpGruppo.bottomMargin = dp(12);
+        layout.addView(gruppo, lpGruppo);
     }
 
     private void aggiungiSezioneMotoreLisa(LinearLayout layout) {
@@ -243,11 +242,13 @@ public class LisaSettingsActivity extends LisaBaseActivity {
         TextView tv = new TextView(this);
         tv.setText("Motore Lisa");
         tv.setTextSize(20);
+        tv.setTextColor(0xFF000000);
         tv.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.topMargin = dp(24);
+        lp.topMargin = 0;
+        lp.bottomMargin = dp(12);
         layout.addView(tv, lp);
 
         RadioGroup rg = new RadioGroup(this);
@@ -259,8 +260,13 @@ public class LisaSettingsActivity extends LisaBaseActivity {
         RadioButton r2 = new RadioButton(this);
         r2.setId(idV2);
         r2.setText("Lisa V2 - Sperimentale (gesti vocali griglia in verifica)");
-        rg.addView(r1);
-        rg.addView(r2);
+        android.widget.RadioGroup.LayoutParams lpR1 = new android.widget.RadioGroup.LayoutParams(-1, -2);
+        lpR1.bottomMargin = dp(12);
+        rg.addView(r1, lpR1);
+
+        android.widget.RadioGroup.LayoutParams lpR2 = new android.widget.RadioGroup.LayoutParams(-1, -2);
+        lpR2.bottomMargin = 0;
+        rg.addView(r2, lpR2);
         if ("v2".equals(cur)) rg.check(idV2); else rg.check(idV1);
 
         rg.setOnCheckedChangeListener((g, id) -> {
@@ -271,13 +277,16 @@ public class LisaSettingsActivity extends LisaBaseActivity {
             }
         });
 
-        layout.addView(rg);
+        LinearLayout.LayoutParams lpRg = new LinearLayout.LayoutParams(-1, -2);
+        lpRg.bottomMargin = dp(12);
+        layout.addView(rg, lpRg);
     }
 
     private void aggiungiSezioneBolle(LinearLayout layout) {
         TextView titolo = new TextView(this);
         titolo.setText("Bolle/Vignette");
         titolo.setTextSize(20);
+        titolo.setTextColor(0xFF000000);
         titolo.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
 
         LinearLayout.LayoutParams titoloLp =
@@ -285,8 +294,8 @@ public class LisaSettingsActivity extends LisaBaseActivity {
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                 );
-        titoloLp.topMargin = dp(8);
-        titoloLp.bottomMargin = dp(8);
+        titoloLp.topMargin = 0;
+        titoloLp.bottomMargin = dp(12);
         layout.addView(titolo, titoloLp);
 
         android.content.SharedPreferences prefs =
@@ -307,7 +316,9 @@ public class LisaSettingsActivity extends LisaBaseActivity {
                             .aggiornaVisibilitaPallino();
                 }
         );
-        layout.addView(pallinoFlottante);
+        LinearLayout.LayoutParams lpPallino = new LinearLayout.LayoutParams(-1, -2);
+        lpPallino.bottomMargin = dp(12);
+        layout.addView(pallinoFlottante, lpPallino);
 
         Switch vignettaSemplice = new Switch(this);
         vignettaSemplice.setText("Vignetta semplice");
@@ -320,7 +331,9 @@ public class LisaSettingsActivity extends LisaBaseActivity {
                                 .putBoolean("vignetta_semplice_attiva", isChecked)
                                 .apply()
         );
-        layout.addView(vignettaSemplice);
+        LinearLayout.LayoutParams lpVigS = new LinearLayout.LayoutParams(-1, -2);
+        lpVigS.bottomMargin = dp(12);
+        layout.addView(vignettaSemplice, lpVigS);
 
         Switch vignettaDiagnosi = new Switch(this);
         vignettaDiagnosi.setText("Vignetta diagnosi");
@@ -341,7 +354,9 @@ public class LisaSettingsActivity extends LisaBaseActivity {
                     }
                 }
         );
-        layout.addView(vignettaDiagnosi);
+        LinearLayout.LayoutParams lpVigD = new LinearLayout.LayoutParams(-1, -2);
+        lpVigD.bottomMargin = dp(12);
+        layout.addView(vignettaDiagnosi, lpVigD);
     }
 
     private void aggiungiSezioneAffidabilita(
@@ -350,6 +365,7 @@ public class LisaSettingsActivity extends LisaBaseActivity {
         TextView titolo = new TextView(this);
         titolo.setText("🛡 Affidabilità");
         titolo.setTextSize(20);
+        titolo.setTextColor(0xFF000000);
         titolo.setTypeface(
                 Typeface.DEFAULT,
                 Typeface.BOLD
@@ -361,8 +377,8 @@ public class LisaSettingsActivity extends LisaBaseActivity {
                         ViewGroup.LayoutParams.WRAP_CONTENT
                 );
 
-        titoloLp.topMargin = dp(8);
-        titoloLp.bottomMargin = dp(6);
+        titoloLp.topMargin = 0;
+        titoloLp.bottomMargin = dp(4);
 
         layout.addView(
                 titolo,
@@ -374,7 +390,10 @@ public class LisaSettingsActivity extends LisaBaseActivity {
                 "Temperatura, batteria e sicurezza del telefono"
         );
         descrizione.setTextSize(16);
-        layout.addView(descrizione);
+        descrizione.setTextColor(0xFF000000);
+        LinearLayout.LayoutParams lpDescAff = new LinearLayout.LayoutParams(-1, -2);
+        lpDescAff.bottomMargin = dp(12);
+        layout.addView(descrizione, lpDescAff);
 
         android.content.SharedPreferences prefs =
                 getSharedPreferences(
@@ -440,8 +459,8 @@ public class LisaSettingsActivity extends LisaBaseActivity {
                         ViewGroup.LayoutParams.WRAP_CONTENT
                 );
 
-        statoLp.topMargin = dp(8);
-        statoLp.bottomMargin = dp(6);
+        statoLp.topMargin = 0;
+        statoLp.bottomMargin = dp(12);
 
         layout.addView(
                 statoTelefono,
@@ -488,9 +507,9 @@ public class LisaSettingsActivity extends LisaBaseActivity {
                         }
                 );
 
-        layout.addView(
-                monitorTemperatura
-        );
+        LinearLayout.LayoutParams lpMonitor = new LinearLayout.LayoutParams(-1, -2);
+        lpMonitor.bottomMargin = dp(12);
+        layout.addView(monitorTemperatura, lpMonitor);
 
         Switch avvisoVocale =
                 new Switch(this);
@@ -517,9 +536,9 @@ public class LisaSettingsActivity extends LisaBaseActivity {
                                         .apply()
                 );
 
-        layout.addView(
-                avvisoVocale
-        );
+        LinearLayout.LayoutParams lpAvviso = new LinearLayout.LayoutParams(-1, -2);
+        lpAvviso.bottomMargin = dp(12);
+        layout.addView(avvisoVocale, lpAvviso);
 
         Switch notificaAndroid =
                 new Switch(this);
@@ -546,9 +565,9 @@ public class LisaSettingsActivity extends LisaBaseActivity {
                                         .apply()
                 );
 
-        layout.addView(
-                notificaAndroid
-        );
+        LinearLayout.LayoutParams lpNotifica = new LinearLayout.LayoutParams(-1, -2);
+        lpNotifica.bottomMargin = dp(12);
+        layout.addView(notificaAndroid, lpNotifica);
     }
 
 
@@ -560,15 +579,16 @@ public class LisaSettingsActivity extends LisaBaseActivity {
         LinearLayout contenitore = new LinearLayout(this);
         contenitore.setOrientation(LinearLayout.VERTICAL);
         contenitore.setPadding(
-                dp(16),
-                dp(14),
-                dp(16),
-                dp(14)
+                0,
+                dp(12),
+                0,
+                dp(12)
         );
 
         TextView nome = new TextView(this);
         nome.setText(titolo);
         nome.setTextSize(20);
+        nome.setTextColor(0xFF000000);
         nome.setTypeface(
                 Typeface.DEFAULT,
                 Typeface.BOLD
@@ -578,6 +598,7 @@ public class LisaSettingsActivity extends LisaBaseActivity {
         TextView dettaglio = new TextView(this);
         dettaglio.setText(descrizione);
         dettaglio.setTextSize(16);
+        dettaglio.setTextColor(0xFF000000);
         contenitore.addView(dettaglio);
 
         LinearLayout.LayoutParams lp =
@@ -585,7 +606,7 @@ public class LisaSettingsActivity extends LisaBaseActivity {
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                 );
-        lp.bottomMargin = dp(8);
+        lp.bottomMargin = dp(12);
 
         layout.addView(contenitore, lp);
     }

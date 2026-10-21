@@ -40,12 +40,16 @@ public class LisaPadSettingsActivity extends LisaBaseActivity {
         TextView titolo = new TextView(this);
         titolo.setText("Impostazioni Lisa Pad");
         titolo.setTextSize(26);
+        titolo.setTextColor(0xFF000000);
+        titolo.setTextColor(0xFF000000);
         titolo.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         layout.addView(titolo);
 
         TextView descrizione = new TextView(this);
         descrizione.setText("Configura le impostazioni del pad.");
         descrizione.setTextSize(16);
+        descrizione.setTextColor(0xFF000000);
+        descrizione.setTextColor(0xFF000000);
         
         LinearLayout.LayoutParams descrizioneLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -56,6 +60,8 @@ public class LisaPadSettingsActivity extends LisaBaseActivity {
         TextView titoloModello = new TextView(this);
         titoloModello.setText("Modello");
         titoloModello.setTextSize(20);
+        titoloModello.setTextColor(0xFF000000);
+        titoloModello.setTextColor(0xFF000000);
         titoloModello.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         LinearLayout.LayoutParams titoloModelloLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -92,55 +98,80 @@ public class LisaPadSettingsActivity extends LisaBaseActivity {
         android.widget.LinearLayout rowAzioni = new android.widget.LinearLayout(this);
         rowAzioni.setOrientation(android.widget.LinearLayout.HORIZONTAL);
         rowAzioni.setPadding(0, dp(12), 0, dp(12));
-        rowAzioni.setClickable(true);
-        rowAzioni.setFocusable(true);
-        rowAzioni.setBackgroundColor(android.graphics.Color.TRANSPARENT); // Nessuno sfondo
+        rowAzioni.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+
+        android.view.View.OnClickListener apriAzioni = new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) {
+                startActivity(new android.content.Intent(LisaPadSettingsActivity.this, LisaPadAzioniActivity.class));
+            }
+        };
 
         android.widget.TextView tvAzioni = new android.widget.TextView(this);
         tvAzioni.setText("Gesti e Azioni");
         tvAzioni.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 20);
+        tvAzioni.setTextColor(0xFF000000);
+        tvAzioni.setTextColor(0xFF000000);
         tvAzioni.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+        tvAzioni.setPadding(dp(4), dp(8), dp(38), dp(8));
+        tvAzioni.setClickable(true);
+        tvAzioni.setFocusable(true);
+        tvAzioni.setOnClickListener(apriAzioni);
         android.widget.LinearLayout.LayoutParams tvLp = new android.widget.LinearLayout.LayoutParams(
-                0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
         tvAzioni.setLayoutParams(tvLp);
         rowAzioni.addView(tvAzioni);
 
+        // Spacer: spinge la freccia a destra senza essere cliccabile
+        android.view.View spacerAzioni = new android.view.View(this);
+        spacerAzioni.setLayoutParams(new android.widget.LinearLayout.LayoutParams(
+                0, 1, 1f));
+        spacerAzioni.setClickable(false);
+        spacerAzioni.setFocusable(false);
+        rowAzioni.addView(spacerAzioni);
+
         android.widget.TextView tvFreccia = new android.widget.TextView(this);
-        tvFreccia.setText(">");
-        tvFreccia.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 20);
+        tvFreccia.setText("›");
+        tvFreccia.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 24);
+        tvFreccia.setTextColor(0xFF000000);
+        tvFreccia.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+        tvFreccia.setPadding(dp(16), dp(20), dp(32), dp(20));
+        tvFreccia.setClickable(true);
+        tvFreccia.setFocusable(true);
+        tvFreccia.setOnClickListener(apriAzioni);
         rowAzioni.addView(tvFreccia);
 
-        rowAzioni.setOnClickListener(new android.view.View.OnClickListener() {
-            public void onClick(android.view.View v) {
-                startActivity(new android.content.Intent(LisaPadSettingsActivity.this, LisaPadAzioniActivity.class));
-            }
-        });
         layout.addView(rowAzioni);
 
         // --- SEZIONE PERSONALIZZAZIONE ---
         android.widget.TextView tvPers = new android.widget.TextView(this);
         tvPers.setText("Personalizzazione");
         tvPers.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 20);
+        tvPers.setTextColor(0xFF000000);
+        tvPers.setTextColor(0xFF000000);
         tvPers.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
         tvPers.setPadding(0, dp(12), 0, dp(12));
         layout.addView(tvPers);
 
-        String[] opzioni = {"Dimensione", "Arrotondamento", "Distanza tra pulsanti", "Colore"};
+        String[] opzioni = {"Dimensione", "Trasparenza", "Arrotondamento", "Distanza tra pulsanti", "Colore"};
         for (String op : opzioni) {
             android.widget.TextView tvOp = new android.widget.TextView(this);
             tvOp.setText(op);
             tvOp.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16);
-            tvOp.setTextColor(0xFF202020);
+            tvOp.setTextColor(0xFF000000);
+            tvOp.setTextColor(0xFF000000);
             
             // REGOLA: click solo sulla scritta + 1cm (38dp) a destra. Niente click sulla riga intera.
             tvOp.setPadding(0, dp(12), dp(38), dp(12));
+            tvOp.setLayoutParams(new android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
             tvOp.setClickable(true);
             tvOp.setFocusable(true);
 
-            final String nome = op;
             tvOp.setOnClickListener(new android.view.View.OnClickListener() {
                 public void onClick(android.view.View v) {
-                    android.widget.Toast.makeText(LisaPadSettingsActivity.this, nome + " premuto", android.widget.Toast.LENGTH_SHORT).show();
+                    mostraPopupPersonalizzazione(op);
                 }
             });
             layout.addView(tvOp);
@@ -193,6 +224,8 @@ public class LisaPadSettingsActivity extends LisaBaseActivity {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         
+        root.setMinimumWidth(dp(280));
+
         // Padding ridotto per farla stare più compatta
         int pad = dp(24); 
         root.setPadding(pad, pad, pad, pad);
@@ -205,8 +238,9 @@ public class LisaPadSettingsActivity extends LisaBaseActivity {
         TextView tvTitolo = new TextView(this);
         tvTitolo.setText(titolo);
         // Testo grande come richiesto
-        tvTitolo.setTextSize(20); 
-        tvTitolo.setTextColor(0xFF202020);
+        tvTitolo.setTextSize(20);
+        tvTitolo.setTextColor(0xFF000000);
+        tvTitolo.setTextColor(0xFF000000); 
         tvTitolo.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         tvTitolo.setPadding(0, 0, 0, dp(16));
         root.addView(tvTitolo);
@@ -217,9 +251,9 @@ public class LisaPadSettingsActivity extends LisaBaseActivity {
             RadioButton rb = new RadioButton(this);
             rb.setText(testi[i]);
             rb.setId(baseId + i);
-            rb.setTextColor(0xFF202020);
             // Testo grande come richiesto
             rb.setTextSize(16); 
+            rb.setTextColor(0xFF000000);
             if (valori[i].equals(attuale)) rb.setChecked(true);
             
             final int index = i;
@@ -246,4 +280,181 @@ public class LisaPadSettingsActivity extends LisaBaseActivity {
         }
     }
 
+    private void mostraPopupPersonalizzazione(final String titoloVoce) {
+        if (popupAperto) return;
+        popupAperto = true;
+
+        final Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setMinimumWidth(dp(280));
+        int pad = dp(24);
+        root.setPadding(pad, pad, pad, pad);
+
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(0xFFF2F2F2);
+        bg.setCornerRadius(dp(20));
+        root.setBackground(bg);
+
+        android.widget.TextView tvTitolo = new android.widget.TextView(this);
+        tvTitolo.setText(titoloVoce);
+        tvTitolo.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 20);
+        tvTitolo.setTextColor(0xFF000000);
+        tvTitolo.setTextColor(0xFF000000);
+        tvTitolo.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+
+        if (!"Colore".equals(titoloVoce)) {
+            // Riga Titolo + Valore
+            android.widget.LinearLayout rowTitolo = new android.widget.LinearLayout(this);
+            rowTitolo.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+            rowTitolo.setGravity(android.view.Gravity.CENTER_VERTICAL);
+
+            android.widget.LinearLayout.LayoutParams lpTitle = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            rowTitolo.addView(tvTitolo, lpTitle);
+
+            android.widget.TextView tvValore = new android.widget.TextView(this);
+            tvValore.setText("100"); // Default
+            tvValore.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 20);
+            tvValore.setTextColor(0xFF000000);
+            tvValore.setTextColor(0xFF000000); // Nero
+            rowTitolo.addView(tvValore);
+
+            root.addView(rowTitolo);
+
+            // --- INIZIO MIXER ---
+            final android.widget.SeekBar seekBar = new android.widget.SeekBar(this);
+            seekBar.setMax(100);
+            seekBar.setProgress(50);
+
+            int bluAccent;
+            android.util.TypedValue tvAccent = new android.util.TypedValue();
+            if (getTheme().resolveAttribute(android.R.attr.colorControlActivated, tvAccent, true)) {
+                bluAccent = tvAccent.data;
+            } else {
+                bluAccent = 0xFF2196F3;
+            }
+
+            android.graphics.drawable.GradientDrawable bgTrack = new android.graphics.drawable.GradientDrawable();
+            bgTrack.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+            bgTrack.setColor(0xFFD0D0D0);
+            bgTrack.setCornerRadius(dp(6));
+            bgTrack.setSize(0, dp(12));
+
+            android.graphics.drawable.GradientDrawable progressRect = new android.graphics.drawable.GradientDrawable();
+            progressRect.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+            progressRect.setColor(bluAccent);
+            progressRect.setCornerRadius(dp(6));
+            progressRect.setSize(0, dp(12));
+
+            android.graphics.drawable.ClipDrawable progressClip = new android.graphics.drawable.ClipDrawable(
+                    progressRect, android.view.Gravity.LEFT, android.graphics.drawable.ClipDrawable.HORIZONTAL);
+
+            android.graphics.drawable.LayerDrawable layered = new android.graphics.drawable.LayerDrawable(
+                    new android.graphics.drawable.Drawable[]{bgTrack, progressClip});
+            layered.setId(0, android.R.id.background);
+            layered.setId(1, android.R.id.progress);
+            layered.setLayerInset(0, 0, 0, 0, 0);
+            layered.setLayerInset(1, 0, 0, 0, 0);
+            seekBar.setProgressDrawable(layered);
+
+            android.graphics.drawable.GradientDrawable thumb = new android.graphics.drawable.GradientDrawable();
+            thumb.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+            thumb.setColor(bluAccent);
+            thumb.setSize(dp(20), dp(20));
+            seekBar.setThumb(thumb);
+            seekBar.setSplitTrack(false);
+            seekBar.setPadding(dp(10), 0, dp(10), 0);
+
+            final android.widget.FrameLayout frameSeek = new android.widget.FrameLayout(this);
+            android.widget.LinearLayout.LayoutParams lpFrame = new android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                    dp(60));
+            lpFrame.leftMargin = dp(16);
+            lpFrame.rightMargin = dp(16);
+            lpFrame.topMargin = dp(16);
+            lpFrame.bottomMargin = dp(24);
+            frameSeek.setLayoutParams(lpFrame);
+
+            // 1. SeekBar (sotto le tacche)
+            android.widget.FrameLayout.LayoutParams seekLp = new android.widget.FrameLayout.LayoutParams(
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.FrameLayout.LayoutParams.WRAP_CONTENT);
+            seekLp.gravity = android.view.Gravity.CENTER_VERTICAL;
+            frameSeek.addView(seekBar, seekLp);
+
+            root.addView(frameSeek);
+
+            seekBar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+                @Override public void onProgressChanged(android.widget.SeekBar sb, int progress, boolean fromUser) {
+                    int valore;
+                    if (progress <= 50) {
+                        valore = 40 + Math.round(progress * 60f / 50f);
+                    } else {
+                        valore = 100 + Math.round((progress - 50) * 100f / 50f);
+                    }
+                    tvValore.setText(String.valueOf(valore));
+                }
+                @Override public void onStartTrackingTouch(android.widget.SeekBar sb) {}
+                @Override public void onStopTrackingTouch(android.widget.SeekBar sb) {}
+            });
+            // --- FINE MIXER ---
+
+        } else {
+            tvTitolo.setPadding(0, 0, 0, dp(16));
+            root.addView(tvTitolo);
+        }
+
+        // Recupera il blu esatto dei RadioButton (colorControlActivated)
+        int bluAccent;
+        android.util.TypedValue tvAccent = new android.util.TypedValue();
+        if (getTheme().resolveAttribute(android.R.attr.colorControlActivated, tvAccent, true)) {
+            bluAccent = tvAccent.data;
+        } else {
+            bluAccent = 0xFF2196F3; // Fallback estremo
+        }
+
+        android.widget.TextView tvFatto = new android.widget.TextView(this);
+        tvFatto.setText("Fatto");
+        tvFatto.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16);
+        tvFatto.setTextColor(0xFF000000);
+        tvFatto.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+        tvFatto.setTextColor(bluAccent);
+        tvFatto.setPadding(dp(16), dp(12), dp(16), dp(12));
+        
+        // Cliccabile solo sulla scritta (WRAP_CONTENT), allineata a destra con wrapper
+        android.widget.LinearLayout.LayoutParams lpFatto = new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        tvFatto.setLayoutParams(lpFatto);
+        
+        tvFatto.setOnClickListener(new android.view.View.OnClickListener() {
+            public void onClick(android.view.View v) { dialog.dismiss(); }
+        });
+        
+        // Aggiungo un minimo di spazio verticale sopra il tasto per non farlo attaccare al titolo se il popup è piccolo
+        android.widget.LinearLayout.LayoutParams lpSpazio = new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(24));
+        android.view.View spazio = new android.view.View(this);
+        spazio.setLayoutParams(lpSpazio);
+        root.addView(spazio);
+        
+        android.widget.LinearLayout rowFatto = new android.widget.LinearLayout(this);
+        rowFatto.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        rowFatto.setGravity(android.view.Gravity.END);
+        rowFatto.addView(tvFatto);
+        root.addView(rowFatto);
+
+        dialog.setContentView(root);
+        dialog.setOnDismissListener(d -> popupAperto = false);
+        dialog.show();
+
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setDimAmount(0f);
+            dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            dialog.getWindow().setLayout(android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
+    }
 }
